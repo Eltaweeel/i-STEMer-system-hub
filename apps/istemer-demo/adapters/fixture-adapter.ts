@@ -8,10 +8,14 @@ import {
   type ApprovalListQuery,
   type ApprovalPackage,
   type ApprovalQueries,
+  type CoordinationCycle,
+  type CoordinationQueries,
+  type CoordinationQueryArgs,
   type OrganizationProjection,
   type OrganizationQueries,
   type OrganizationQueryArgs,
   type Restriction,
+  type SampleActivityEntry,
   type WorkflowDetail,
   type WorkflowGetQuery,
   type WorkflowListQuery,
@@ -19,7 +23,9 @@ import {
   type WorkflowSummary,
 } from '@bagos/contracts';
 import { FIXTURE_DATA_VERSION, FIXTURE_NOW, offsetMinutes } from '@bagos/fixtures';
+import { COORDINATION_CYCLE } from '../fixtures/coordination-cycle';
 import { ORGANIZATION_PROJECTION } from '../fixtures/organization';
+import { CAMPAIGN_WORKFLOW, WORKFLOW_SUMMARIES } from '../fixtures/workflows';
 import { slotForDomain } from '../tenant/tenant.config';
 
 // The FixtureAdapter satisfies all four query interfaces. It never mutates
@@ -35,6 +41,64 @@ function toRestrictions(labels: readonly string[]): readonly Restriction[] {
     }),
   );
 }
+
+const MARKETING_ACTIVITY: readonly SampleActivityEntry[] = [
+  {
+    id: 'act:mk-1',
+    runRef: 'run:mk-2026-08-18-0001',
+    at: offsetMinutes(-1440 + 195),
+    summary: 'Assembled a campaign brief draft from the approved objective.',
+    state: 'awaiting_review',
+  },
+  {
+    id: 'act:mk-2',
+    runRef: 'run:mk-2026-08-18-0002',
+    at: offsetMinutes(-1440 + 360),
+    summary: 'Drafted three copy variants for the reviewer.',
+    state: 'complete',
+  },
+  {
+    id: 'act:mk-3',
+    runRef: 'run:mk-2026-08-18-0003',
+    at: offsetMinutes(-1440 + 480),
+    summary: 'Refused a request to send an outbound email — outside allowed outputs.',
+    state: 'refused',
+  },
+] as const;
+
+const SOCIAL_ACTIVITY: readonly SampleActivityEntry[] = [
+  {
+    id: 'act:sm-1',
+    runRef: 'run:sm-2026-08-18-0011',
+    at: offsetMinutes(-1440 + 240),
+    summary: 'Drafted channel-specific posts from an approved brief.',
+    state: 'awaiting_review',
+  },
+  {
+    id: 'act:sm-2',
+    runRef: 'run:sm-2026-08-18-0012',
+    at: offsetMinutes(-1440 + 420),
+    summary: 'Refused to schedule a publish — schedule_publish is prohibited.',
+    state: 'refused',
+  },
+] as const;
+
+const DESIGNER_ACTIVITY: readonly SampleActivityEntry[] = [
+  {
+    id: 'act:dz-1',
+    runRef: 'run:dz-2026-08-18-0021',
+    at: offsetMinutes(-1440 + 300),
+    summary: 'Prepared a set of three concept compositions for a decision point.',
+    state: 'awaiting_review',
+  },
+  {
+    id: 'act:dz-2',
+    runRef: 'run:dz-2026-08-18-0022',
+    at: offsetMinutes(-1440 + 540),
+    summary: 'Produced an alt-text draft alongside the primary visual.',
+    state: 'complete',
+  },
+] as const;
 
 const AGENT_DETAILS: readonly AgentDetail[] = [
   {
@@ -71,6 +135,7 @@ const AGENT_DETAILS: readonly AgentDetail[] = [
       permissionsOrDeletion: 'owner_only',
     },
     sopRefs: ['campaign-brief-cycle'],
+    sampleActivity: MARKETING_ACTIVITY,
     status: 'idle',
     freshness: { capturedAt: offsetMinutes(-42), isStale: false },
     demoStatus: { kind: 'wired_no_runtime', note: 'Fixture only in Batch 1.' },
@@ -88,7 +153,8 @@ const AGENT_DETAILS: readonly AgentDetail[] = [
     id: 'agent:social-media',
     displayName: 'Social Media',
     domainSlot: slotForDomain('social'),
-    purpose: 'Prepare social posts and threads from approved briefs; never publishes without review.',
+    purpose:
+      'Prepare social posts and threads from approved briefs; never publishes without review.',
     responsibilities: [
       'Translate approved briefs into channel-appropriate posts.',
       'Attach preview and predicted-reach notes for reviewer context.',
@@ -107,6 +173,7 @@ const AGENT_DETAILS: readonly AgentDetail[] = [
       permissionsOrDeletion: 'owner_only',
     },
     sopRefs: ['social-post-cycle'],
+    sampleActivity: SOCIAL_ACTIVITY,
     status: 'idle',
     freshness: { capturedAt: offsetMinutes(-90), isStale: false },
     demoStatus: { kind: 'wired_no_runtime', note: 'Fixture only in Batch 1.' },
@@ -143,13 +210,21 @@ const AGENT_DETAILS: readonly AgentDetail[] = [
       permissionsOrDeletion: 'owner_only',
     },
     sopRefs: ['visual-draft-cycle'],
+    sampleActivity: DESIGNER_ACTIVITY,
     status: 'idle',
     freshness: { capturedAt: offsetMinutes(-15), isStale: false },
     demoStatus: { kind: 'wired_no_runtime', note: 'Fixture only in Batch 1.' },
   },
 ];
 
-export class FixtureAdapter implements OrganizationQueries, AgentQueries, WorkflowQueries, ApprovalQueries {
+export class FixtureAdapter
+  implements
+    OrganizationQueries,
+    AgentQueries,
+    WorkflowQueries,
+    ApprovalQueries,
+    CoordinationQueries
+{
   async getOrganization(_query: OrganizationQueryArgs): Promise<OrganizationProjection> {
     return ORGANIZATION_PROJECTION;
   }
@@ -173,16 +248,50 @@ export class FixtureAdapter implements OrganizationQueries, AgentQueries, Workfl
   }
 
   async listWorkflows(_query: WorkflowListQuery): Promise<readonly WorkflowSummary[]> {
-    // Batch 1: no workflow surface. Return empty; the port is defined so a
-    // later batch can implement it without a rewrite.
-    return [];
+    return WORKFLOW_SUMMARIES;
   }
 
-  async getWorkflow(_query: WorkflowGetQuery): Promise<WorkflowDetail | null> {
+  async getWorkflow(query: WorkflowGetQuery): Promise<WorkflowDetail | null> {
+    if (query.id === CAMPAIGN_WORKFLOW.id) return CAMPAIGN_WORKFLOW;
     return null;
   }
 
   async listApprovalPackages(_query: ApprovalListQuery): Promise<readonly ApprovalPackage[]> {
     return [];
   }
+
+  async getCoordinationCycle(_query: CoordinationQueryArgs): Promise<CoordinationCycle> {
+    return COORDINATION_CYCLE;
+  }
+}
+
+// Route slugs: internal IDs use `:` as a separator (e.g. `agent:social-media`)
+// but `:` is invalid in filenames on Windows and unfriendly in URLs. The route
+// layer uses a URL-safe slug derived by dropping the `kind:` prefix.
+
+function toRouteSlug(id: string): string {
+  const idx = id.indexOf(':');
+  return idx === -1 ? id : id.slice(idx + 1);
+}
+
+export interface RouteEntry {
+  readonly slug: string;
+  readonly id: string;
+}
+
+export const AGENT_ROUTES: readonly RouteEntry[] = AGENT_DETAILS.map((a) => ({
+  slug: toRouteSlug(a.id),
+  id: a.id,
+}));
+
+export const WORKFLOW_ROUTES: readonly RouteEntry[] = [
+  { slug: toRouteSlug(CAMPAIGN_WORKFLOW.id), id: CAMPAIGN_WORKFLOW.id },
+];
+
+export function agentIdForSlug(slug: string): string | null {
+  return AGENT_ROUTES.find((r) => r.slug === slug)?.id ?? null;
+}
+
+export function workflowIdForSlug(slug: string): string | null {
+  return WORKFLOW_ROUTES.find((r) => r.slug === slug)?.id ?? null;
 }

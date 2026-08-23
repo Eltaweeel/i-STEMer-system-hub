@@ -28,6 +28,13 @@ const SHELL_META = {
   generatedAt: FIXTURE_NOW,
 } as const;
 
+const NAV = [
+  { href: '/organization/', label: 'Organization' },
+  { href: '/coordination-cycle/', label: 'Coordination cycle' },
+  { href: '/workflows/', label: 'Workflows' },
+  { href: '/agents/', label: 'Agents' },
+];
+
 export default function RootLayout({ children }: { children: ReactNode }): JSX.Element {
   return (
     <html lang="en">
@@ -36,6 +43,7 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
           meta={SHELL_META}
           productName={TENANT_CONFIG.brand.productName}
           organizationName={TENANT_CONFIG.brand.organizationName}
+          nav={NAV}
         >
           {children}
         </AppShell>

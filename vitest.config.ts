@@ -4,6 +4,12 @@ import path from 'node:path';
 const root = __dirname;
 
 export default defineConfig({
+  // Route tests import Next.js server-component pages that use JSX without an
+  // explicit `import React`. Use the automatic JSX runtime so those transform
+  // cleanly under vitest without changing the app's runtime configuration.
+  esbuild: {
+    jsx: 'automatic',
+  },
   test: {
     // Tests are either pure functions (contrast, projection, schema) or use
     // renderToStaticMarkup for server-side rendering. No test needs a real

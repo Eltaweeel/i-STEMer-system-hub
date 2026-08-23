@@ -1,4 +1,5 @@
 import type { AgentDetail, AgentSummary } from './agent';
+import type { CoordinationCycle } from './coordination';
 import type { OrganizationProjection } from './graph';
 import type { ApprovalPackage, WorkflowDetail, WorkflowSummary } from './workflow';
 
@@ -40,4 +41,11 @@ export interface ApprovalListQuery {
 }
 export interface ApprovalQueries {
   listApprovalPackages(query: ApprovalListQuery): Promise<readonly ApprovalPackage[]>;
+}
+
+export interface CoordinationQueryArgs {
+  readonly on?: string;
+}
+export interface CoordinationQueries {
+  getCoordinationCycle(query: CoordinationQueryArgs): Promise<CoordinationCycle>;
 }

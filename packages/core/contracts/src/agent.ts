@@ -1,3 +1,4 @@
+import type { SampleActivityEntry } from './activity';
 import type { DomainSlot, DemoStatus, Freshness, RuntimeStatus } from './graph';
 import type { Restriction } from './restriction';
 import type { ViewMeta } from './view-meta';
@@ -33,6 +34,9 @@ export interface AgentDetail {
   readonly prohibitedActions: readonly Restriction[];
   readonly approvalPolicy: ApprovalPolicy;
   readonly sopRefs: readonly string[];
+  // Sample activity is only rendered as activity when a run reference AND a
+  // timestamp are present. Making both required at the type level enforces it.
+  readonly sampleActivity: readonly SampleActivityEntry[];
   readonly status: RuntimeStatus;
   readonly freshness: Freshness;
   readonly demoStatus: DemoStatus;

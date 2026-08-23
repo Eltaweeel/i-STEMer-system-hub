@@ -1,5 +1,14 @@
 import Link from 'next/link';
 
+const linkStyle = { color: 'var(--text-link)' } as const;
+
+const routes = [
+  { href: '/organization/', label: 'Organization view' },
+  { href: '/coordination-cycle/', label: 'Daily coordination cycle (proposed)' },
+  { href: '/workflows/', label: 'Workflows' },
+  { href: '/agents/', label: 'Agents' },
+];
+
 export default function IndexPage(): JSX.Element {
   return (
     <section>
@@ -11,11 +20,15 @@ export default function IndexPage(): JSX.Element {
         this site runs, connects, or acts. Every timestamp is derived from a single frozen
         instant so the interface behaves identically on every visit.
       </p>
-      <p>
-        <Link href="/organization/" style={{ color: 'var(--text-link)' }}>
-          Open the organization view
-        </Link>
-      </p>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 'var(--space-5) 0 0', display: 'grid', gap: 'var(--space-3)' }}>
+        {routes.map((r) => (
+          <li key={r.href}>
+            <Link href={r.href} style={linkStyle}>
+              {r.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

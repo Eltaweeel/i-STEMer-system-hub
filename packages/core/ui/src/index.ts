@@ -3,4 +3,8 @@ export * from './components/AppShell';
 export * from './components/StatusBadge';
 export * from './components/OrganizationGraph';
 export * from './components/OrganizationTree';
+export * from './components/CoordinationCycleView';
+export * from './components/WorkflowDiagram';
+export * from './components/DesignConceptCard';
+export * from './components/AgentDetailView';
 export * from './contrast';

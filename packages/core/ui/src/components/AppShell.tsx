@@ -2,11 +2,17 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { ViewMeta } from '@bagos/contracts';
 import { DemoIndicator } from './DemoIndicator';
 
+export interface AppShellNavItem {
+  readonly href: string;
+  readonly label: string;
+}
+
 export interface AppShellProps {
   readonly meta: ViewMeta;
   readonly productName: string;
   readonly organizationName: string;
   readonly children: ReactNode;
+  readonly nav?: readonly AppShellNavItem[];
 }
 
 const shellStyle: CSSProperties = {
@@ -47,6 +53,23 @@ const tenantStyle: CSSProperties = {
   color: 'var(--text-muted)',
 };
 
+const navStyle: CSSProperties = {
+  marginLeft: 'auto',
+  display: 'flex',
+  gap: 'var(--space-5)',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+};
+
+const navLinkStyle: CSSProperties = {
+  fontFamily: 'var(--font-mono)',
+  fontSize: 'var(--text-micro-size)',
+  letterSpacing: 'var(--tracking-micro)',
+  textTransform: 'uppercase',
+  color: 'var(--text-secondary)',
+  textDecoration: 'none',
+};
+
 const mainStyle: CSSProperties = {
   flex: 1,
   padding: 'var(--space-6)',
@@ -62,7 +85,13 @@ const skipLinkStyle: CSSProperties = {
   top: 0,
 };
 
-export function AppShell({ meta, productName, organizationName, children }: AppShellProps): JSX.Element {
+export function AppShell({
+  meta,
+  productName,
+  organizationName,
+  children,
+  nav,
+}: AppShellProps): JSX.Element {
   return (
     <div style={shellStyle}>
       <a href="#main-content" style={skipLinkStyle}>Skip to main content</a>
@@ -70,6 +99,15 @@ export function AppShell({ meta, productName, organizationName, children }: AppS
       <header style={topbarStyle}>
         <span style={brandStyle}>{productName}</span>
         <span style={tenantStyle} aria-label="tenant">{organizationName}</span>
+        {nav && nav.length > 0 ? (
+          <nav aria-label="Primary" style={navStyle}>
+            {nav.map((item) => (
+              <a key={item.href} href={item.href} style={navLinkStyle}>
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        ) : null}
       </header>
       <main id="main-content" style={mainStyle}>
         {children}
