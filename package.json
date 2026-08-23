@@ -10,7 +10,7 @@
     "lint": "eslint . && depcruise --config .dependency-cruiser.cjs packages apps && node scripts/check-primitive-tokens.mjs && node scripts/check-domain-hardcode.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
-    "build": "npm run build --workspace apps/istemer-demo"
+    "build": "npm run build --workspace apps/istemer-demo && npm run build --workspace apps/northwind-demo"
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.1",

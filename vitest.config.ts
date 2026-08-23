@@ -21,6 +21,7 @@ export default defineConfig({
       'packages/**/*.test.{ts,tsx}',
       'apps/**/__tests__/**/*.test.{ts,tsx}',
       'apps/**/*.test.{ts,tsx}',
+      'test-fixtures/**/*.test.{ts,tsx}',
     ],
     exclude: ['**/node_modules/**', '**/.next/**', '**/out/**', '**/dist/**'],
     globals: false,
