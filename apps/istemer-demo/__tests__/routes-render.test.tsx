@@ -14,6 +14,9 @@ import WorkflowsIndexPage from '../app/workflows/page';
 import WorkflowDetailPage from '../app/workflows/[id]/page';
 import AgentsIndexPage from '../app/agents/page';
 import AgentDetailPage from '../app/agents/[id]/page';
+import CommandCenterPage from '../app/page';
+import SpecialistWorkspacePage from '../app/workspaces/[agentId]/page';
+import SystemHealthPage from '../app/system-health/page';
 import { AGENT_ROUTES, WORKFLOW_ROUTES } from '../adapters/fixture-adapter';
 import { CAMPAIGN_WORKFLOW } from '../fixtures/workflows';
 
@@ -39,6 +42,17 @@ async function renderRoute(node: JSX.Element): Promise<string> {
 }
 
 describe('every new route renders with the demo indicator', () => {
+  it('command center', async () => {
+    const page = await CommandCenterPage();
+    const html = await renderRoute(page);
+    expect(html).toContain('DEMO ENVIRONMENT');
+    expect(html).toContain('Current objective');
+    expect(html).toContain('No workflow steps are currently in progress.');
+    expect(html).toContain('Approvals requiring attention');
+    expect(html).toContain('Morning briefing');
+    expect(html).toContain('Evening briefing');
+  });
+
   it('coordination-cycle', async () => {
     const page = await CoordinationCyclePage();
     const html = await renderRoute(page);
@@ -97,5 +111,35 @@ describe('every new route renders with the demo indicator', () => {
     ]) {
       expect(html).toContain(s);
     }
+  });
+
+  for (const route of AGENT_ROUTES) {
+    it(`specialist workspace (${route.slug})`, async () => {
+      const page = await SpecialistWorkspacePage({ params: { agentId: route.slug } });
+      const html = await renderRoute(page);
+      expect(html).toContain('DEMO ENVIRONMENT');
+      expect(html).toContain('Specialist workspace');
+      expect(html).toContain('View agent role, policy, and status');
+      if (route.id === 'agent:social-media') {
+        expect(html).toContain('Content calendar');
+        expect(html).toContain('Fixture example');
+        expect(html).not.toContain('POSTED');
+      }
+      if (route.id === 'agent:designer') {
+        expect(html).toContain('data-concept-variant="orbit"');
+        expect(html).toContain('Design production queue');
+      }
+    });
+  }
+
+  it('system health', async () => {
+    const page = await SystemHealthPage();
+    const html = await renderRoute(page);
+    expect(html).toContain('DEMO ENVIRONMENT');
+    expect(html).toContain('FIXTURE MODE ACTIVE');
+    expect(html).toContain('Organization data');
+    expect(html).toContain('Agent roster');
+    expect(html).toContain('Workflow fixtures');
+    expect(html).toContain('PLANNED / NOT IMPLEMENTED');
   });
 });

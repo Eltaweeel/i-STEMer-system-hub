@@ -29,11 +29,13 @@ const SHELL_META = {
 } as const;
 
 const NAV = [
+  { href: '/', label: 'Command center' },
   { href: '/organization/', label: 'Organization' },
   { href: '/coordination-cycle/', label: 'Coordination cycle' },
   { href: '/workflows/', label: 'Workflows' },
   { href: '/agents/', label: 'Agents' },
   { href: '/approvals/', label: 'Approvals' },
+  { href: '/system-health/', label: 'System health' },
 ];
 
 export default function RootLayout({ children }: { children: ReactNode }): JSX.Element {

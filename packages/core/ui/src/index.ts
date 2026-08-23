@@ -1,5 +1,6 @@
 export * from './components/DemoIndicator';
 export * from './components/AppShell';
+export * from './components/CommandPalette';
 export * from './components/StatusBadge';
 export * from './components/OrganizationGraph';
 export * from './components/OrganizationTree';
@@ -11,4 +12,9 @@ export * from './components/ApprovalInboxView';
 export * from './components/ApprovalDetailView';
 export * from './components/RehearsalFlowPanel';
 export * from './components/NotificationPreviewCard';
+export * from './components/ContentCalendar';
+export * from './components/TrendAlertCard';
+export * from './components/CommandCenterView';
+export * from './components/SpecialistWorkspaceView';
+export * from './components/SystemHealthView';
 export * from './contrast';

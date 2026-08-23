@@ -1,34 +1,35 @@
-import Link from 'next/link';
+import { CommandCenterView } from '@bagos/ui';
+import { formatFixtureTime } from '@bagos/fixtures';
+import { AGENT_ROUTES, APPROVAL_ROUTES, FixtureAdapter } from '../adapters/fixture-adapter';
 
-const linkStyle = { color: 'var(--text-link)' } as const;
+const agentSlugById = new Map(AGENT_ROUTES.map((route) => [route.id, route.slug]));
+const approvalSlugById = new Map(APPROVAL_ROUTES.map((route) => [route.id, route.slug]));
 
-const routes = [
-  { href: '/organization/', label: 'Organization view' },
-  { href: '/coordination-cycle/', label: 'Daily coordination cycle (proposed)' },
-  { href: '/workflows/', label: 'Workflows' },
-  { href: '/agents/', label: 'Agents' },
-];
+export default async function IndexPage(): Promise<JSX.Element> {
+  const adapter = new FixtureAdapter();
+  const [workflow, agents, approvals, cycle] = await Promise.all([
+    adapter.getWorkflow({ id: 'workflow:campaign-end-to-end' }),
+    adapter.listAgents({}),
+    adapter.listApprovalPackages({}),
+    adapter.getCoordinationCycle({}),
+  ]);
+  if (!workflow) throw new Error('Campaign workflow fixture is required by the command center.');
 
-export default function IndexPage(): JSX.Element {
   return (
     <section>
-      <h1 style={{ fontFamily: 'var(--font-mono)', letterSpacing: 'var(--tracking-display)' }}>
-        Business Agent OS
-      </h1>
-      <p style={{ color: 'var(--text-secondary)', maxWidth: '60ch' }}>
-        A fixtures-only, read-only visual operating system for managing AI agents. Nothing on
-        this site runs, connects, or acts. Every timestamp is derived from a single frozen
-        instant so the interface behaves identically on every visit.
-      </p>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 'var(--space-5) 0 0', display: 'grid', gap: 'var(--space-3)' }}>
-        {routes.map((r) => (
-          <li key={r.href}>
-            <Link href={r.href} style={linkStyle}>
-              {r.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <header style={{ marginBottom: 'var(--space-5)' }}>
+        <h1 style={{ fontFamily: 'var(--font-mono)', letterSpacing: 'var(--tracking-display)' }}>Command center</h1>
+        <p style={{ color: 'var(--text-secondary)' }}>Executive fixture snapshot. Nothing shown here is live and no action can be taken from this view.</p>
+      </header>
+      <CommandCenterView
+        workflow={workflow}
+        agents={agents}
+        approvals={approvals}
+        cycle={cycle}
+        formatTime={formatFixtureTime}
+        agentHref={(id) => `/agents/${encodeURIComponent(agentSlugById.get(id) ?? id)}/`}
+        approvalHref={(id) => `/approvals/${encodeURIComponent(approvalSlugById.get(id) ?? id)}/`}
+      />
     </section>
   );
 }

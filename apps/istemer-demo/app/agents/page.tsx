@@ -49,7 +49,10 @@ export default async function AgentsIndexPage(): Promise<JSX.Element> {
             >
               {a.displayName}
             </Link>
-            <StatusBadge status={a.status} />
+            <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+              <Link href={`/workspaces/${encodeURIComponent(slugById.get(a.id) ?? a.id)}/`} style={{ color: 'var(--text-link)' }}>Workspace</Link>
+              <StatusBadge status={a.status} />
+            </span>
           </li>
         ))}
       </ul>

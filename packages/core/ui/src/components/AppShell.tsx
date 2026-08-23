@@ -1,11 +1,9 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { ViewMeta } from '@bagos/contracts';
 import { DemoIndicator } from './DemoIndicator';
+import { CommandPalette, type CommandPaletteItem } from './CommandPalette';
 
-export interface AppShellNavItem {
-  readonly href: string;
-  readonly label: string;
-}
+export type AppShellNavItem = CommandPaletteItem;
 
 export interface AppShellProps {
   readonly meta: ViewMeta;
@@ -34,6 +32,7 @@ const topbarStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-5)',
+  flexWrap: 'wrap',
 };
 
 const brandStyle: CSSProperties = {
@@ -96,11 +95,12 @@ export function AppShell({
     <div style={shellStyle}>
       <a href="#main-content" style={skipLinkStyle}>Skip to main content</a>
       <DemoIndicator meta={meta} />
-      <header style={topbarStyle}>
+      <header className="app-shell-topbar" style={topbarStyle}>
         <span style={brandStyle}>{productName}</span>
         <span style={tenantStyle} aria-label="tenant">{organizationName}</span>
         {nav && nav.length > 0 ? (
-          <nav aria-label="Primary" style={navStyle}>
+          <nav className="app-shell-nav" aria-label="Primary" style={navStyle}>
+            <CommandPalette items={nav} />
             {nav.map((item) => (
               <a key={item.href} href={item.href} style={navLinkStyle}>
                 {item.label}
