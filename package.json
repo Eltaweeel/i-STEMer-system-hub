@@ -1,0 +1,33 @@
+{
+  "name": "business-agent-os",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "packages/core/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "lint": "eslint . && depcruise --config .dependency-cruiser.cjs packages apps && node scripts/check-primitive-tokens.mjs && node scripts/check-domain-hardcode.mjs",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "build": "npm run build --workspace apps/istemer-demo"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.0.1",
+    "@types/node": "^22.7.0",
+    "@types/react": "^18.3.10",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.8.0",
+    "@typescript-eslint/parser": "^8.8.0",
+    "dependency-cruiser": "^16.4.2",
+    "eslint": "^9.11.1",
+    "happy-dom": "^15.7.4",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.1",
+    "zod": "^3.23.8"
+  },
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  }
+}

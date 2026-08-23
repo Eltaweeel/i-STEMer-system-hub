@@ -1,0 +1,43 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@bagos/contracts": [
+        "../../packages/core/contracts/src/index.ts"
+      ],
+      "@bagos/fixtures": [
+        "../../packages/core/fixtures/src/index.ts"
+      ],
+      "@bagos/organization": [
+        "../../packages/core/organization/src/index.ts"
+      ],
+      "@bagos/ui": [
+        "../../packages/core/ui/src/index.ts"
+      ],
+      "@/*": [
+        "./*"
+      ]
+    },
+    "allowJs": true,
+    "noEmit": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "out"
+  ]
+}

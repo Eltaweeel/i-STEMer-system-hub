@@ -1,0 +1,491 @@
+/* =============================================================================
+   Deputy — Design Tokens v2.0  ("Atlas skin")
+   -----------------------------------------------------------------------------
+   v2 changes the SKIN, not the architecture. Three tiers stand, the four
+   orthogonal colour axes stand, every rule in the accessibility contract stands.
+   What changed, and why:
+
+     ground      flat near-black  →  teal-navy with a clamped radial glow
+     panels      1px hairline     →  frosted translucent over a controlled band
+     radius      near-square      →  softer, 4→14px
+     type        neutral mono     →  wider tracking, uppercase labels
+     graph       radial           →  top-down hierarchy into a gold memory hub
+     glow        banned           →  permitted on graph objects, never behind text
+
+   Derived from docs/design/agent-os/reference/reel-DbodbyQD5ls/ANALYSIS.md.
+
+   THE CONTRAST CONTRACT
+   A gradient ground makes contrast variable, which normally makes AA
+   unprovable. We solve it by clamping: --surface-glow-peak is the lightest
+   pixel any ground may ever reach, and EVERY text token below is measured
+   against that value, not against the dark base. Measured worst cases are in
+   the comments. If you change the glow, re-run the contrast test — it will fail.
+   ============================================================================= */
+
+:root {
+  color-scheme: dark;
+
+  /* ---------------------------------------------------------------------------
+     TIER 1 — PRIMITIVES
+     --------------------------------------------------------------------------- */
+
+  /* teal-biased neutral ramp — the ground is cold, not black */
+  --p-ink-1000: #04090d;
+  --p-ink-950:  #071019;
+  --p-ink-900:  #091620;
+  --p-ink-850:  #0c1a23;
+  --p-ink-800:  #102530;
+  --p-ink-750:  #163040;
+  --p-ink-700:  #1d3d4e;
+  --p-glow-peak:#14313d;   /* the clamp. nothing on the ground goes lighter.   */
+
+  --p-slate-500:#6b8791;
+  --p-slate-400:#7e9ba4;
+  --p-slate-300:#8aa3ad;
+  --p-slate-200:#a8c2c9;
+  --p-slate-050:#eaf6f8;
+
+  /* domain hues — Atlas temperature, spread for separability on a teal ground */
+  --p-sky:    #56b6ff;
+  --p-teal:   #2dd4bf;
+  --p-green:  #6ee787;
+  --p-orange: #ff9a3c;
+  --p-rose:   #ff5d8f;
+  --p-violet: #a78bfa;
+  --p-gold:   #ffcf4d;
+
+  /* signal hues */
+  --p-signal-ok:    #46e08a;
+  --p-signal-warn:  #ffcf4d;
+  --p-signal-bad:   #ff6b81;
+  --p-signal-info:  #56b6ff;
+  --p-signal-idle:  #8aa3ad;
+  --p-cyan:         #7fe3ff;
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — SURFACES
+     --------------------------------------------------------------------------- */
+  --surface-deep:     var(--p-ink-1000);
+  --surface-canvas:   var(--p-ink-950);
+  --surface-nav:      var(--p-ink-900);
+  --surface-panel:    var(--p-ink-850);
+  --surface-raised:   var(--p-ink-800);
+  --surface-hover:    var(--p-ink-750);
+  --surface-selected: var(--p-ink-700);
+  --surface-scrim:    rgba(4, 9, 13, 0.74);
+
+  /* The atmospheric ground. One radial glow behind the graph, clamped.
+     Use ONLY on graph canvases and the Command Center hero band. */
+  --surface-glow-peak: var(--p-glow-peak);
+  --surface-glow: radial-gradient(
+                    120% 90% at 50% 78%,
+                    var(--surface-glow-peak) 0%,
+                    var(--surface-canvas) 62%,
+                    var(--surface-deep) 100%);
+
+  /* Frosted panels. THE RULE: a frosted surface may only sit over
+     --surface-canvas, --surface-panel, or the clamped glow. Never over an
+     image, a chart, or an unbounded gradient — contrast must stay measurable. */
+  --frost-fill:        rgba(168, 194, 201, 0.055);
+  --frost-fill-raised: rgba(168, 194, 201, 0.085);
+  --frost-fill-hover:  rgba(168, 194, 201, 0.12);
+  --frost-blur:        14px;
+  /* Fallback for @supports not (backdrop-filter): use the solid ramp instead. */
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — LINES
+     Luminous hairlines rather than grey rules — the Atlas cards are outlined
+     in their own hue at low alpha.
+     --------------------------------------------------------------------------- */
+  --line-grid:     rgba(94, 170, 190, 0.10);
+  --line-subtle:   rgba(168, 194, 201, 0.14);
+  --line-default:  rgba(168, 194, 201, 0.22);
+  --line-strong:   rgba(214, 236, 242, 0.32);
+  --line-contrast: rgba(234, 246, 248, 0.58);   /* 3:1 — required on nodes     */
+  --line-accent:   color-mix(in srgb, var(--dept-active-core) 45%, transparent);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — TEXT   (worst case = against --surface-glow-peak)
+     --------------------------------------------------------------------------- */
+  --text-primary:   var(--p-slate-050);  /* 12.4:1  AAA                         */
+  --text-secondary: var(--p-slate-200);  /*  7.3:1  AAA                         */
+  --text-muted:     var(--p-slate-300);  /*  5.2:1  AA — smallest AA body text  */
+  --text-faint:     var(--p-slate-500);  /*  3.6:1  DECORATIVE / disabled only  */
+  --text-inverse:   var(--p-ink-1000);
+  --text-link:      var(--p-cyan);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — FOCUS
+     --------------------------------------------------------------------------- */
+  --focus-ring:        var(--p-cyan);     /* 9.3:1 worst case                   */
+  --focus-ring-width:  2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-shadow: 0 0 0 var(--focus-ring-offset) var(--surface-canvas),
+                       0 0 0 calc(var(--focus-ring-offset) + var(--focus-ring-width)) var(--focus-ring);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — DEPARTMENT ACCENTS
+     Axis 1 of 4. Identifies a domain. Never a status, never the only signal.
+     Atlas shows three cluster hues; Deputy needs six separable ones, so the set
+     is re-tuned to Atlas's temperature and spread across the wheel:
+       sky 210 · teal 172 · green 130 · gold 45 · orange 28 · rose 340 · violet 255
+     Worst-case contrast on the glow peak is in each comment.
+     --------------------------------------------------------------------------- */
+  --dept-communications-core: var(--p-sky);     /* 6.2:1  AA  */
+  --dept-communications-tint: rgba(86, 182, 255, 0.10);
+  --dept-communications-edge: rgba(86, 182, 255, 0.34);
+  --dept-communications-wash: rgba(86, 182, 255, 0.045);
+  --dept-communications-bloom:rgba(86, 182, 255, 0.28);
+
+  --dept-clients-core: var(--p-teal);           /* 7.3:1  AAA */
+  --dept-clients-tint: rgba(45, 212, 191, 0.10);
+  --dept-clients-edge: rgba(45, 212, 191, 0.34);
+  --dept-clients-wash: rgba(45, 212, 191, 0.045);
+  --dept-clients-bloom:rgba(45, 212, 191, 0.28);
+
+  --dept-finance-core: var(--p-green);          /* 8.8:1  AAA */
+  --dept-finance-tint: rgba(110, 231, 135, 0.10);
+  --dept-finance-edge: rgba(110, 231, 135, 0.34);
+  --dept-finance-wash: rgba(110, 231, 135, 0.045);
+  --dept-finance-bloom:rgba(110, 231, 135, 0.28);
+
+  --dept-marketing-core: var(--p-orange);       /* 6.5:1  AA  */
+  --dept-marketing-tint: rgba(255, 154, 60, 0.10);
+  --dept-marketing-edge: rgba(255, 154, 60, 0.34);
+  --dept-marketing-wash: rgba(255, 154, 60, 0.045);
+  --dept-marketing-bloom:rgba(255, 154, 60, 0.28);
+
+  --dept-sales-core: var(--p-rose);             /* 4.7:1  AA  */
+  --dept-sales-tint: rgba(255, 93, 143, 0.10);
+  --dept-sales-edge: rgba(255, 93, 143, 0.34);
+  --dept-sales-wash: rgba(255, 93, 143, 0.045);
+  --dept-sales-bloom:rgba(255, 93, 143, 0.28);
+
+  --dept-technology-core: var(--p-violet);      /* 5.0:1  AA  */
+  --dept-technology-tint: rgba(167, 139, 250, 0.10);
+  --dept-technology-edge: rgba(167, 139, 250, 0.34);
+  --dept-technology-wash: rgba(167, 139, 250, 0.045);
+  --dept-technology-bloom:rgba(167, 139, 250, 0.28);
+
+  /* Knowledge is not a department — it is the memory hub every column flows
+     into. Gold, and the only element in the product allowed a large bloom.
+     It sits 17° from marketing on the wheel, so it is differentiated by SCALE,
+     BLOOM, and LABEL, never by hue alone. */
+  --dept-knowledge-core: var(--p-gold);         /* 9.3:1  AAA */
+  --dept-knowledge-tint: rgba(255, 207, 77, 0.10);
+  --dept-knowledge-edge: rgba(255, 207, 77, 0.34);
+  --dept-knowledge-wash: rgba(255, 207, 77, 0.045);
+  --dept-knowledge-bloom:rgba(255, 207, 77, 0.40);
+
+  /* Scope with data-department; children read these. */
+  --dept-active-core:  var(--p-slate-200);
+  --dept-active-tint:  rgba(168, 194, 201, 0.10);
+  --dept-active-edge:  rgba(168, 194, 201, 0.34);
+  --dept-active-bloom: rgba(168, 194, 201, 0.22);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — STATUS
+     Axis 2 of 4. Orthogonal to department. Always paired with glyph + text.
+     --------------------------------------------------------------------------- */
+  --status-idle-core:      var(--p-signal-idle);  /* no job exists — the default */
+  --status-running-core:   var(--p-signal-info);  /* persisted active run only   */
+  --status-ok-core:        var(--p-signal-ok);
+  --status-attention-core: var(--p-signal-warn);
+  --status-blocked-core:   var(--p-signal-bad);
+  --status-error-core:     var(--p-signal-bad);
+  --status-offline-core:   var(--p-slate-300);
+  --status-unknown-core:   var(--p-slate-400);    /* never renders as OK         */
+  --status-draft-core:     var(--p-violet);
+
+  --status-idle-tint:      rgba(138, 163, 173, 0.14);
+  --status-running-tint:   rgba(86, 182, 255, 0.14);
+  --status-ok-tint:        rgba(70, 224, 138, 0.14);
+  --status-attention-tint: rgba(255, 207, 77, 0.14);
+  --status-blocked-tint:   rgba(255, 107, 129, 0.14);
+  --status-error-tint:     rgba(255, 107, 129, 0.14);
+  --status-offline-tint:   rgba(138, 163, 173, 0.14);
+  --status-unknown-tint:   rgba(126, 155, 164, 0.14);
+  --status-draft-tint:     rgba(167, 139, 250, 0.14);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — AUTONOMY
+     Axis 3 of 4. Property of an SOP revision. Deliberately not a green→red
+     ramp: "prohibited" is a correct, safe state, not a failure.
+     --------------------------------------------------------------------------- */
+  --autonomy-human-led-core:      var(--p-slate-200);
+  --autonomy-human-assisted-core: var(--p-sky);
+  --autonomy-internal-core:       var(--p-teal);
+  --autonomy-approval-gated-core: var(--p-gold);
+  --autonomy-prohibited-core:     var(--p-slate-300);
+  --autonomy-prohibited-hatch:    repeating-linear-gradient(
+                                    45deg,
+                                    rgba(138, 163, 173, 0.20) 0 2px,
+                                    transparent 2px 6px);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — PROVENANCE
+     Axis 4 of 4. Adopted wholesale from the reference: a metric card prints its
+     own source predicate. --data-source-* styles that printed predicate.
+     --------------------------------------------------------------------------- */
+  --data-sample-core:  var(--p-violet);
+  --data-sample-tint:  rgba(167, 139, 250, 0.14);
+  --data-fresh-core:   var(--p-signal-ok);
+  --data-stale-core:   var(--p-signal-warn);
+  --data-partial-core: var(--p-signal-warn);
+  --data-unknown-core: var(--p-slate-400);
+  --data-source-core:  var(--p-slate-300);   /* the SOURCE: … predicate line     */
+  --data-metric-core:  var(--p-orange);      /* the big number on a stat card    */
+  --data-metric-good:  var(--p-signal-ok);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — RISK
+     --------------------------------------------------------------------------- */
+  --risk-internal-low-core:  var(--p-slate-300);
+  --risk-internal-high-core: var(--p-sky);
+  --risk-external-core:      var(--p-gold);
+  --risk-financial-core:     var(--p-rose);
+  --risk-irreversible-core:  var(--p-signal-bad);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — TYPOGRAPHY
+     Sans carries prose. Mono carries anything the system asserts. v2 widens
+     label tracking and pushes labels to uppercase, per the reference.
+     --------------------------------------------------------------------------- */
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Mono", monospace;
+
+  --text-metric-size:  2.75rem;   /* 44px  the big stat number, mono, tabular   */
+  --text-metric-lh:    1.05;
+  --text-display-size: 2rem;      /* 32px  page title, mono                     */
+  --text-display-lh:   1.15;
+  --text-title-size:   1.375rem;  /* 22px                                       */
+  --text-title-lh:     1.25;
+  --text-heading-size: 1rem;      /* 16px                                       */
+  --text-heading-lh:   1.35;
+  --text-body-size:    0.875rem;  /* 14px                                       */
+  --text-body-lh:      1.55;
+  --text-label-size:   0.75rem;   /* 12px  mono uppercase                       */
+  --text-label-lh:     1.35;
+  --text-micro-size:   0.6875rem; /* 11px  FLOOR. mono uppercase                */
+  --text-micro-lh:     1.3;
+
+  --tracking-metric:  -0.03em;
+  --tracking-display: -0.02em;
+  --tracking-label:    0.10em;   /* v1 was 0.04em — wider, per the reference   */
+  --tracking-micro:    0.14em;   /* v1 was 0.06em                              */
+
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold:600;
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — SPACE  (4px base, 8px rhythm — unchanged)
+     --------------------------------------------------------------------------- */
+  --space-0: 0;      --space-1: 0.125rem; --space-2: 0.25rem;  --space-3: 0.5rem;
+  --space-4: 0.75rem;--space-5: 1rem;     --space-6: 1.5rem;   --space-7: 2rem;
+  --space-8: 2.5rem; --space-9: 3rem;
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — RADIUS   (v2: softer throughout)
+     --------------------------------------------------------------------------- */
+  --radius-micro:   4px;   /* badges, tags            v1 3px  */
+  --radius-control: 6px;   /* buttons, inputs, chips  v1 4px  */
+  --radius-card:   10px;   /* cards, stat tiles       v1 6px  */
+  --radius-panel:  14px;   /* drawers, modals         v1 8px  */
+  --radius-pill:  999px;
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — ELEVATION & BLOOM
+     Bloom is new in v2 and is tightly fenced: graph objects and the memory hub
+     only. NEVER behind text — a glow under a glyph destroys the contrast the
+     measurements above depend on.
+     --------------------------------------------------------------------------- */
+  --elevation-flat:    none;
+  --elevation-card:    0 1px 0 rgba(234, 246, 248, 0.04) inset;
+  --elevation-overlay: 0 10px 30px rgba(4, 9, 13, 0.60);
+  --elevation-modal:   0 18px 54px rgba(4, 9, 13, 0.74);
+
+  --bloom-node:  0 0 12px var(--dept-active-bloom);
+  --bloom-hub:   0 0 28px var(--dept-knowledge-bloom), 0 0 64px rgba(255, 207, 77, 0.18);
+  --bloom-edge:  drop-shadow(0 0 3px var(--dept-active-bloom));
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — MOTION
+     Unchanged rule: the active-run pulse requires a persisted run + timestamp.
+     Bloom is static. A glowing node is NOT a working node.
+     --------------------------------------------------------------------------- */
+  --motion-instant: 90ms;
+  --motion-fast:    140ms;
+  --motion-base:    200ms;
+  --motion-slow:    260ms;
+  --motion-pulse:   2000ms;
+  --ease-standard:  cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit:      cubic-bezier(0.4, 0, 1, 1);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — LAYOUT
+     --------------------------------------------------------------------------- */
+  --layout-sidebar-w:      232px;
+  --layout-sidebar-rail-w:  56px;
+  --layout-topbar-h:        52px;
+  --layout-toolbar-h:       46px;
+  --layout-bottomnav-h:     58px;
+  --layout-drawer-w:       480px;
+  --layout-drawer-w-wide:  560px;
+  --layout-content-max:   1600px;
+  --layout-row-h:           40px;
+  --layout-row-h-touch:     44px;
+  --layout-graph-grid:      32px;
+
+  --z-canvas: 0; --z-sticky: 10; --z-nav: 20; --z-drawer: 30;
+  --z-modal: 40; --z-palette: 50; --z-toast: 60;
+
+  /* ---------------------------------------------------------------------------
+     TIER 3 — GRAPH
+     v2 layout is a TOP-DOWN HIERARCHY, not a radial burst:
+        human → conductor → department columns → memory hub at the base.
+     Node size still encodes authority.
+     --------------------------------------------------------------------------- */
+  --node-hub-size:        96px;   /* the gold memory orb — largest object      */
+  --node-conductor-size:  76px;
+  --node-human-size:      52px;
+  --node-department-size: 48px;
+  --node-agent-size:      40px;
+  --node-tool-size:       34px;
+  --node-sop-size:        22px;
+  --node-knowledge-size:  10px;
+  --node-cluster-size:    28px;
+
+  --node-stroke-w:          1.5px;
+  --node-stroke-w-selected: 2.5px;
+  --node-card-radius:       var(--radius-card);
+  --node-card-fill:         var(--frost-fill);
+
+  /* Humans carry a gold ring AND a label, at every zoom, in every colour mode.
+     v2 also allows a real photo avatar inside the ring, per the reference. */
+  --node-human-ring:   var(--p-gold);
+  --node-human-ring-w: 2px;
+  --node-avatar-size:  32px;
+
+  --edge-w:            1.25px;
+  --edge-w-emphasis:   1.75px;
+  --edge-curve:        0.5;                     /* bezier tension              */
+  --edge-color:        rgba(168, 194, 201, 0.30);
+  --edge-color-dim:    rgba(168, 194, 201, 0.12);
+  --edge-color-memory: var(--dept-knowledge-edge);  /* the convergence edges   */
+  --edge-color-broken: var(--p-signal-bad);
+  --edge-dash-contributes: 3 4;
+  --edge-dash-memory:      6 5;
+  --edge-dash-broken:      5 3;
+
+  --graph-column-gap: 72px;
+  --graph-rank-gap:   64px;
+  --graph-node-cap:   600;
+
+  /* ---------------------------------------------------------------------------
+     TIER 3 — COMPONENT DIMENSIONS
+     --------------------------------------------------------------------------- */
+  --c-badge-h: 20px;  --c-badge-px: var(--space-3); --c-badge-dot: 6px;
+  --c-chip-h: 26px;
+  --c-button-h: 36px; --c-button-h-touch: 44px;
+  --c-input-h: 36px;  --c-input-h-touch: 44px;
+  --c-stat-min-h: 116px;
+}
+
+/* =============================================================================
+   DEPARTMENT SCOPE
+   ============================================================================= */
+[data-department="communications"]{--dept-active-core:var(--dept-communications-core);--dept-active-tint:var(--dept-communications-tint);--dept-active-edge:var(--dept-communications-edge);--dept-active-bloom:var(--dept-communications-bloom)}
+[data-department="sales"]         {--dept-active-core:var(--dept-sales-core);--dept-active-tint:var(--dept-sales-tint);--dept-active-edge:var(--dept-sales-edge);--dept-active-bloom:var(--dept-sales-bloom)}
+[data-department="finance"]       {--dept-active-core:var(--dept-finance-core);--dept-active-tint:var(--dept-finance-tint);--dept-active-edge:var(--dept-finance-edge);--dept-active-bloom:var(--dept-finance-bloom)}
+[data-department="clients"]       {--dept-active-core:var(--dept-clients-core);--dept-active-tint:var(--dept-clients-tint);--dept-active-edge:var(--dept-clients-edge);--dept-active-bloom:var(--dept-clients-bloom)}
+[data-department="marketing"]     {--dept-active-core:var(--dept-marketing-core);--dept-active-tint:var(--dept-marketing-tint);--dept-active-edge:var(--dept-marketing-edge);--dept-active-bloom:var(--dept-marketing-bloom)}
+[data-department="technology"]    {--dept-active-core:var(--dept-technology-core);--dept-active-tint:var(--dept-technology-tint);--dept-active-edge:var(--dept-technology-edge);--dept-active-bloom:var(--dept-technology-bloom)}
+[data-department="knowledge"]     {--dept-active-core:var(--dept-knowledge-core);--dept-active-tint:var(--dept-knowledge-tint);--dept-active-edge:var(--dept-knowledge-edge);--dept-active-bloom:var(--dept-knowledge-bloom)}
+
+/* =============================================================================
+   GRAPH CANVAS — atmospheric ground, clamped glow, faint grid above it
+   ============================================================================= */
+.agent-os-graph-canvas {
+  background-color: var(--surface-canvas);
+  background-image:
+    linear-gradient(var(--line-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-grid) 1px, transparent 1px),
+    var(--surface-glow);
+  background-size: var(--layout-graph-grid) var(--layout-graph-grid),
+                   var(--layout-graph-grid) var(--layout-graph-grid),
+                   100% 100%;
+}
+
+/* =============================================================================
+   FROSTED SURFACE
+   Only valid over --surface-canvas, --surface-panel, or the clamped glow.
+   Degrades to the solid ramp where backdrop-filter is unavailable, so contrast
+   never depends on a feature that might not be there.
+   ============================================================================= */
+.agent-os-frost {
+  background: var(--surface-panel);
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-card);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .agent-os-frost {
+    background: var(--frost-fill);
+    backdrop-filter: blur(var(--frost-blur));
+  }
+}
+
+/* =============================================================================
+   FOCUS — one treatment, global, never removed
+   ============================================================================= */
+:where(a, button, [role="button"], input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-shadow);
+  border-radius: var(--radius-control);
+}
+
+/* =============================================================================
+   REDUCED MOTION
+   Bloom is static so it survives here untouched. The pulse does not.
+   ============================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-instant: 0ms; --motion-fast: 0ms; --motion-base: 0ms;
+    --motion-slow: 0ms;    --motion-pulse: 0ms;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* =============================================================================
+   FORCED COLORS / HIGH CONTRAST
+   Hue, glow, frost, and gradient all disappear here by design. Glyph, shape,
+   and text label must still carry every meaning. This block is the proof that
+   the Atlas skin never became load-bearing.
+   ============================================================================= */
+@media (forced-colors: active) {
+  :root {
+    --line-default:  CanvasText;
+    --line-strong:   CanvasText;
+    --line-contrast: CanvasText;
+    --bloom-node: none; --bloom-hub: none; --bloom-edge: none;
+    --frost-blur: 0px;
+  }
+  .agent-os-graph-canvas { background-image: none; }
+  .agent-os-frost { background: Canvas; border-color: CanvasText; backdrop-filter: none; }
+}
+
+/* =============================================================================
+   TOUCH
+   ============================================================================= */
+@media (pointer: coarse) {
+  :root {
+    --layout-row-h: var(--layout-row-h-touch);
+    --c-button-h:   var(--c-button-h-touch);
+    --c-input-h:    var(--c-input-h-touch);
+  }
+}

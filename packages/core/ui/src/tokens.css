@@ -1,0 +1,379 @@
+/* =============================================================================
+   Business Agent OS — Core Design Tokens
+   -----------------------------------------------------------------------------
+   Adopted architecture, unchanged, from prior-tokens.css:
+     - three tiers: --p-* primitives (never used directly by components),
+       semantic tokens, --c-* component tokens
+     - four orthogonal colour axes: domain / status / autonomy / provenance
+     - clamped contrast contract — --surface-glow-peak is the worst-case ground
+     - forced-colors block strips hue, glow, frost, gradient together
+     - colour is never load-bearing: every status = dot + UPPERCASE TEXT
+
+   ONE deliberate change from the reference:
+     The prior file hardcoded six NAMED department families
+     (--dept-sales-*, --dept-finance-*, --dept-clients-*, --dept-marketing-*,
+      --dept-technology-*, --dept-communications-*) plus knowledge gold.
+     That is a tenant taxonomy sitting in core, and we do not permit it.
+     Replaced with a bounded, pre-tested NEUTRAL SLOT palette (--domain-1-*
+     through --domain-8-*). Each slot's hue is drawn from the prior file's
+     already-measured domain values plus its gold and one additional
+     separable hue. Tenants map their own domain slug to a slot number.
+     No component may hardcode a slot; components read --domain-active-*
+     after a subtree is scoped with data-domain-slot="N".
+
+   TWO forbidden values (measured against the glow peak):
+     #718a9a as body text  — 3.78:1, fails AA
+     #657989 as offline    — 3.03:1, fails AA on every ground
+   The contrast test verifies neither appears anywhere in this file.
+   ============================================================================= */
+
+:root {
+  color-scheme: dark;
+
+  /* ---------------------------------------------------------------------------
+     TIER 1 — PRIMITIVES (never referenced directly by components)
+     --------------------------------------------------------------------------- */
+
+  /* teal-biased neutral ramp — the ground is cold, not black */
+  --p-ink-1000: #04090d;
+  --p-ink-950:  #071019;
+  --p-ink-900:  #091620;
+  --p-ink-850:  #0c1a23;
+  --p-ink-800:  #102530;
+  --p-ink-750:  #163040;
+  --p-ink-700:  #1d3d4e;
+  --p-glow-peak:#14313d;   /* the clamp. nothing on the ground goes lighter.   */
+
+  --p-slate-500:#6b8791;
+  --p-slate-400:#7e9ba4;
+  --p-slate-300:#8aa3ad;
+  --p-slate-200:#a8c2c9;
+  --p-slate-050:#eaf6f8;
+
+  /* domain hues — a cool, wide-spread set chosen for separability on a teal
+     ground. Seven measured hues from the prior reference file plus one
+     additional separable hue (cyan-200) to fill the 8-slot palette. All
+     measured on --p-glow-peak; see contrast test for the ratio thresholds. */
+  --p-sky:      #56b6ff;
+  --p-teal:     #2dd4bf;
+  --p-green:    #6ee787;
+  --p-orange:   #ff9a3c;
+  --p-rose:     #ff5d8f;
+  --p-violet:   #a78bfa;
+  --p-gold:     #ffcf4d;
+  --p-cyan-200: #7fe3ff;
+
+  /* signal hues */
+  --p-signal-ok:    #46e08a;
+  --p-signal-warn:  #ffcf4d;
+  --p-signal-bad:   #ff6b81;
+  --p-signal-info:  #56b6ff;
+  --p-signal-idle:  #8aa3ad;
+  --p-cyan:         #7fe3ff;
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — SURFACES
+     --------------------------------------------------------------------------- */
+  --surface-deep:     var(--p-ink-1000);
+  --surface-canvas:   var(--p-ink-950);
+  --surface-nav:      var(--p-ink-900);
+  --surface-panel:    var(--p-ink-850);
+  --surface-raised:   var(--p-ink-800);
+  --surface-hover:    var(--p-ink-750);
+  --surface-selected: var(--p-ink-700);
+  --surface-scrim:    rgba(4, 9, 13, 0.74);
+
+  --surface-glow-peak: var(--p-glow-peak);
+  --surface-glow: radial-gradient(
+                    120% 90% at 50% 78%,
+                    var(--surface-glow-peak) 0%,
+                    var(--surface-canvas) 62%,
+                    var(--surface-deep) 100%);
+
+  --frost-fill:        rgba(168, 194, 201, 0.055);
+  --frost-fill-raised: rgba(168, 194, 201, 0.085);
+  --frost-fill-hover:  rgba(168, 194, 201, 0.12);
+  --frost-blur:        14px;
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — LINES
+     --------------------------------------------------------------------------- */
+  --line-grid:     rgba(94, 170, 190, 0.10);
+  --line-subtle:   rgba(168, 194, 201, 0.14);
+  --line-default:  rgba(168, 194, 201, 0.22);
+  --line-strong:   rgba(214, 236, 242, 0.32);
+  --line-contrast: rgba(234, 246, 248, 0.58);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — TEXT   (worst case = against --surface-glow-peak = #14313d)
+     --------------------------------------------------------------------------- */
+  --text-primary:   var(--p-slate-050);  /* ~12.4:1  AAA                        */
+  --text-secondary: var(--p-slate-200);  /*  ~7.3:1  AAA                        */
+  --text-muted:     var(--p-slate-300);  /*  ~5.2:1  AA — smallest AA body text */
+  --text-faint:     var(--p-slate-500);  /*  ~3.6:1  DECORATIVE / disabled only */
+  --text-inverse:   var(--p-ink-1000);
+  --text-link:      var(--p-cyan);       /*  ~9:1    AAA                        */
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — FOCUS
+     --------------------------------------------------------------------------- */
+  --focus-ring:        var(--p-cyan);
+  --focus-ring-width:  2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-shadow: 0 0 0 var(--focus-ring-offset) var(--surface-canvas),
+                       0 0 0 calc(var(--focus-ring-offset) + var(--focus-ring-width)) var(--focus-ring);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — DOMAIN SLOTS (Axis 1 of 4)
+     Eight neutral, pre-measured slots. Tenants map a domain slug to a slot;
+     components never reference a specific slot number.
+     --------------------------------------------------------------------------- */
+
+  /* slot 1 — sky        (~6.2:1 on glow peak) */
+  --domain-1-core: var(--p-sky);
+  --domain-1-tint: rgba(86, 182, 255, 0.10);
+  --domain-1-edge: rgba(86, 182, 255, 0.34);
+  --domain-1-wash: rgba(86, 182, 255, 0.045);
+  --domain-1-bloom:rgba(86, 182, 255, 0.28);
+
+  /* slot 2 — orange     (~6.5:1 on glow peak) */
+  --domain-2-core: var(--p-orange);
+  --domain-2-tint: rgba(255, 154, 60, 0.10);
+  --domain-2-edge: rgba(255, 154, 60, 0.34);
+  --domain-2-wash: rgba(255, 154, 60, 0.045);
+  --domain-2-bloom:rgba(255, 154, 60, 0.28);
+
+  /* slot 3 — teal       (~7.3:1 on glow peak) */
+  --domain-3-core: var(--p-teal);
+  --domain-3-tint: rgba(45, 212, 191, 0.10);
+  --domain-3-edge: rgba(45, 212, 191, 0.34);
+  --domain-3-wash: rgba(45, 212, 191, 0.045);
+  --domain-3-bloom:rgba(45, 212, 191, 0.28);
+
+  /* slot 4 — violet     (~5.0:1 on glow peak) */
+  --domain-4-core: var(--p-violet);
+  --domain-4-tint: rgba(167, 139, 250, 0.10);
+  --domain-4-edge: rgba(167, 139, 250, 0.34);
+  --domain-4-wash: rgba(167, 139, 250, 0.045);
+  --domain-4-bloom:rgba(167, 139, 250, 0.28);
+
+  /* slot 5 — rose       (~4.7:1 on glow peak) */
+  --domain-5-core: var(--p-rose);
+  --domain-5-tint: rgba(255, 93, 143, 0.10);
+  --domain-5-edge: rgba(255, 93, 143, 0.34);
+  --domain-5-wash: rgba(255, 93, 143, 0.045);
+  --domain-5-bloom:rgba(255, 93, 143, 0.28);
+
+  /* slot 6 — green      (~8.8:1 on glow peak) */
+  --domain-6-core: var(--p-green);
+  --domain-6-tint: rgba(110, 231, 135, 0.10);
+  --domain-6-edge: rgba(110, 231, 135, 0.34);
+  --domain-6-wash: rgba(110, 231, 135, 0.045);
+  --domain-6-bloom:rgba(110, 231, 135, 0.28);
+
+  /* slot 7 — gold       (~9.3:1 on glow peak) */
+  --domain-7-core: var(--p-gold);
+  --domain-7-tint: rgba(255, 207, 77, 0.10);
+  --domain-7-edge: rgba(255, 207, 77, 0.34);
+  --domain-7-wash: rgba(255, 207, 77, 0.045);
+  --domain-7-bloom:rgba(255, 207, 77, 0.40);
+
+  /* slot 8 — cyan       (~10:1 on glow peak) */
+  --domain-8-core: var(--p-cyan-200);
+  --domain-8-tint: rgba(127, 227, 255, 0.10);
+  --domain-8-edge: rgba(127, 227, 255, 0.34);
+  --domain-8-wash: rgba(127, 227, 255, 0.045);
+  --domain-8-bloom:rgba(127, 227, 255, 0.28);
+
+  /* Neutral default when no domain scope is active. */
+  --domain-active-core:  var(--p-slate-200);
+  --domain-active-tint:  rgba(168, 194, 201, 0.10);
+  --domain-active-edge:  rgba(168, 194, 201, 0.34);
+  --domain-active-wash:  rgba(168, 194, 201, 0.045);
+  --domain-active-bloom: rgba(168, 194, 201, 0.22);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — STATUS (Axis 2 of 4)
+     Always paired with glyph + text. Never the only signal.
+     --------------------------------------------------------------------------- */
+  --status-idle-core:      var(--p-signal-idle);
+  --status-running-core:   var(--p-signal-info);
+  --status-ok-core:        var(--p-signal-ok);
+  --status-attention-core: var(--p-signal-warn);
+  --status-blocked-core:   var(--p-signal-bad);
+  --status-error-core:     var(--p-signal-bad);
+  --status-offline-core:   var(--p-slate-300); /* NOTE: not #657989 — that fails AA */
+  --status-unknown-core:   var(--p-slate-400);
+  --status-draft-core:     var(--p-violet);
+
+  --status-idle-tint:      rgba(138, 163, 173, 0.14);
+  --status-running-tint:   rgba(86, 182, 255, 0.14);
+  --status-ok-tint:        rgba(70, 224, 138, 0.14);
+  --status-attention-tint: rgba(255, 207, 77, 0.14);
+  --status-blocked-tint:   rgba(255, 107, 129, 0.14);
+  --status-error-tint:     rgba(255, 107, 129, 0.14);
+  --status-offline-tint:   rgba(138, 163, 173, 0.14);
+  --status-unknown-tint:   rgba(126, 155, 164, 0.14);
+  --status-draft-tint:     rgba(167, 139, 250, 0.14);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — AUTONOMY (Axis 3 of 4)
+     Deliberately not a green→red ramp: "prohibited" is a correct safe state.
+     --------------------------------------------------------------------------- */
+  --autonomy-human-led-core:      var(--p-slate-200);
+  --autonomy-human-assisted-core: var(--p-sky);
+  --autonomy-internal-core:       var(--p-teal);
+  --autonomy-approval-gated-core: var(--p-gold);
+  --autonomy-prohibited-core:     var(--p-slate-300);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — PROVENANCE (Axis 4 of 4)
+     --------------------------------------------------------------------------- */
+  --data-sample-core:  var(--p-violet);
+  --data-sample-tint:  rgba(167, 139, 250, 0.14);
+  --data-fresh-core:   var(--p-signal-ok);
+  --data-stale-core:   var(--p-signal-warn);
+  --data-partial-core: var(--p-signal-warn);
+  --data-unknown-core: var(--p-slate-400);
+  --data-source-core:  var(--p-slate-300);
+  --data-metric-core:  var(--p-orange);
+  --data-metric-good:  var(--p-signal-ok);
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — TYPOGRAPHY
+     No web fonts loaded. System stacks only, so the built page makes zero
+     outbound requests. Wider tracking on labels per the prior spec.
+     --------------------------------------------------------------------------- */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", Menlo, Consolas, monospace;
+
+  --text-metric-size:  2.75rem;
+  --text-metric-lh:    1.05;
+  --text-display-size: 2rem;
+  --text-display-lh:   1.15;
+  --text-title-size:   1.375rem;
+  --text-title-lh:     1.25;
+  --text-heading-size: 1rem;
+  --text-heading-lh:   1.35;
+  --text-body-size:    0.875rem;
+  --text-body-lh:      1.55;
+  --text-label-size:   0.75rem;
+  --text-label-lh:     1.35;
+  --text-micro-size:   0.6875rem;
+  --text-micro-lh:     1.3;
+
+  --tracking-metric:  -0.03em;
+  --tracking-display: -0.02em;
+  --tracking-label:    0.10em;
+  --tracking-micro:    0.14em;
+
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold:600;
+
+  /* ---------------------------------------------------------------------------
+     TIER 2 — SPACE / RADIUS / MOTION / LAYOUT
+     --------------------------------------------------------------------------- */
+  --space-0: 0;      --space-1: 0.125rem; --space-2: 0.25rem;  --space-3: 0.5rem;
+  --space-4: 0.75rem;--space-5: 1rem;     --space-6: 1.5rem;   --space-7: 2rem;
+  --space-8: 2.5rem; --space-9: 3rem;
+
+  --radius-micro:   4px;
+  --radius-control: 6px;
+  --radius-card:   10px;
+  --radius-panel:  14px;
+  --radius-pill:  999px;
+
+  --motion-instant: 90ms;
+  --motion-fast:    140ms;
+  --motion-base:    200ms;
+  --motion-slow:    260ms;
+  --motion-pulse:   2000ms;
+  --ease-standard:  cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit:      cubic-bezier(0.4, 0, 1, 1);
+
+  --layout-content-max: 1600px;
+  --layout-graph-grid:   32px;
+  --layout-topbar-h:     52px;
+
+  --z-canvas: 0; --z-sticky: 10; --z-nav: 20; --z-drawer: 30;
+  --z-modal: 40; --z-palette: 50; --z-toast: 60;
+
+  /* ---------------------------------------------------------------------------
+     TIER 3 — GRAPH NODE DIMENSIONS
+     --------------------------------------------------------------------------- */
+  --node-conductor-size:  76px;
+  --node-human-size:      52px;
+  --node-department-size: 48px;
+  --node-agent-size:      40px;
+  --node-stroke-w:          1.5px;
+  --node-stroke-w-selected: 2.5px;
+
+  --node-human-ring:   var(--p-gold);
+  --node-human-ring-w: 2px;
+
+  --edge-w:            1.25px;
+  --edge-w-emphasis:   1.75px;
+  --edge-color:        rgba(168, 194, 201, 0.30);
+  --edge-color-dim:    rgba(168, 194, 201, 0.12);
+
+  /* ---------------------------------------------------------------------------
+     TIER 3 — COMPONENT DIMENSIONS
+     --------------------------------------------------------------------------- */
+  --c-badge-h: 20px;  --c-badge-px: var(--space-3); --c-badge-dot: 6px;
+  --c-chip-h: 26px;
+  --c-button-h: 36px; --c-button-h-touch: 44px;
+  --c-demo-indicator-h: 44px;
+}
+
+/* =============================================================================
+   DOMAIN SLOT SCOPE
+   Scope a subtree with data-domain-slot="N"; children read --domain-active-*.
+   ============================================================================= */
+[data-domain-slot="1"]{--domain-active-core:var(--domain-1-core);--domain-active-tint:var(--domain-1-tint);--domain-active-edge:var(--domain-1-edge);--domain-active-wash:var(--domain-1-wash);--domain-active-bloom:var(--domain-1-bloom)}
+[data-domain-slot="2"]{--domain-active-core:var(--domain-2-core);--domain-active-tint:var(--domain-2-tint);--domain-active-edge:var(--domain-2-edge);--domain-active-wash:var(--domain-2-wash);--domain-active-bloom:var(--domain-2-bloom)}
+[data-domain-slot="3"]{--domain-active-core:var(--domain-3-core);--domain-active-tint:var(--domain-3-tint);--domain-active-edge:var(--domain-3-edge);--domain-active-wash:var(--domain-3-wash);--domain-active-bloom:var(--domain-3-bloom)}
+[data-domain-slot="4"]{--domain-active-core:var(--domain-4-core);--domain-active-tint:var(--domain-4-tint);--domain-active-edge:var(--domain-4-edge);--domain-active-wash:var(--domain-4-wash);--domain-active-bloom:var(--domain-4-bloom)}
+[data-domain-slot="5"]{--domain-active-core:var(--domain-5-core);--domain-active-tint:var(--domain-5-tint);--domain-active-edge:var(--domain-5-edge);--domain-active-wash:var(--domain-5-wash);--domain-active-bloom:var(--domain-5-bloom)}
+[data-domain-slot="6"]{--domain-active-core:var(--domain-6-core);--domain-active-tint:var(--domain-6-tint);--domain-active-edge:var(--domain-6-edge);--domain-active-wash:var(--domain-6-wash);--domain-active-bloom:var(--domain-6-bloom)}
+[data-domain-slot="7"]{--domain-active-core:var(--domain-7-core);--domain-active-tint:var(--domain-7-tint);--domain-active-edge:var(--domain-7-edge);--domain-active-wash:var(--domain-7-wash);--domain-active-bloom:var(--domain-7-bloom)}
+[data-domain-slot="8"]{--domain-active-core:var(--domain-8-core);--domain-active-tint:var(--domain-8-tint);--domain-active-edge:var(--domain-8-edge);--domain-active-wash:var(--domain-8-wash);--domain-active-bloom:var(--domain-8-bloom)}
+
+/* =============================================================================
+   FOCUS — one treatment, global, never removed
+   ============================================================================= */
+:where(a, button, [role="button"], input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-shadow);
+  border-radius: var(--radius-control);
+}
+
+/* =============================================================================
+   REDUCED MOTION
+   ============================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-instant: 0ms; --motion-fast: 0ms; --motion-base: 0ms;
+    --motion-slow: 0ms;    --motion-pulse: 0ms;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* =============================================================================
+   FORCED COLORS / HIGH CONTRAST
+   Hue, glow, frost, and gradient all disappear here by design. Glyph, shape,
+   and text label must still carry every meaning.
+   ============================================================================= */
+@media (forced-colors: active) {
+  :root {
+    --line-default:  CanvasText;
+    --line-strong:   CanvasText;
+    --line-contrast: CanvasText;
+    --frost-blur: 0px;
+  }
+}

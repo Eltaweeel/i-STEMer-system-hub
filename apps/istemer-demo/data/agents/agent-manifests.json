@@ -1,0 +1,3709 @@
+{
+  "schema_version": "1.0.0",
+  "organization": "PrismIQ Agent OS",
+  "default_runtime_model": "on_demand_roles",
+  "departments": {
+    "communications": 6,
+    "sales": 6,
+    "finance": 5,
+    "clients": 6,
+    "marketing": 8,
+    "technology": 6
+  },
+  "agents": [
+    {
+      "schema_version": "1.0.0",
+      "id": "communications-intake-router",
+      "display_name": "Intake Router",
+      "department": "communications",
+      "purpose": "Normalize approved inbound channel events and route them to deterministic queues.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "inbound_event_received",
+        "manual_intake_request"
+      ],
+      "allowed_inputs": [
+        "redacted_inbound_event",
+        "routing_rules",
+        "channel_allowlist"
+      ],
+      "allowed_outputs": [
+        "normalized_feed_item",
+        "routing_proposal"
+      ],
+      "allowed_tools": [
+        "read_only_channel_ingest",
+        "rules_engine"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "send_external_message",
+        "delete_source_message"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "deterministic",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "unified-attention-digest"
+      ],
+      "skill_refs": [
+        "intake-routing@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "communications",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "communications-inbox-triage",
+      "display_name": "Inbox Triage",
+      "department": "communications",
+      "purpose": "Classify and prioritize imported communications while exposing uncertainty and escalation needs.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "feed_item_created",
+        "manual_triage"
+      ],
+      "allowed_inputs": [
+        "normalized_feed_item",
+        "priority_policy",
+        "approved_contact_context"
+      ],
+      "allowed_outputs": [
+        "triage_label",
+        "priority",
+        "escalation_candidate"
+      ],
+      "allowed_tools": [
+        "read_only_communications_feed",
+        "classification_rules"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "reply_to_contact",
+        "archive_source_message"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "standard",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "unified-attention-digest"
+      ],
+      "skill_refs": [
+        "inbox-triage@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "communications",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "communications-slack-digest",
+      "display_name": "Slack Digest",
+      "department": "communications",
+      "purpose": "Summarize permitted Slack channel snapshots and identify mentions and unanswered questions.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "scheduled_digest",
+        "manual_digest"
+      ],
+      "allowed_inputs": [
+        "approved_slack_snapshot",
+        "channel_scope",
+        "known_team_directory"
+      ],
+      "allowed_outputs": [
+        "channel_digest",
+        "mention_list",
+        "unanswered_question_list"
+      ],
+      "allowed_tools": [
+        "read_only_slack_snapshot",
+        "approved_knowledge_search"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "post_to_slack",
+        "join_channel",
+        "read_unapproved_channel"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "standard",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "slack-channel-digest"
+      ],
+      "skill_refs": [
+        "slack-digest@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "communications",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "communications-email-triage",
+      "display_name": "Email Triage",
+      "department": "communications",
+      "purpose": "Classify permitted email imports and draft routing recommendations without sending or deleting mail.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "email_imported",
+        "manual_email_review"
+      ],
+      "allowed_inputs": [
+        "redacted_email_record",
+        "routing_policy",
+        "approved_contact_context"
+      ],
+      "allowed_outputs": [
+        "email_classification",
+        "routing_proposal",
+        "reply_brief_candidate"
+      ],
+      "allowed_tools": [
+        "read_only_email_import",
+        "classification_rules"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "send_email",
+        "delete_email",
+        "change_mailbox_rules"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "standard",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "email-inbox-triage"
+      ],
+      "skill_refs": [
+        "email-triage@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "communications",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "communications-whatsapp-monitor",
+      "display_name": "WhatsApp Monitor",
+      "department": "communications",
+      "purpose": "Monitor imported WhatsApp business conversations for unanswered, risky, or urgent items.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "whatsapp_event_imported",
+        "manual_channel_review"
+      ],
+      "allowed_inputs": [
+        "redacted_whatsapp_event",
+        "response_sla_policy",
+        "risk_rules"
+      ],
+      "allowed_outputs": [
+        "attention_item",
+        "risk_flag",
+        "follow_up_candidate"
+      ],
+      "allowed_tools": [
+        "read_only_whatsapp_import",
+        "risk_rules_engine"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "send_whatsapp_message",
+        "change_business_profile",
+        "export_full_chat"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "standard",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "whatsapp-attention-monitor"
+      ],
+      "skill_refs": [
+        "whatsapp-monitor@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "communications",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "communications-escalation-coordinator",
+      "display_name": "Escalation Coordinator",
+      "department": "communications",
+      "purpose": "Combine communication risk signals into human-readable escalation packages with exact next decisions.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "escalation_candidate_created",
+        "blocked_run_requires_decision"
+      ],
+      "allowed_inputs": [
+        "attention_items",
+        "risk_policy",
+        "role_directory"
+      ],
+      "allowed_outputs": [
+        "escalation_package",
+        "recommended_owner",
+        "decision_needed"
+      ],
+      "allowed_tools": [
+        "read_only_communications_feed",
+        "approval_request_writer"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "contact_customer",
+        "mark_resolved_without_evidence"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "communications-escalation"
+      ],
+      "skill_refs": [
+        "escalation-coordination@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "communications",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "sales-lead-researcher",
+      "display_name": "Lead Researcher",
+      "department": "sales",
+      "purpose": "Research a consented or authorized lead using approved sources and distinguish facts from assumptions.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "qualification_task_created",
+        "manual_research_request"
+      ],
+      "allowed_inputs": [
+        "lead_identity_ref",
+        "approved_public_sources",
+        "business_offer_context"
+      ],
+      "allowed_outputs": [
+        "lead_research_brief",
+        "sources",
+        "unknowns"
+      ],
+      "allowed_tools": [
+        "approved_web_research",
+        "crm_read_only"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "contact_lead",
+        "purchase_personal_data",
+        "infer_protected_traits"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "lead-qualification-brief"
+      ],
+      "skill_refs": [
+        "lead-research@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "sales",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "sales-offer-strategist",
+      "display_name": "Offer Strategist",
+      "department": "sales",
+      "purpose": "Map approved offers to documented customer needs and propose testable positioning.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "offer_analysis_requested",
+        "campaign_brief_created"
+      ],
+      "allowed_inputs": [
+        "approved_offer_catalog",
+        "research_briefs",
+        "pricing_policy"
+      ],
+      "allowed_outputs": [
+        "offer_positioning_options",
+        "assumptions",
+        "validation_tests"
+      ],
+      "allowed_tools": [
+        "approved_knowledge_search",
+        "offer_catalog_read"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "change_price",
+        "promise_outcomes",
+        "approve_discount"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "offer-positioning-review"
+      ],
+      "skill_refs": [
+        "offer-strategy@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "sales",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "sales-qualification-analyst",
+      "display_name": "Qualification Analyst",
+      "department": "sales",
+      "purpose": "Apply approved qualification criteria and explain evidence, uncertainty, and missing information.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "lead_research_completed",
+        "manual_qualification"
+      ],
+      "allowed_inputs": [
+        "lead_research_brief",
+        "qualification_policy",
+        "consent_state"
+      ],
+      "allowed_outputs": [
+        "qualification_result",
+        "confidence",
+        "missing_information"
+      ],
+      "allowed_tools": [
+        "crm_read_only",
+        "qualification_rules"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "reject_lead_based_on_protected_trait",
+        "contact_lead",
+        "change_qualification_policy"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "standard",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "lead-qualification-brief"
+      ],
+      "skill_refs": [
+        "lead-qualification@1.1.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "sales",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "sales-pipeline-steward",
+      "display_name": "Pipeline Steward",
+      "department": "sales",
+      "purpose": "Detect stale, inconsistent, or ownerless pipeline records and propose deterministic next actions.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "scheduled_pipeline_check",
+        "crm_record_changed"
+      ],
+      "allowed_inputs": [
+        "aggregated_pipeline_records",
+        "stage_definitions",
+        "sla_rules"
+      ],
+      "allowed_outputs": [
+        "pipeline_health_report",
+        "stale_record_list",
+        "next_action_proposals"
+      ],
+      "allowed_tools": [
+        "crm_read_only",
+        "pipeline_rules"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "mutate_crm_without_approval",
+        "contact_lead",
+        "delete_record"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "deterministic",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "pipeline-health-check"
+      ],
+      "skill_refs": [
+        "pipeline-steward@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "sales",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "sales-proposal-drafter",
+      "display_name": "Proposal Drafter",
+      "department": "sales",
+      "purpose": "Draft bounded proposals from approved scope, pricing, and evidence without making unauthorized commitments.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "approved_proposal_brief",
+        "manual_draft_request"
+      ],
+      "allowed_inputs": [
+        "approved_scope",
+        "approved_pricing",
+        "approved_case_evidence",
+        "brand_rules"
+      ],
+      "allowed_outputs": [
+        "proposal_draft",
+        "assumptions",
+        "approval_package_candidate"
+      ],
+      "allowed_tools": [
+        "approved_knowledge_search",
+        "template_renderer"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "send_proposal",
+        "change_price",
+        "sign_contract",
+        "invent_case_study"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "proposal-drafting"
+      ],
+      "skill_refs": [
+        "proposal-drafter@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "sales",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "sales-follow-up-planner",
+      "display_name": "Follow-up Planner",
+      "department": "sales",
+      "purpose": "Prepare consent-aware follow-up sequences and timing recommendations for human approval.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "qualified_lead_ready",
+        "manual_follow_up_plan"
+      ],
+      "allowed_inputs": [
+        "lead_stage",
+        "consent_state",
+        "approved_offer",
+        "communication_history_summary"
+      ],
+      "allowed_outputs": [
+        "follow_up_plan",
+        "message_draft_candidates",
+        "stop_conditions"
+      ],
+      "allowed_tools": [
+        "crm_read_only",
+        "approved_template_library"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "send_message",
+        "override_opt_out",
+        "mass_unsolicited_outreach"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "standard",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "sales-follow-up-plan"
+      ],
+      "skill_refs": [
+        "follow-up-planner@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "sales",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "finance-revenue-reconciler",
+      "display_name": "Revenue Reconciler",
+      "department": "finance",
+      "purpose": "Reconcile imported read-only revenue records and identify unmatched or duplicate entries.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "finance_import_completed",
+        "manual_reconciliation"
+      ],
+      "allowed_inputs": [
+        "read_only_revenue_records",
+        "invoice_refs",
+        "processor_exports"
+      ],
+      "allowed_outputs": [
+        "reconciliation_report",
+        "unmatched_items",
+        "duplicate_candidates"
+      ],
+      "allowed_tools": [
+        "read_only_finance_import",
+        "deterministic_reconciliation"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "initiate_payment",
+        "refund",
+        "transfer_funds",
+        "edit_source_ledger"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "finance_minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "deterministic",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "monthly-cashflow-report"
+      ],
+      "skill_refs": [
+        "revenue-reconciliation@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "finance",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "finance-expense-classifier",
+      "display_name": "Expense Classifier",
+      "department": "finance",
+      "purpose": "Classify imported expenses under owner-approved categories and flag uncertain items.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "expense_import_completed",
+        "manual_classification"
+      ],
+      "allowed_inputs": [
+        "read_only_expense_records",
+        "category_policy"
+      ],
+      "allowed_outputs": [
+        "expense_classifications",
+        "uncertain_items",
+        "category_summary"
+      ],
+      "allowed_tools": [
+        "read_only_finance_import",
+        "classification_rules"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "pay_vendor",
+        "change_bank_details",
+        "edit_source_ledger"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "finance_minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "standard",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "expense-classification"
+      ],
+      "skill_refs": [
+        "expense-classifier@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "finance",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "finance-cashflow-reporter",
+      "display_name": "Cashflow Reporter",
+      "department": "finance",
+      "purpose": "Calculate deterministic period income, expenses, net, and trends from reconciled records.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "reconciliation_completed",
+        "report_requested"
+      ],
+      "allowed_inputs": [
+        "reconciled_finance_records",
+        "metric_definitions",
+        "period"
+      ],
+      "allowed_outputs": [
+        "cashflow_report",
+        "metric_observations",
+        "data_freshness"
+      ],
+      "allowed_tools": [
+        "read_only_finance_store",
+        "metric_engine"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "forecast_as_guarantee",
+        "initiate_transfer",
+        "alter_records"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "finance_aggregated",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "deterministic",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "monthly-cashflow-report"
+      ],
+      "skill_refs": [
+        "cashflow-report@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "finance",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "finance-budget-guardian",
+      "display_name": "Budget Guardian",
+      "department": "finance",
+      "purpose": "Compare recorded usage and approved budgets, warn on thresholds, and block new model jobs when policy requires.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "usage_recorded",
+        "budget_threshold_check"
+      ],
+      "allowed_inputs": [
+        "usage_ledger",
+        "approved_budget_policies",
+        "active_objectives"
+      ],
+      "allowed_outputs": [
+        "budget_status",
+        "threshold_alert",
+        "job_denial_reason"
+      ],
+      "allowed_tools": [
+        "usage_read_only",
+        "budget_policy_engine"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "increase_budget",
+        "approve_spend",
+        "alter_usage_ledger"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "finance_aggregated",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "deterministic",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "agent-budget-enforcement"
+      ],
+      "skill_refs": [
+        "budget-guardian@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "finance",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "finance-invoice-monitor",
+      "display_name": "Invoice Monitor",
+      "department": "finance",
+      "purpose": "Track imported invoice states and surface overdue, duplicate, or mismatched items for owner review.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "invoice_imported",
+        "scheduled_invoice_check"
+      ],
+      "allowed_inputs": [
+        "read_only_invoice_records",
+        "payment_status_imports",
+        "due_date_policy"
+      ],
+      "allowed_outputs": [
+        "invoice_health_report",
+        "overdue_list",
+        "mismatch_candidates"
+      ],
+      "allowed_tools": [
+        "read_only_invoice_store",
+        "invoice_rules"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "issue_invoice",
+        "mark_paid_without_evidence",
+        "send_collection_message"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "finance_minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "deterministic",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "invoice-health-monitor"
+      ],
+      "skill_refs": [
+        "invoice-monitor@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "finance",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "clients-onboarding-coordinator",
+      "display_name": "Onboarding Coordinator",
+      "department": "clients",
+      "purpose": "Prepare onboarding plans, required information lists, and accountable handoffs from approved contracts/scopes.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "client_approved_for_onboarding",
+        "manual_onboarding_plan"
+      ],
+      "allowed_inputs": [
+        "approved_scope",
+        "client_profile",
+        "onboarding_template"
+      ],
+      "allowed_outputs": [
+        "onboarding_plan",
+        "information_request_draft",
+        "handoff_checklist"
+      ],
+      "allowed_tools": [
+        "client_record_read",
+        "template_renderer"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "contact_client",
+        "change_scope",
+        "request_unnecessary_sensitive_data"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "standard",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "client-onboarding-plan"
+      ],
+      "skill_refs": [
+        "onboarding-coordinator@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "clients",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "clients-delivery-planner",
+      "display_name": "Delivery Planner",
+      "department": "clients",
+      "purpose": "Convert approved scope and objectives into traceable milestones, tasks, dependencies, and review points.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "approved_scope_received",
+        "delivery_replan_requested"
+      ],
+      "allowed_inputs": [
+        "approved_scope",
+        "objectives",
+        "capacity_snapshot"
+      ],
+      "allowed_outputs": [
+        "delivery_plan",
+        "milestones",
+        "dependency_map",
+        "risk_assumptions"
+      ],
+      "allowed_tools": [
+        "task_store_read",
+        "planning_rules"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "commit_unapproved_deadline",
+        "change_contract",
+        "assign_unavailable_human"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "client-delivery-plan"
+      ],
+      "skill_refs": [
+        "delivery-planner@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "clients",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "clients-meeting-summarizer",
+      "display_name": "Meeting Summarizer",
+      "department": "clients",
+      "purpose": "Turn authorized meeting transcripts into factual summaries, decisions, actions, and unresolved questions.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "meeting_transcript_uploaded",
+        "manual_summary_request"
+      ],
+      "allowed_inputs": [
+        "authorized_transcript",
+        "participant_directory",
+        "active_objectives"
+      ],
+      "allowed_outputs": [
+        "meeting_summary",
+        "decision_candidates",
+        "action_candidates",
+        "unknowns"
+      ],
+      "allowed_tools": [
+        "transcript_reader",
+        "approved_knowledge_search"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "record_meeting",
+        "send_summary",
+        "promote_unreviewed_decision"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "standard",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "meeting-summary"
+      ],
+      "skill_refs": [
+        "meeting-summarizer@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "clients",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "clients-feedback-analyst",
+      "display_name": "Feedback Analyst",
+      "department": "clients",
+      "purpose": "Classify approved customer feedback, identify themes, and preserve verbatim evidence separately from interpretation.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "feedback_imported",
+        "analysis_requested"
+      ],
+      "allowed_inputs": [
+        "approved_feedback_records",
+        "taxonomy",
+        "product_context"
+      ],
+      "allowed_outputs": [
+        "feedback_analysis",
+        "themes",
+        "evidence_refs",
+        "confidence"
+      ],
+      "allowed_tools": [
+        "feedback_read_only",
+        "analysis_tools"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "reply_to_customer",
+        "delete_feedback",
+        "fabricate_quote"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "feedback-analysis"
+      ],
+      "skill_refs": [
+        "feedback-analyst@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "clients",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "clients-risk-monitor",
+      "display_name": "Risk Monitor",
+      "department": "clients",
+      "purpose": "Detect delivery, communication, satisfaction, and renewal risks using explicit rules and bounded interpretation.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "delivery_status_changed",
+        "scheduled_client_health"
+      ],
+      "allowed_inputs": [
+        "delivery_metrics",
+        "communication_summary",
+        "feedback_signals",
+        "risk_policy"
+      ],
+      "allowed_outputs": [
+        "client_risk_report",
+        "risk_flags",
+        "decision_needed"
+      ],
+      "allowed_tools": [
+        "client_metrics_read",
+        "risk_rules_engine"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "contact_client",
+        "alter_health_score_definition",
+        "promise_remediation"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "standard",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "client-risk-review"
+      ],
+      "skill_refs": [
+        "client-risk@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "clients",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "clients-renewal-planner",
+      "display_name": "Renewal Planner",
+      "department": "clients",
+      "purpose": "Prepare evidence-based renewal briefs and options without committing price, terms, or outcomes.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "renewal_window_opened",
+        "manual_renewal_brief"
+      ],
+      "allowed_inputs": [
+        "approved_contract_summary",
+        "delivery_evidence",
+        "client_feedback",
+        "pricing_policy"
+      ],
+      "allowed_outputs": [
+        "renewal_brief",
+        "option_drafts",
+        "risks",
+        "approval_package_candidate"
+      ],
+      "allowed_tools": [
+        "client_record_read",
+        "approved_knowledge_search"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "send_renewal_offer",
+        "change_terms",
+        "approve_discount",
+        "promise_results"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "renewal-planning"
+      ],
+      "skill_refs": [
+        "renewal-planner@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "clients",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "marketing-market-researcher",
+      "display_name": "Market Researcher",
+      "department": "marketing",
+      "purpose": "Research audiences, competitors, demand signals, and opportunities with citations and capture dates.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "research_task_created",
+        "campaign_discovery"
+      ],
+      "allowed_inputs": [
+        "research_question",
+        "approved_business_context",
+        "source_policy"
+      ],
+      "allowed_outputs": [
+        "research_brief",
+        "sources",
+        "assumptions",
+        "confidence"
+      ],
+      "allowed_tools": [
+        "approved_web_research",
+        "approved_knowledge_search"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "scrape_private_data",
+        "invent_source",
+        "present_stale_fact_as_current"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "campaign-content-cycle"
+      ],
+      "skill_refs": [
+        "market-research@2.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "marketing",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "marketing-content-strategist",
+      "display_name": "Content Strategist",
+      "department": "marketing",
+      "purpose": "Translate approved objectives and research into a channel-aware content strategy and test plan.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "research_brief_completed",
+        "strategy_requested"
+      ],
+      "allowed_inputs": [
+        "approved_objective",
+        "research_brief",
+        "brand_rules",
+        "channel_constraints"
+      ],
+      "allowed_outputs": [
+        "content_strategy",
+        "content_pillars",
+        "test_plan",
+        "success_metrics"
+      ],
+      "allowed_tools": [
+        "approved_knowledge_search",
+        "calendar_read_only"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "publish_content",
+        "change_business_objective",
+        "invent_metric"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "campaign-content-cycle"
+      ],
+      "skill_refs": [
+        "content-strategy@2.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "marketing",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "marketing-copywriter",
+      "display_name": "Copywriter",
+      "department": "marketing",
+      "purpose": "Draft truthful channel-specific copy from approved briefs, evidence, and brand rules.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "approved_content_brief",
+        "revision_requested"
+      ],
+      "allowed_inputs": [
+        "approved_brief",
+        "approved_sources",
+        "brand_voice",
+        "channel_constraints"
+      ],
+      "allowed_outputs": [
+        "copy_draft",
+        "variants",
+        "source_refs",
+        "assumptions"
+      ],
+      "allowed_tools": [
+        "approved_knowledge_search",
+        "template_library"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "publish_content",
+        "invent_claim",
+        "use_unapproved_testimonial",
+        "message_customer"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "campaign-content-cycle"
+      ],
+      "skill_refs": [
+        "copywriting@2.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "marketing",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "marketing-creative-brief-builder",
+      "display_name": "Creative Brief Builder",
+      "department": "marketing",
+      "purpose": "Convert approved concepts into structured visual briefs without generating false claims or proprietary copies.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "content_concept_approved",
+        "creative_brief_requested"
+      ],
+      "allowed_inputs": [
+        "approved_concept",
+        "brand_system",
+        "asset_inventory",
+        "channel_specs"
+      ],
+      "allowed_outputs": [
+        "creative_brief",
+        "asset_requirements",
+        "composition_options",
+        "accessibility_notes"
+      ],
+      "allowed_tools": [
+        "asset_catalog_read",
+        "brand_rules_read"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "publish_asset",
+        "copy_proprietary_design",
+        "invent_product_visual"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "standard",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "campaign-content-cycle"
+      ],
+      "skill_refs": [
+        "creative-brief@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "marketing",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "marketing-brand-qa",
+      "display_name": "Brand QA",
+      "department": "marketing",
+      "purpose": "Review exact artifact revisions for evidence, brand, policy, privacy, duplication, and channel compliance.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "artifact_revision_ready_for_qa"
+      ],
+      "allowed_inputs": [
+        "artifact_revision",
+        "approved_sources",
+        "brand_policy",
+        "channel_policy"
+      ],
+      "allowed_outputs": [
+        "qa_result",
+        "blocking_findings",
+        "revision_requests",
+        "risk_class"
+      ],
+      "allowed_tools": [
+        "artifact_read_only",
+        "policy_rules",
+        "approved_source_lookup"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "approve_own_generated_content",
+        "edit_artifact_silently",
+        "waive_owner_only_requirement"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "campaign-content-cycle"
+      ],
+      "skill_refs": [
+        "brand-qa@2.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "marketing",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "marketing-channel-adapter",
+      "display_name": "Channel Adapter",
+      "department": "marketing",
+      "purpose": "Adapt an approved canonical concept into channel variants while preserving facts and approval lineage.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "canonical_concept_approved_for_adaptation"
+      ],
+      "allowed_inputs": [
+        "approved_canonical_concept",
+        "channel_constraints",
+        "approved_assets"
+      ],
+      "allowed_outputs": [
+        "channel_variants",
+        "constraint_report",
+        "lineage_refs"
+      ],
+      "allowed_tools": [
+        "template_library",
+        "channel_spec_read"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "publish_content",
+        "change_core_claim",
+        "remove_required_disclosure"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "standard",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "channel-adaptation"
+      ],
+      "skill_refs": [
+        "channel-adapter@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "marketing",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "marketing-community-analyst",
+      "display_name": "Community Analyst",
+      "department": "marketing",
+      "purpose": "Classify imported community messages/comments, identify risk, and draft reply candidates for approval.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "community_event_imported",
+        "manual_community_review"
+      ],
+      "allowed_inputs": [
+        "redacted_community_event",
+        "risk_policy",
+        "approved_faq",
+        "brand_voice"
+      ],
+      "allowed_outputs": [
+        "classification",
+        "risk_flag",
+        "reply_draft_candidate",
+        "escalation_candidate"
+      ],
+      "allowed_tools": [
+        "community_read_only",
+        "approved_knowledge_search"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "reply_publicly",
+        "send_dm",
+        "hide_or_delete_comment",
+        "override_opt_out"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "community-response-review"
+      ],
+      "skill_refs": [
+        "community-analysis@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "marketing",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "marketing-performance-analyst",
+      "display_name": "Performance Analyst",
+      "department": "marketing",
+      "purpose": "Interpret trusted campaign metrics against objectives and propose tests without claiming unsupported causality.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "metric_period_closed",
+        "analysis_requested"
+      ],
+      "allowed_inputs": [
+        "trusted_metric_observations",
+        "objective",
+        "campaign_lineage",
+        "metric_definitions"
+      ],
+      "allowed_outputs": [
+        "performance_analysis",
+        "anomalies",
+        "test_recommendations",
+        "limitations"
+      ],
+      "allowed_tools": [
+        "analytics_read_only",
+        "deterministic_metric_engine"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "change_metric_definition",
+        "alter_source_data",
+        "claim_causality_without_evidence"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "campaign-performance-review"
+      ],
+      "skill_refs": [
+        "performance-analysis@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "marketing",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "technology-systems-architect",
+      "display_name": "Systems Architect",
+      "department": "technology",
+      "purpose": "Evaluate system changes against architecture, security, operations, and simplicity constraints.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "architecture_decision_requested",
+        "system_change_proposed"
+      ],
+      "allowed_inputs": [
+        "approved_requirements",
+        "current_architecture",
+        "constraints",
+        "threat_model"
+      ],
+      "allowed_outputs": [
+        "architecture_options",
+        "tradeoff_analysis",
+        "adr_draft",
+        "risks"
+      ],
+      "allowed_tools": [
+        "repo_read_only",
+        "approved_docs_search"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "deploy_change",
+        "grant_access",
+        "approve_security_exception"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "architecture-review"
+      ],
+      "skill_refs": [
+        "systems-architecture@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "technology",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "technology-automation-builder",
+      "display_name": "Automation Builder",
+      "department": "technology",
+      "purpose": "Design and implement tested internal automations in isolated development scope from approved specifications.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "approved_automation_task"
+      ],
+      "allowed_inputs": [
+        "approved_spec",
+        "repo_scope",
+        "test_commands",
+        "tool_policy"
+      ],
+      "allowed_outputs": [
+        "code_change_candidate",
+        "test_evidence",
+        "diff_summary",
+        "deployment_notes"
+      ],
+      "allowed_tools": [
+        "scoped_repo_workspace",
+        "test_runner"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "deploy_production",
+        "access_unscoped_repo",
+        "embed_secret",
+        "skip_tests"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "automation-build"
+      ],
+      "skill_refs": [
+        "automation-builder@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "technology",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "technology-integration-monitor",
+      "display_name": "Integration Monitor",
+      "department": "technology",
+      "purpose": "Run deterministic connector and import health checks and surface stale, failed, or mis-scoped integrations.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "scheduled_health_check",
+        "connector_event"
+      ],
+      "allowed_inputs": [
+        "connector_status_metadata",
+        "import_run_metadata",
+        "scope_policy"
+      ],
+      "allowed_outputs": [
+        "integration_health_report",
+        "stale_sources",
+        "incident_candidate"
+      ],
+      "allowed_tools": [
+        "connector_health_read",
+        "system_check_runner"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "read_credential_value",
+        "rotate_credential",
+        "mutate_connector"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "deterministic",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "integration-health-monitor"
+      ],
+      "skill_refs": [
+        "integration-monitor@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "technology",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "technology-knowledge-auditor",
+      "display_name": "Knowledge Auditor",
+      "department": "technology",
+      "purpose": "Audit approved knowledge stores for broken links, orphan notes, stale metadata, conflicts, and organization drift.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "scheduled_knowledge_audit",
+        "manual_audit"
+      ],
+      "allowed_inputs": [
+        "approved_vault_snapshot",
+        "role_registry",
+        "sop_registry",
+        "skill_registry"
+      ],
+      "allowed_outputs": [
+        "knowledge_health_report",
+        "remediation_queue",
+        "drift_findings"
+      ],
+      "allowed_tools": [
+        "read_only_vault",
+        "schema_validator",
+        "link_checker"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "delete_canonical_note",
+        "promote_candidate",
+        "expose_sensitive_note"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "deterministic",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "knowledge-health-audit"
+      ],
+      "skill_refs": [
+        "knowledge-health@2.1.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "technology",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "technology-security-reviewer",
+      "display_name": "Security Reviewer",
+      "department": "technology",
+      "purpose": "Review proposed changes and configurations for authorization, secret, data-isolation, approval, and supply-chain risks.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "security_review_requested",
+        "sensitive_change_proposed"
+      ],
+      "allowed_inputs": [
+        "change_diff",
+        "threat_model",
+        "policy",
+        "dependency_metadata"
+      ],
+      "allowed_outputs": [
+        "security_review",
+        "blocking_findings",
+        "required_tests",
+        "residual_risk"
+      ],
+      "allowed_tools": [
+        "repo_read_only",
+        "static_security_scanner",
+        "dependency_audit"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "approve_exception",
+        "deploy_change",
+        "reveal_secret"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "advanced",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "security-review"
+      ],
+      "skill_refs": [
+        "security-review@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "technology",
+        "show_in_organization": true
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "technology-release-verifier",
+      "display_name": "Release Verifier",
+      "department": "technology",
+      "purpose": "Execute approved verification commands and collect real build, test, migration, browser, and deployment evidence.",
+      "runtime_mode": "on_demand_job",
+      "reports_to": "hermes-conductor",
+      "enabled_by_default": false,
+      "triggers": [
+        "release_candidate_ready",
+        "verification_requested"
+      ],
+      "allowed_inputs": [
+        "release_ref",
+        "verification_plan",
+        "test_environment"
+      ],
+      "allowed_outputs": [
+        "verification_report",
+        "command_outputs",
+        "screenshots_refs",
+        "blockers"
+      ],
+      "allowed_tools": [
+        "test_runner",
+        "browser_test_runner",
+        "staging_health_read"
+      ],
+      "prohibited_actions": [
+        "approve_own_output",
+        "read_raw_credentials",
+        "grant_permissions",
+        "bypass_action_broker",
+        "forge_human_approval",
+        "deploy_production",
+        "fabricate_test_output",
+        "ignore_failed_gate"
+      ],
+      "approval_policy": {
+        "default": "tier_0_internal",
+        "external_publish_or_send": "persisted_exact_revision",
+        "spend_or_finance_mutation": "owner_only",
+        "permissions_or_deletion": "owner_only"
+      },
+      "data_policy": {
+        "scope": "minimum_necessary",
+        "customer_pii": "deny_unless_explicit_task_scope",
+        "financial_data": "deny_unless_finance_role_and_explicit_scope",
+        "retention": "artifact_and_audit_refs_only"
+      },
+      "context_policy": {
+        "max_documents": 8,
+        "allowed_sources": [
+          "approved_knowledge",
+          "task_inputs",
+          "authoritative_control_plane"
+        ],
+        "forbidden_sources": [
+          "unreviewed_global_vault_dump",
+          "other_client_data",
+          "raw_secrets"
+        ]
+      },
+      "model_policy": {
+        "preferred_tier": "deterministic",
+        "max_attempts": 2,
+        "structured_output_required": true,
+        "llm_optional_when_deterministic": true
+      },
+      "budget_policy": {
+        "max_input_tokens": 12000,
+        "max_output_tokens": 3000,
+        "daily_job_cap": 20,
+        "deny_when_budget_exhausted": true
+      },
+      "sop_refs": [
+        "release-verification"
+      ],
+      "skill_refs": [
+        "release-verifier@1.0.0"
+      ],
+      "completion_evidence": [
+        "schema_valid_output",
+        "source_or_input_refs",
+        "assumptions_and_confidence",
+        "risk_and_blocked_reason",
+        "usage_metadata"
+      ],
+      "health_checks": [
+        "manifest_valid",
+        "dependencies_available",
+        "budget_available",
+        "provider_or_deterministic_path_available"
+      ],
+      "ui": {
+        "glyph": "agent",
+        "accent_ref": "technology",
+        "show_in_organization": true
+      }
+    }
+  ]
+}
