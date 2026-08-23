@@ -6,6 +6,7 @@ export * from './activity';
 export * from './agent';
 export * from './coordination';
 export * from './workflow';
+export * from './approval';
 export * from './ports';
 export * from './clock';
 export * from './schemas';

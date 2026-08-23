@@ -7,4 +7,8 @@ export * from './components/CoordinationCycleView';
 export * from './components/WorkflowDiagram';
 export * from './components/DesignConceptCard';
 export * from './components/AgentDetailView';
+export * from './components/ApprovalInboxView';
+export * from './components/ApprovalDetailView';
+export * from './components/RehearsalFlowPanel';
+export * from './components/NotificationPreviewCard';
 export * from './contrast';

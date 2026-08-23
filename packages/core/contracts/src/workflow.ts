@@ -76,10 +76,5 @@ export interface WorkflowDetail {
   readonly designConcepts: readonly DesignConcept[];
 }
 
-export interface ApprovalPackage {
-  readonly meta: ViewMeta;
-  readonly id: string;
-  readonly title: string;
-  readonly requester: string;
-  readonly requiredTier: 'tier_0_internal' | 'persisted_exact_revision' | 'owner_only';
-}
+// ApprovalPackage has moved to ./approval (Batch 3a expansion).
+// Re-exported from index.ts for consumers who import from @bagos/contracts.

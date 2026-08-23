@@ -5,6 +5,7 @@ import {
   type AgentListQuery,
   type AgentQueries,
   type AgentSummary,
+  type ApprovalGetQuery,
   type ApprovalListQuery,
   type ApprovalPackage,
   type ApprovalQueries,
@@ -25,6 +26,7 @@ import {
 import { FIXTURE_DATA_VERSION, FIXTURE_NOW, offsetMinutes } from '@bagos/fixtures';
 import { COORDINATION_CYCLE } from '../fixtures/coordination-cycle';
 import { ORGANIZATION_PROJECTION } from '../fixtures/organization';
+import { APPROVAL_PACKAGES } from '../fixtures/approvals';
 import { CAMPAIGN_WORKFLOW, WORKFLOW_SUMMARIES } from '../fixtures/workflows';
 import { slotForDomain } from '../tenant/tenant.config';
 
@@ -257,7 +259,11 @@ export class FixtureAdapter
   }
 
   async listApprovalPackages(_query: ApprovalListQuery): Promise<readonly ApprovalPackage[]> {
-    return [];
+    return APPROVAL_PACKAGES;
+  }
+
+  async getApprovalPackage(query: ApprovalGetQuery): Promise<ApprovalPackage | null> {
+    return APPROVAL_PACKAGES.find((p) => p.id === query.id) ?? null;
   }
 
   async getCoordinationCycle(_query: CoordinationQueryArgs): Promise<CoordinationCycle> {
@@ -294,4 +300,13 @@ export function agentIdForSlug(slug: string): string | null {
 
 export function workflowIdForSlug(slug: string): string | null {
   return WORKFLOW_ROUTES.find((r) => r.slug === slug)?.id ?? null;
+}
+
+export const APPROVAL_ROUTES: readonly RouteEntry[] = APPROVAL_PACKAGES.map((p) => ({
+  slug: toRouteSlug(p.id),
+  id: p.id,
+}));
+
+export function approvalIdForSlug(slug: string): string | null {
+  return APPROVAL_ROUTES.find((r) => r.slug === slug)?.id ?? null;
 }

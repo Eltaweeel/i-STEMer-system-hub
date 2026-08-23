@@ -1,7 +1,8 @@
 import type { AgentDetail, AgentSummary } from './agent';
+import type { ApprovalPackage } from './approval';
 import type { CoordinationCycle } from './coordination';
 import type { OrganizationProjection } from './graph';
-import type { ApprovalPackage, WorkflowDetail, WorkflowSummary } from './workflow';
+import type { WorkflowDetail, WorkflowSummary } from './workflow';
 
 // Every port is async from day one. That is what prevents a rewrite when a
 // real adapter arrives. NO command port and NO event port ship in Batch 1:
@@ -39,8 +40,12 @@ export interface WorkflowQueries {
 export interface ApprovalListQuery {
   readonly domainSlot?: number;
 }
+export interface ApprovalGetQuery {
+  readonly id: string;
+}
 export interface ApprovalQueries {
   listApprovalPackages(query: ApprovalListQuery): Promise<readonly ApprovalPackage[]>;
+  getApprovalPackage(query: ApprovalGetQuery): Promise<ApprovalPackage | null>;
 }
 
 export interface CoordinationQueryArgs {

@@ -33,6 +33,7 @@ const NAV = [
   { href: '/coordination-cycle/', label: 'Coordination cycle' },
   { href: '/workflows/', label: 'Workflows' },
   { href: '/agents/', label: 'Agents' },
+  { href: '/approvals/', label: 'Approvals' },
 ];
 
 export default function RootLayout({ children }: { children: ReactNode }): JSX.Element {
