@@ -22,8 +22,9 @@ export default async function OrganizationPage(): Promise<React.JSX.Element> {
           {projection.title}
         </h1>
         <p style={{ color: 'var(--text-secondary)', margin: 0, maxWidth: '72ch' }}>
-          A human principal, one conductor, and three specialist agents. Every timestamp on
-          this page derives from the frozen fixture instant; times are shown in {FIXTURE_TZ}.
+          Hadeer oversees Adam (Main Orchestrator), who coordinates Nour (Content Creator),
+          Omar (Competitor Analyst), and Ziad (Reel Analyst). Every timestamp on this page
+          derives from the frozen fixture instant; times are shown in {FIXTURE_TZ}.
         </p>
         <p
           style={{

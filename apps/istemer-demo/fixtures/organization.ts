@@ -10,12 +10,13 @@ import {
 } from '@bagos/contracts';
 import { FIXTURE_DATA_VERSION, FIXTURE_NOW, offsetMinutes } from '@bagos/fixtures';
 import { slotForDomain } from '../tenant/tenant.config';
+import { HERMES_TEAM } from './hermes-team';
 
 // -----------------------------------------------------------------------------
 // The i-STEMer tenant's walking-slice organization projection.
 // Every timestamp is derived from FIXTURE_NOW via offsetMinutes — none are
 // typed by hand and none read the wall clock.
-// The Hadeer -> Hermes -> {Marketing, Social, Creative} slice comes from here.
+// The Hadeer -> Adam -> initial team slice comes from the named Hermes roster.
 // -----------------------------------------------------------------------------
 
 const META: ViewMeta = {
@@ -41,16 +42,29 @@ const HADEER = {
   avatarLabel: 'H',
 } satisfies HumanAuthorityNode;
 
-// Conductor — one instance.
+const ADAM_MEMBER = HERMES_TEAM.members.find((member) => member.id === HERMES_TEAM.orchestratorId);
+if (!ADAM_MEMBER) throw new Error('Hermes team fixture is missing its orchestrator.');
+
+const INITIAL_MEMBERS = HERMES_TEAM.members.filter(
+  (member) => member.phase === 'initial' && member.id !== HERMES_TEAM.orchestratorId,
+);
+
+function domainForRole(role: string): string {
+  if (role === 'Reel Analyst') return 'creative';
+  if (role === 'Competitor Analyst') return 'marketing';
+  if (role === 'Content Creator') return 'marketing';
+  return 'executive';
+}
+
+// Conductor — the named Adam orchestrator.
 export const HERMES_CONDUCTOR: ConductorRecord = {
-  id: 'conductor:hermes',
-  displayName: 'Hermes Conductor',
-  purpose:
-    'Route approved requests to the correct specialist agent; enforce approval gates; refuse anything outside its policy.',
+  id: ADAM_MEMBER.id,
+  displayName: ADAM_MEMBER.displayName,
+  purpose: HERMES_TEAM.mission,
   responsibilities: [
-    'Dispatch tasks to specialist agents based on approved routing rules.',
-    'Attach an approval requirement to every external action.',
-    'Report structured refusals when a request violates policy.',
+    ADAM_MEMBER.responsibility,
+    'Dispatch approved requests to the correct named specialist.',
+    'Enforce approval gates and refuse requests outside the delegated authority.',
   ],
 } as const;
 
@@ -58,9 +72,9 @@ const HERMES_NODE = {
   kind: 'conductor',
   id: HERMES_CONDUCTOR.id,
   label: HERMES_CONDUCTOR.displayName,
-  entityHref: '/organization?selected=conductor:hermes',
+  entityHref: `/organization?selected=${HERMES_CONDUCTOR.id}`,
   accessibleDescription:
-    'Hermes Conductor coordinates the specialist agents beneath it. It runs on demand and never acts without an approval gate.',
+    'Adam (Main Orchestrator) coordinates the named specialist agents beneath him. He runs on demand and never acts without an approval gate.',
   status: 'idle',
   freshness: { capturedAt: FIXTURE_NOW, isStale: false },
   demoStatus: {
@@ -94,55 +108,23 @@ export const DEPARTMENTS: readonly DepartmentRecord[] = [
   },
 ] as const;
 
-// Agents — three, walking slice only. Fabrication of activity is forbidden;
-// each carries `idle` because no persisted run exists in fixtures.
-const MARKETING_AGENT = {
-  kind: 'agent',
-  id: 'agent:marketing',
-  label: 'Marketing',
-  entityHref: '/organization?selected=agent:marketing',
+// Agents — the agreed initial team only. Planned expansion roles remain in the
+// Hermes team view until their organization nodes are activated.
+const INITIAL_AGENT_NODES = INITIAL_MEMBERS.map((member, index) => ({
+  kind: 'agent' as const,
+  id: member.id,
+  label: member.displayName,
+  entityHref: `/organization?selected=${member.id}`,
   accessibleDescription:
-    'Marketing agent — plans and drafts campaigns. Reports to Hermes Conductor. Currently idle.',
-  status: 'idle',
-  freshness: { capturedAt: offsetMinutes(-42), isStale: false },
-  domainSlot: slotForDomain('marketing'),
+    `${member.displayName} is the ${member.role}. ${member.responsibility} Reports to ${member.reportsToLabel}. Currently idle in this fixture.`,
+  status: 'idle' as const,
+  freshness: { capturedAt: offsetMinutes(-42 - index * 24), isStale: false },
+  domainSlot: slotForDomain(domainForRole(member.role)),
   demoStatus: {
-    kind: 'wired_no_runtime',
-    note: 'Persona and policy declared; no runtime attached.',
+    kind: 'wired_no_runtime' as const,
+    note: 'Named profile is declared in the fixture; no runtime is attached.',
   },
-} satisfies AgentNode;
-
-const SOCIAL_AGENT = {
-  kind: 'agent',
-  id: 'agent:social-media',
-  label: 'Social Media',
-  entityHref: '/organization?selected=agent:social-media',
-  accessibleDescription:
-    'Social Media agent — drafts approved-only posts. Reports to Hermes Conductor. Currently idle.',
-  status: 'idle',
-  freshness: { capturedAt: offsetMinutes(-90), isStale: false },
-  domainSlot: slotForDomain('social'),
-  demoStatus: {
-    kind: 'wired_no_runtime',
-    note: 'Persona and policy declared; no runtime attached.',
-  },
-} satisfies AgentNode;
-
-const DESIGNER_AGENT = {
-  kind: 'agent',
-  id: 'agent:designer',
-  label: 'Designer',
-  entityHref: '/organization?selected=agent:designer',
-  accessibleDescription:
-    'Designer agent — produces visual artefacts on request. Reports to Hermes Conductor. Currently idle.',
-  status: 'idle',
-  freshness: { capturedAt: offsetMinutes(-15), isStale: false },
-  domainSlot: slotForDomain('creative'),
-  demoStatus: {
-    kind: 'wired_no_runtime',
-    note: 'Persona and policy declared; no runtime attached.',
-  },
-} satisfies AgentNode;
+})) satisfies readonly AgentNode[];
 
 // Edges — reports_to lines carry the accessible sentences the tree renders.
 const EDGES: readonly GraphEdge[] = [
@@ -151,35 +133,21 @@ const EDGES: readonly GraphEdge[] = [
     from: HERMES_CONDUCTOR.id,
     to: HADEER.id,
     kind: 'reports_to',
-    accessibleDescription: 'Hermes Conductor reports to Hadeer (human principal).',
+    accessibleDescription: 'Adam (Main Orchestrator) reports to Hadeer (human principal).',
   },
-  {
-    id: 'edge:marketing-reports-to-hermes',
-    from: MARKETING_AGENT.id,
+  ...INITIAL_AGENT_NODES.map((agent) => ({
+    id: `edge:${agent.id.slice('agent:'.length)}-reports-to-adam`,
+    from: agent.id,
     to: HERMES_CONDUCTOR.id,
-    kind: 'reports_to',
-    accessibleDescription: 'Marketing agent reports to Hermes Conductor.',
-  },
-  {
-    id: 'edge:social-reports-to-hermes',
-    from: SOCIAL_AGENT.id,
-    to: HERMES_CONDUCTOR.id,
-    kind: 'reports_to',
-    accessibleDescription: 'Social Media agent reports to Hermes Conductor.',
-  },
-  {
-    id: 'edge:designer-reports-to-hermes',
-    from: DESIGNER_AGENT.id,
-    to: HERMES_CONDUCTOR.id,
-    kind: 'reports_to',
-    accessibleDescription: 'Designer agent reports to Hermes Conductor.',
-  },
+    kind: 'reports_to' as const,
+    accessibleDescription: `${agent.label} reports to Adam (Main Orchestrator).`,
+  })),
 ];
 
 export const ORGANIZATION_PROJECTION: OrganizationProjection = {
   meta: META,
   id: 'organization:istemer-demo',
   title: 'Organization — i-STEMer Demo',
-  nodes: [HADEER, HERMES_NODE, MARKETING_AGENT, SOCIAL_AGENT, DESIGNER_AGENT],
+  nodes: [HADEER, HERMES_NODE, ...INITIAL_AGENT_NODES],
   edges: EDGES,
 } as const;
