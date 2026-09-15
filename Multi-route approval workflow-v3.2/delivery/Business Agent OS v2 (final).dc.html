@@ -1,0 +1,2100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --sans:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --deep:#e7efeb; --canvas:#f5f8f6; --nav:#eff4f2; --panel:#ffffff; --raised:#f8faf9; --hover:#e4eee8;
+  --text:#08161d; --text2:#223c46; --muted:#415b66; --faint:#546e79;
+  --brand:#b3d100; --brand-text:#4f5c00; --on-brand:#0d1a0f;
+  --exec:#075f6c; --social:#0c6534; --creative:#5a25e6; --marketing:#a80d5d;
+  --amber:#7d4303; --status:#415b66; --error:#b40019; --ok:#0c6534;
+  --panel-fill:#ffffff; --panel-border:rgba(20,58,41,0.16); --hair:rgba(20,58,41,0.12);
+  --blur:none; --grid:rgba(20,58,41,0.07); --focus:#08161d;
+  --bloom-strong:none; --bloom-soft:none; --hub-shadow:0 8px 26px rgba(20,58,41,0.18);
+  --surface-glow:radial-gradient(120% 90% at 50% 78%,#dde9e3 0%,#f5f8f6 62%,#e7efeb 100%);
+  --s1:6px; --s2:10px; --s3:14px; --s4:18px; --s5:24px; --s6:32px;
+  --r-sm:6px; --r-md:8px; --r-lg:14px; --r-xl:16px;
+  --motion:180ms cubic-bezier(0.2,0,0,1);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --deep:#050c09; --canvas:#091710; --nav:#0c1d14; --panel:#0e2118; --raised:#132d20; --hover:#1b4230;
+    --text:#eaf6f8; --text2:#b7ccd2; --muted:#9ab3bc; --faint:#88a1ab;
+    --brand-text:#c3e11a;
+    --exec:#4fdcf2; --social:#5be79b; --creative:#b79dff; --marketing:#fb85c0;
+    --amber:#ffb45c; --status:#9ab3bc; --error:#ff8895; --ok:#5be79b;
+    --panel-fill:rgba(200,225,210,0.055); --panel-border:rgba(200,225,210,0.16); --hair:rgba(200,225,210,0.12);
+    --blur:blur(14px); --grid:rgba(94,190,140,0.10); --focus:#eaf6f8;
+    --bloom-strong:0 0 34px rgba(255,180,92,0.40); --bloom-soft:0 0 16px rgba(200,225,210,0.18); --hub-shadow:none;
+    --surface-glow:radial-gradient(120% 90% at 50% 78%,#173a29 0%,#091710 62%,#050c09 100%);
+  }
+}
+:root[data-theme="dark"]{
+  --deep:#050c09; --canvas:#091710; --nav:#0c1d14; --panel:#0e2118; --raised:#132d20; --hover:#1b4230;
+  --text:#eaf6f8; --text2:#b7ccd2; --muted:#9ab3bc; --faint:#88a1ab;
+  --brand-text:#c3e11a;
+  --exec:#4fdcf2; --social:#5be79b; --creative:#b79dff; --marketing:#fb85c0;
+  --amber:#ffb45c; --status:#9ab3bc; --error:#ff8895; --ok:#5be79b;
+  --panel-fill:rgba(200,225,210,0.055); --panel-border:rgba(200,225,210,0.16); --hair:rgba(200,225,210,0.12);
+  --blur:blur(14px); --grid:rgba(94,190,140,0.10); --focus:#eaf6f8;
+  --bloom-strong:0 0 34px rgba(255,180,92,0.40); --bloom-soft:0 0 16px rgba(200,225,210,0.18); --hub-shadow:none;
+  --surface-glow:radial-gradient(120% 90% at 50% 78%,#173a29 0%,#091710 62%,#050c09 100%);
+}
+html{font-size:16px}
+html,body{overflow-x:hidden}
+*{box-sizing:border-box}
+body{margin:0;background:var(--deep);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--brand-text);text-decoration:underline;text-underline-offset:2px}
+a:hover{color:var(--text)}
+button,select,input,textarea{font-family:var(--sans);font-size:15px}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+[data-skip]{position:absolute;left:-9999px;top:0;z-index:90;background:var(--brand);color:var(--on-brand);padding:12px 16px;border-radius:0 0 var(--r-md) 0;font-family:var(--mono);font-size:13px;text-decoration:none}
+[data-skip]:focus{left:0}
+
+[data-card]{border:1px solid var(--panel-border);border-radius:var(--r-lg);padding:var(--s4);background:var(--panel-fill);backdrop-filter:var(--blur);min-width:0}
+[data-card="raised"]{background:var(--raised);backdrop-filter:none}
+[data-card="flat"]{background:transparent;backdrop-filter:none}
+[data-label]{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0}
+[data-body]{font-size:15px;line-height:1.6;color:var(--text2);margin:var(--s2) 0 0;max-width:68ch;text-wrap:pretty}
+[data-body="lead"]{font-size:17px;line-height:1.55;color:var(--text)}
+[data-body="small"]{font-size:14px;line-height:1.55}
+[data-h1]{font-family:var(--mono);font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin:0;color:var(--text)}
+[data-h2]{font-size:20px;font-weight:600;line-height:1.25;margin:0;color:var(--text)}
+[data-h3]{font-size:17px;font-weight:600;line-height:1.3;margin:0;color:var(--text)}
+[data-meta]{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--muted);margin:var(--s2) 0 0}
+[data-btn]{border:1px solid var(--panel-border);border-radius:var(--r-md);padding:11px 15px;background:var(--raised);color:var(--text);font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;min-height:44px;transition:background var(--motion)}
+[data-btn]:hover:not(:disabled){background:var(--hover)}
+[data-btn="primary"]{background:var(--brand);color:var(--on-brand);border-color:var(--brand)}
+[data-btn="primary"]:hover:not(:disabled){filter:brightness(0.94)}
+[data-btn="ghost"]{background:transparent;color:var(--text2)}
+[data-btn="danger"]{background:transparent;color:var(--error);border-color:var(--error)}
+[data-btn="small"]{padding:8px 11px;font-size:12px;min-height:38px}
+[data-btn]:disabled{opacity:.55}
+[data-chip]{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--panel-border);border-radius:var(--r-sm);padding:5px 9px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);background:var(--raised)}
+[data-dot]{display:inline-block;width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+[data-grid]{display:grid;gap:var(--s3);min-width:0}
+[data-grid="2"]{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+[data-grid="3"]{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+[data-row]{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center;min-width:0}
+[data-scroll]{overflow-x:auto;border:1px solid var(--panel-border);border-radius:var(--r-lg);background:var(--panel-fill);backdrop-filter:var(--blur)}
+[data-table]{width:100%;border-collapse:collapse;min-width:680px}
+[data-table] th{text-align:left;padding:12px 14px;border-bottom:1px solid var(--panel-border);font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+[data-table] td{padding:13px 14px;border-bottom:1px solid var(--hair);font-size:14px;line-height:1.45;color:var(--text2);vertical-align:top}
+[data-stack]{display:flex;flex-direction:column;gap:var(--s3);min-width:0}
+[data-list]{list-style:none;margin:var(--s3) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--s2)}
+[data-list] li{font-size:15px;line-height:1.5;color:var(--text2);display:flex;gap:10px}
+[data-list] li::before{content:"—";font-family:var(--mono);color:var(--faint);flex:0 0 auto}
+[data-input]{font-family:var(--sans);font-size:15px;padding:12px;border:1px solid var(--panel-border);border-radius:var(--r-md);background:var(--panel);color:var(--text);width:100%;min-height:44px}
+[data-shell]{display:grid;grid-template-columns:248px minmax(0,1fr) 300px}
+[data-rail]{display:flex;flex-direction:column}
+nav[data-railtext]{display:flex;flex-direction:column;gap:4px}
+[data-railglyph]{display:none}
+[data-teamstrip]{display:none}
+[data-bottom]{display:none}
+@media (max-width:1439px){ [data-shell]{grid-template-columns:248px minmax(0,1fr)} [data-ctx]{display:none} }
+@media (max-width:1279px){
+  [data-shell]{grid-template-columns:64px minmax(0,1fr)}
+  [data-railtext]{display:none}
+  nav[data-railtext]{display:none}
+  [data-railglyph]{display:flex}
+}
+@media (max-width:1023px){
+  [data-shell]{grid-template-columns:minmax(0,1fr)}
+  [data-rail]{display:none}
+  [data-teamstrip]{display:block}
+  [data-bottom]{display:grid}
+  [data-pad]{padding:16px 16px 96px!important}
+  [data-h1]{font-size:24px}
+  button,select,textarea,[data-input],[data-btn="small"]{min-height:44px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
+@media (pointer:coarse){
+  button,select,[data-input]{min-height:44px}
+}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--deep)">
+  <a data-skip href="#main">Skip to main content</a>
+
+  <div style="display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center;justify-content:space-between;padding:8px 16px;background:var(--nav);border-bottom:2px solid var(--creative)">
+    <div style="display:flex;align-items:center;gap:9px;min-width:0">
+      <span data-dot style="background:var(--creative)"></span>
+      <span style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text2)">SAMPLE SCENARIO — NO LIVE EXTERNAL ACTIONS</span>
+    </div>
+    <div data-row style="gap:var(--s1)">
+      <div role="group" aria-label="Interface mode" style="display:flex;border:1px solid var(--panel-border);border-radius:var(--r-md);overflow:hidden">
+        <button data-btn="small" onClick="{{ setOwner }}" aria-pressed="{{ ownerPressed }}" style="border:none;border-radius:0;background:{{ ownerBg }};color:{{ ownerColor }}">OWNER</button>
+        <button data-btn="small" onClick="{{ setOperator }}" aria-pressed="{{ operatorPressed }}" style="border:none;border-radius:0;border-left:1px solid var(--panel-border);background:{{ opBg }};color:{{ opColor }}">OPERATOR</button>
+      </div>
+      <label style="display:{{ stateSelectorDisplay }};align-items:center;gap:6px">
+        <span style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">STATE</span>
+        <select value="{{ stateKey }}" onChange="{{ setStateKey }}" aria-label="Design state for this screen" style="font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--text2);background:var(--raised);border:1px solid var(--panel-border);border-radius:var(--r-sm);padding:8px">
+          <sc-for list="{{ stateOptions }}" as="s" hint-placeholder-count="6">
+            <option value="{{ s.k }}">{{ s.label }}</option>
+          </sc-for>
+        </select>
+      </label>
+      <button data-btn="small" onClick="{{ toggleTheme }}">{{ themeLabel }}</button>
+    </div>
+  </div>
+
+  <div data-shell>
+
+    <aside data-rail aria-label="Primary navigation" style="gap:var(--s4);padding:var(--s4) var(--s3);background:var(--nav);border-right:1px solid var(--hair)">
+      <div data-railtext>
+        <div style="font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.12em;color:var(--brand-text)">BUSINESS AGENT OS</div>
+        <div style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:5px">{{ modeCaption }}</div>
+      </div>
+
+      <div data-railglyph style="flex-direction:column;gap:var(--s2);align-items:center">
+        <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7">
+          <button onClick="{{ n.go }}" title="{{ n.label }}" aria-label="{{ n.label }}" aria-current="{{ n.cur }}" style="width:44px;height:44px;border-radius:var(--r-md);border:1px solid var(--panel-border);background:{{ n.bg }};color:{{ n.color }};font-family:var(--mono);font-size:13px;font-weight:600">{{ n.glyph }}</button>
+        </sc-for>
+      </div>
+
+      <nav data-railtext aria-label="Screens">
+        <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7">
+          <button onClick="{{ n.go }}" aria-current="{{ n.cur }}" style="display:flex;align-items:center;gap:9px;text-align:left;border:1px solid {{ n.border }};border-radius:var(--r-md);padding:10px 11px;min-height:44px;background:{{ n.bg }};color:{{ n.color }};font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">
+            <span style="font-size:11px;opacity:.75;min-width:2ch">{{ n.glyph }}</span>{{ n.label }}
+          </button>
+        </sc-for>
+      </nav>
+
+      <div data-railtext style="border-top:1px solid var(--hair);padding-top:var(--s3)">
+        <div data-label>YOUR AI TEAM</div>
+        <div style="display:flex;flex-direction:column;gap:var(--s2);margin-top:var(--s3)">
+          <sc-for list="{{ team }}" as="a" hint-placeholder-count="4">
+            <button onClick="{{ a.open }}" style="all:unset;cursor:pointer;display:block;border-left:3px solid {{ a.hue }};padding:2px 0 2px 10px" style-hover="background:var(--hover)">
+              <div style="font-size:14px;font-weight:600;color:var(--text)">{{ a.short }}</div>
+              <div style="font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:{{ a.statusColor }};margin-top:2px">{{ a.status }}</div>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div data-railtext style="margin-top:auto;border-top:1px solid var(--hair);padding-top:var(--s3)">
+        <div data-label>DATA AS OF</div>
+        <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--text);margin-top:6px">{{ asOf }}</div>
+        <div style="font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--muted);margin-top:3px">FIXTURE {{ batch }} · READ-ONLY</div>
+      </div>
+    </aside>
+
+    <main id="main" data-pad style="min-width:0;background:var(--canvas);padding:var(--s5) var(--s5) 56px">
+
+      <div style="display:flex;flex-wrap:wrap;gap:var(--s2);align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--panel-border);padding-bottom:var(--s3)">
+        <div style="display:flex;flex-wrap:wrap;gap:var(--s3);align-items:baseline;min-width:0">
+          <h1 data-h1 style="font-size:20px;letter-spacing:.06em;text-transform:uppercase;color:var(--brand-text)">{{ routeLabel }}</h1>
+          <span style="font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)">{{ breadcrumb }}</span>
+        </div>
+        <span data-chip><span data-dot style="background:{{ chipDot }}"></span>{{ stateChip }}</span>
+      </div>
+
+      <div data-teamstrip style="margin-top:var(--s3);overflow-x:auto">
+        <div style="display:flex;gap:var(--s1);min-width:0">
+          <sc-for list="{{ team }}" as="a" hint-placeholder-count="4">
+            <button onClick="{{ a.open }}" style="flex:0 0 auto;text-align:left;border:1px solid var(--panel-border);border-left:3px solid {{ a.hue }};border-radius:var(--r-md);padding:9px 11px;background:var(--panel-fill);min-width:160px">
+              <div style="font-size:14px;font-weight:600;color:var(--text)">{{ a.short }}</div>
+              <div style="font-family:var(--mono);font-size:12px;color:{{ a.statusColor }};margin-top:2px">{{ a.status }}</div>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <sc-if value="{{ banner }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-wrap:wrap;gap:var(--s2);align-items:baseline;margin-top:var(--s4);border:1px solid var(--panel-border);border-left:4px solid {{ bannerHue }};border-radius:var(--r-lg);padding:var(--s3) var(--s4);background:var(--raised)">
+          <span style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:{{ bannerHue }}">{{ bannerTitle }}</span>
+          <span style="font-size:15px;line-height:1.55;color:var(--text2);max-width:68ch">{{ bannerBody }}</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+        <div aria-busy="true" aria-live="polite" style="margin-top:var(--s5);display:grid;gap:var(--s3)">
+          <div style="height:112px;border:1px solid var(--panel-border);border-radius:var(--r-lg);background:var(--raised)"></div>
+          <div data-grid="3">
+            <div style="height:148px;border:1px solid var(--panel-border);border-radius:var(--r-lg);background:var(--raised)"></div>
+            <div style="height:148px;border:1px solid var(--panel-border);border-radius:var(--r-lg);background:var(--raised)"></div>
+            <div style="height:148px;border:1px solid var(--panel-border);border-radius:var(--r-lg);background:var(--raised)"></div>
+          </div>
+          <div data-label>LOADING — LAYOUT MATCHES THE FINAL CONTENT</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ block }}" hint-placeholder-val="{{ false }}">
+        <div data-card style="margin-top:var(--s5);padding:var(--s6);max-width:70ch">
+          <span data-chip><span data-dot style="background:{{ blockDot }}"></span>{{ blockBadge }}</span>
+          <h2 data-h1 style="margin-top:var(--s3)">{{ blockTitle }}</h2>
+          <p data-body="lead">{{ blockBody }}</p>
+          <p data-meta>{{ blockMeta }}</p>
+          <sc-if value="{{ blockCta }}" hint-placeholder-val="{{ false }}">
+            <div data-row style="margin-top:var(--s4)">
+              <button data-btn="primary" onClick="{{ blockGo }}">{{ blockCta }}</button>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showContent }}" hint-placeholder-val="{{ true }}">
+      <div style="margin-top:var(--s4)">
+
+        <sc-if value="{{ isToday }}" hint-placeholder-val="{{ true }}">
+          <div data-stack>
+            <section data-card style="background:var(--surface-glow)">
+              <div data-label>MORNING BRIEFING · {{ asOf }}</div>
+              <p data-body="lead">{{ briefing.lead }}</p>
+              <p data-body>{{ briefing.body }}</p>
+              <div data-row style="margin-top:var(--s4)">
+                <button data-btn="primary" onClick="{{ goApprovals }}">{{ briefing.cta }}</button>
+                <button data-btn="ghost" onClick="{{ goAsk }}">ASK THE TEAM</button>
+              </div>
+            </section>
+
+            <section aria-labelledby="pd" data-card style="border:2px solid var(--brand);background:var(--raised)">
+              <div data-row style="justify-content:space-between">
+                <div data-label style="color:var(--brand-text)">NEEDS YOUR DECISION FIRST</div>
+                <span data-chip style="color:{{ primary.tierColor }}">{{ primary.tier }}</span>
+              </div>
+              <h2 id="pd" data-h2 style="margin-top:var(--s2)">{{ primary.title }}</h2>
+              <p data-body>{{ primary.summary }}</p>
+              <div data-grid="3" style="margin-top:var(--s4)">
+                <sc-for list="{{ primary.facts }}" as="f" hint-placeholder-count="4">
+                  <div>
+                    <div data-label style="font-size:12px">{{ f.k }}</div>
+                    <div style="font-size:15px;line-height:1.45;color:var(--text);margin-top:4px">{{ f.v }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div data-row style="margin-top:var(--s4)">
+                <button data-btn="primary" onClick="{{ primary.open }}">REVIEW AND DECIDE</button>
+                <button data-btn="ghost" onClick="{{ goStudio }}">SEE THE ARTWORK</button>
+              </div>
+              <p data-meta>{{ primary.authority }}</p>
+            </section>
+
+            <div data-grid="2">
+              <sc-for list="{{ todayPanels }}" as="p" hint-placeholder-count="4">
+                <section data-card style="border-top:3px solid {{ p.hue }}">
+                  <div data-label>{{ p.label }}</div>
+                  <sc-if value="{{ p.hasItems }}" hint-placeholder-val="{{ true }}">
+                    <ul data-list>
+                      <sc-for list="{{ p.items }}" as="i" hint-placeholder-count="3">
+                        <li>{{ i }}</li>
+                      </sc-for>
+                    </ul>
+                  </sc-if>
+                  <sc-if value="{{ p.isEmpty }}" hint-placeholder-val="{{ false }}">
+                    <p data-body>{{ p.empty }}</p>
+                  </sc-if>
+                </section>
+              </sc-for>
+            </div>
+
+            <section data-card>
+              <div data-label>CURRENT OBJECTIVE</div>
+              <h2 data-h2 style="margin-top:var(--s2)">{{ objective.title }}</h2>
+              <p data-body>{{ objective.body }}</p>
+              <div data-row style="margin-top:var(--s3)">
+                <span data-chip>SET BY HADEER · {{ objective.set }}</span>
+                <span data-chip>STAGE {{ objective.stage }}</span>
+                <button data-btn="small" onClick="{{ goCampaign }}">OPEN CAMPAIGN</button>
+              </div>
+            </section>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isApprovalList }}" hint-placeholder-val="{{ false }}">
+          <div data-stack>
+            <p data-body="lead" style="margin-top:0">Each package below is tied to one exact action and one exact artifact revision. Approving one does not approve anything else.</p>
+            <sc-for list="{{ packages }}" as="p" hint-placeholder-count="3">
+              <article data-card style="border-left:4px solid {{ p.hue }}">
+                <div data-row style="justify-content:space-between">
+                  <span data-chip style="color:{{ p.tierColor }};border-color:{{ p.tierColor }}">{{ p.tier }}</span>
+                  <span data-chip><span data-dot style="background:{{ p.stateDot }}"></span>{{ p.stateLabel }}</span>
+                </div>
+                <h2 data-h2 style="margin-top:var(--s3)">{{ p.title }}</h2>
+                <p data-body>{{ p.summary }}</p>
+                <div data-row style="margin-top:var(--s3)">
+                  <span data-chip>FROM {{ p.requester }}</span>
+                  <span data-chip>DUE {{ p.deadline }}</span>
+                  <span data-chip>{{ p.cost }}</span>
+                </div>
+                <div data-row style="margin-top:var(--s4)">
+                  <button data-btn="primary" onClick="{{ p.open }}" disabled="{{ p.locked }}">{{ p.openLabel }}</button>
+                  <sc-if value="{{ p.locked }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size:14px;line-height:1.5;color:var(--text2);max-width:56ch">{{ p.lockReason }}</span>
+                  </sc-if>
+                </div>
+              </article>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isApprovalDetail }}" hint-placeholder-val="{{ false }}">
+          <article data-stack style="max-width:1000px">
+            <div data-row>
+              <button data-btn="ghost" data-btn="small" onClick="{{ goApprovals }}">← ALL APPROVALS</button>
+              <span data-chip style="color:{{ pkg.tierColor }};border-color:{{ pkg.tierColor }}">{{ pkg.tier }}</span>
+              <span data-chip><span data-dot style="background:{{ pkg.stateDot }}"></span>{{ pkg.stateLabel }}</span>
+            </div>
+            <div>
+              <h2 data-h1>{{ pkg.title }}</h2>
+              <p data-body="lead">{{ pkg.summary }}</p>
+            </div>
+
+            <sc-if value="{{ pkg.invalidated }}" hint-placeholder-val="{{ false }}">
+              <div data-card style="border-left:4px solid var(--error);background:var(--raised)">
+                <div data-label style="color:var(--error)">PRIOR APPROVAL INVALIDATED</div>
+                <p data-body>{{ pkg.invalidNote }}</p>
+              </div>
+            </sc-if>
+
+            <section data-card style="border:2px solid var(--panel-border)">
+              <div data-label>THE EXACT THING YOU ARE APPROVING</div>
+              <div data-grid="2" style="margin-top:var(--s3)">
+                <sc-for list="{{ pkg.facts }}" as="f" hint-placeholder-count="6">
+                  <div>
+                    <div data-label style="font-size:12px">{{ f.k }}</div>
+                    <div style="font-size:15px;line-height:1.5;color:var(--text);margin-top:4px">{{ f.v }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div data-row style="margin-top:var(--s4)">
+                <button data-btn="small" onClick="{{ toggleTech }}" aria-expanded="{{ techOpenAttr }}">{{ techLabel }}</button>
+              </div>
+              <sc-if value="{{ techOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:var(--s3);border-top:1px solid var(--hair);padding-top:var(--s3)">
+                  <sc-for list="{{ pkg.tech }}" as="t" hint-placeholder-count="4">
+                    <div style="display:flex;flex-wrap:wrap;gap:10px;padding:6px 0">
+                      <span style="font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);min-width:18ch">{{ t.k }}</span>
+                      <span style="font-family:var(--mono);font-size:13px;color:var(--text2);word-break:break-all">{{ t.v }}</span>
+                    </div>
+                  </sc-for>
+                  <p data-meta>Technical references are shown on request. Operator mode shows them by default.</p>
+                </div>
+              </sc-if>
+            </section>
+
+            <sc-if value="{{ pkg.hasPreview }}" hint-placeholder-val="{{ false }}">
+              <section data-card>
+                <div data-label>FINAL PREVIEW — THIS IS WHAT GOES TO STAGING</div>
+                <div style="display:flex;flex-wrap:wrap;gap:var(--s4);align-items:flex-start;margin-top:var(--s3)">
+                  <div style="width:240px;flex:0 0 auto">
+                    <sc-if value="{{ selIsA }}" hint-placeholder-val="{{ false }}">
+                      <div style="width:100%;aspect-ratio:4/5;background:#f2f0e6;color:#0f2a1b;border:1px solid var(--panel-border);border-radius:var(--r-sm);padding:18px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden">
+                        <div style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#4a5a4e">{{ dirSel.kicker }}</div>
+                        <div>
+                          <div style="height:3px;width:44px;background:#b3d100"></div>
+                          <div style="font-size:21px;font-weight:600;line-height:1.15;margin-top:12px">{{ dirSel.head }}</div>
+                          <div style="font-size:13px;line-height:1.5;color:#3a4f42;margin-top:8px">{{ dirSel.sub }}</div>
+                        </div>
+                        <div style="border-top:1px solid rgba(15,42,27,.2);padding-top:9px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#4a5a4e">{{ dirSel.foot }}</div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ selIsB }}" hint-placeholder-val="{{ true }}">
+                      <div style="width:100%;aspect-ratio:4/5;background:#0f2a1b;color:#f2f0e6;border:1px solid var(--panel-border);border-radius:var(--r-sm);display:grid;grid-template-rows:auto 1fr auto;overflow:hidden">
+                        <div style="background:#b3d100;color:#0d1a0f;padding:10px 15px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase">{{ dirSel.kicker }}</div>
+                        <div style="padding:15px;display:flex;flex-direction:column;justify-content:center;gap:10px">
+                          <sc-if value="{{ dirSel.hasNumeral }}" hint-placeholder-val="{{ true }}">
+                            <div style="font-family:var(--mono);font-size:58px;font-weight:600;line-height:.9;letter-spacing:-.04em;color:#b3d100">{{ dirSel.numeral }}</div>
+                          </sc-if>
+                          <div style="font-size:19px;font-weight:600;line-height:1.2">{{ dirSel.head }}</div>
+                          <div style="font-size:13px;line-height:1.5;color:#c6d4c9">{{ dirSel.sub }}</div>
+                        </div>
+                        <div style="border-top:1px solid rgba(242,240,230,.22);padding:10px 15px;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#b3d100">{{ dirSel.foot }}</div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ selIsC }}" hint-placeholder-val="{{ false }}">
+                      <div style="width:100%;aspect-ratio:4/5;background:#0a1a12;border:1px solid var(--panel-border);border-radius:var(--r-sm);position:relative;overflow:hidden;padding:16px;display:flex;flex-direction:column;justify-content:flex-end">
+                        <div aria-hidden="true" style="position:absolute;inset:0;background-image:linear-gradient(rgba(179,209,0,.14) 1px,transparent 1px),linear-gradient(90deg,rgba(179,209,0,.14) 1px,transparent 1px);background-size:22px 22px"></div>
+                        <div style="position:absolute;top:14px;left:16px;right:16px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:#fb85c0">{{ dirSel.kicker }}</div>
+                        <div style="position:relative">
+                          <div style="font-size:32px;font-weight:600;line-height:.95;letter-spacing:-.03em;color:#fb85c0">{{ dirSel.head }}</div>
+                          <div style="font-size:32px;font-weight:600;line-height:.95;letter-spacing:-.03em;color:#b79dff;margin-top:-11px;margin-left:18px">{{ dirSel.head2 }}</div>
+                          <div style="font-size:13px;line-height:1.5;color:#e7efeb;margin-top:12px">{{ dirSel.sub }}</div>
+                          <div style="font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#b3d100;margin-top:10px">{{ dirSel.foot }}</div>
+                        </div>
+                      </div>
+                    </sc-if>
+                    <div data-label style="font-size:12px;margin-top:8px">{{ studio.selName }} · {{ studio.selVersion }}</div>
+                  </div>
+                  <div style="min-width:240px;flex:1">
+                    <ul data-list style="margin-top:0">
+                      <sc-for list="{{ pkg.previewNotes }}" as="n" hint-placeholder-count="3">
+                        <li>{{ n }}</li>
+                      </sc-for>
+                    </ul>
+                    <button data-btn="small" onClick="{{ goStudio }}" style="margin-top:var(--s3)">OPEN IN DESIGNER STUDIO</button>
+                  </div>
+                </div>
+              </section>
+            </sc-if>
+
+            <section data-card>
+              <div data-label>WHAT WILL HAPPEN IF YOU APPROVE</div>
+              <div data-grid="2" style="margin-top:var(--s3)">
+                <div>
+                  <div data-label style="color:var(--ok);font-size:12px">WILL HAPPEN</div>
+                  <ul data-list>
+                    <sc-for list="{{ pkg.will }}" as="w" hint-placeholder-count="3">
+                      <li>{{ w }}</li>
+                    </sc-for>
+                  </ul>
+                </div>
+                <div>
+                  <div data-label style="color:var(--error);font-size:12px">WILL NOT HAPPEN</div>
+                  <ul data-list>
+                    <sc-for list="{{ pkg.wont }}" as="w" hint-placeholder-count="3">
+                      <li>{{ w }}</li>
+                    </sc-for>
+                  </ul>
+                </div>
+              </div>
+            </section>
+
+            <div data-grid="2">
+              <section data-card>
+                <div data-label>SUPPORTING EVIDENCE</div>
+                <button data-btn="small" onClick="{{ toggleEvidence }}" aria-expanded="{{ evOpenAttr }}" style="margin-top:var(--s3)">{{ evLabel }}</button>
+                <sc-if value="{{ evOpen }}" hint-placeholder-val="{{ false }}">
+                  <ul data-list>
+                    <sc-for list="{{ pkg.evidence }}" as="e" hint-placeholder-count="3">
+                      <li>{{ e }}</li>
+                    </sc-for>
+                  </ul>
+                </sc-if>
+              </section>
+              <section data-card>
+                <div data-label>RISKS AND REVERSAL</div>
+                <p data-body>{{ pkg.risk }}</p>
+                <p data-meta>{{ pkg.reversal }}</p>
+              </section>
+            </div>
+
+            <sc-if value="{{ pkg.decidable }}" hint-placeholder-val="{{ true }}">
+              <section data-card style="border:2px solid var(--brand);background:var(--raised)">
+                <div data-label style="color:var(--brand-text)">YOUR DECISION — HADEER, BUSINESS OWNER</div>
+                <p data-body>{{ pkg.decisionNote }}</p>
+                <div data-row style="margin-top:var(--s4)">
+                  <button data-btn="primary" onClick="{{ openApprove }}">APPROVE FOR STAGING</button>
+                  <button data-btn onClick="{{ openChanges }}">REQUEST CHANGES</button>
+                  <button data-btn="danger" onClick="{{ openReject }}">REJECT</button>
+                </div>
+              </section>
+            </sc-if>
+
+            <sc-if value="{{ pkg.decided }}" hint-placeholder-val="{{ false }}">
+              <section data-card style="border:2px solid {{ pkg.stateDot }};background:var(--raised)">
+                <div data-label style="color:{{ pkg.stateDot }}">{{ pkg.stateLabel }}</div>
+                <p data-body="lead">{{ pkg.decidedBody }}</p>
+                <div data-label style="margin-top:var(--s4)">WHAT HAPPENS NEXT</div>
+                <ul data-list>
+                  <sc-for list="{{ pkg.next }}" as="n" hint-placeholder-count="3">
+                    <li>{{ n }}</li>
+                  </sc-for>
+                </ul>
+                <div data-row style="margin-top:var(--s4)">
+                  <button data-btn onClick="{{ goAudit }}">SEE THE RECORD</button>
+                  <button data-btn="ghost" onClick="{{ resetPkg }}">RESET THIS SAMPLE DECISION</button>
+                </div>
+              </section>
+            </sc-if>
+          </article>
+        </sc-if>
+
+        <sc-if value="{{ isCampaign }}" hint-placeholder-val="{{ false }}">
+          <div data-stack>
+            <nav aria-label="Campaign stages" style="overflow-x:auto">
+              <div style="display:flex;gap:var(--s1);min-width:0">
+                <sc-for list="{{ stages }}" as="s" hint-placeholder-count="7">
+                  <button onClick="{{ s.go }}" aria-current="{{ s.cur }}" style="flex:0 0 auto;text-align:left;border:1px solid {{ s.border }};border-radius:var(--r-md);padding:9px 12px;min-height:44px;background:{{ s.bg }};color:{{ s.color }};font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">
+                    <span style="opacity:.7">{{ s.n }}</span> {{ s.label }}
+                    <span style="display:block;font-size:11px;letter-spacing:.06em;opacity:.85;margin-top:2px">{{ s.status }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </nav>
+
+            <section data-card style="border-top:3px solid var(--exec)">
+              <div data-row style="justify-content:space-between">
+                <div data-label>{{ stage.label }}</div>
+                <span data-chip>{{ stage.owner }}</span>
+              </div>
+              <h2 data-h2 style="margin-top:var(--s2)">{{ stage.title }}</h2>
+              <p data-body="lead">{{ stage.lead }}</p>
+            </section>
+
+            <sc-if value="{{ stage.hasBlocks }}" hint-placeholder-val="{{ true }}">
+              <div data-grid="2">
+                <sc-for list="{{ stage.blocks }}" as="b" hint-placeholder-count="4">
+                  <section data-card>
+                    <div data-label>{{ b.label }}</div>
+                    <sc-if value="{{ b.isProse }}" hint-placeholder-val="{{ false }}">
+                      <p data-body>{{ b.text }}</p>
+                    </sc-if>
+                    <sc-if value="{{ b.isList }}" hint-placeholder-val="{{ true }}">
+                      <ul data-list>
+                        <sc-for list="{{ b.items }}" as="i" hint-placeholder-count="3">
+                          <li>{{ i }}</li>
+                        </sc-for>
+                      </ul>
+                    </sc-if>
+                    <sc-if value="{{ b.hasMeta }}" hint-placeholder-val="{{ false }}">
+                      <p data-meta>{{ b.meta }}</p>
+                    </sc-if>
+                  </section>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ stage.isPlan }}" hint-placeholder-val="{{ false }}">
+              <section data-scroll>
+                <table data-table>
+                  <thead>
+                    <tr>
+                      <sc-for list="{{ planCols }}" as="c" hint-placeholder-count="6">
+                        <th scope="col">{{ c }}</th>
+                      </sc-for>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <sc-for list="{{ plan }}" as="d" hint-placeholder-count="7">
+                      <tr>
+                        <td style="font-family:var(--mono);font-size:13px;color:var(--text)">{{ d.day }}</td>
+                        <td style="font-family:var(--mono);font-size:13px">{{ d.channel }}</td>
+                        <td style="font-family:var(--mono);font-size:13px">{{ d.format }}</td>
+                        <td style="color:var(--text)">{{ d.hook }}</td>
+                        <td>{{ d.caption }}</td>
+                        <td style="font-family:var(--mono);font-size:13px">{{ d.time }}</td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </section>
+              <p data-meta>Times are proposals in Africa/Cairo. Nothing is scheduled on a live account by this screen.</p>
+            </sc-if>
+
+            <sc-if value="{{ stage.isCreative }}" hint-placeholder-val="{{ false }}">
+              <div data-row>
+                <button data-btn="primary" onClick="{{ goStudio }}">OPEN DESIGNER STUDIO</button>
+                <span style="font-size:15px;color:var(--text2);max-width:56ch">Three structurally different directions, brand QA, version comparison and the export package live there.</span>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ stage.hasCta }}" hint-placeholder-val="{{ false }}">
+              <div data-row>
+                <button data-btn="primary" onClick="{{ stage.ctaGo }}">{{ stage.cta }}</button>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isStudio }}" hint-placeholder-val="{{ false }}">
+          <div data-stack>
+            <section data-card style="border-top:3px solid var(--creative)">
+              <div data-row style="justify-content:space-between">
+                <div data-label style="color:var(--creative)">DESIGNER AGENT · CAMPAIGN BRIEF</div>
+                <span data-chip>{{ studio.versionChip }}</span>
+              </div>
+              <h2 data-h2 style="margin-top:var(--s2)">{{ studio.briefTitle }}</h2>
+              <p data-body>{{ studio.briefBody }}</p>
+              <div data-grid="3" style="margin-top:var(--s4)">
+                <sc-for list="{{ studio.briefFacts }}" as="f" hint-placeholder-count="4">
+                  <div>
+                    <div data-label style="font-size:12px">{{ f.k }}</div>
+                    <div style="font-size:15px;line-height:1.45;color:var(--text);margin-top:4px">{{ f.v }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </section>
+
+            <div data-grid="3">
+              <section data-card="raised">
+                <div data-label>BRAND KIT IN USE</div>
+                <ul data-list>
+                  <sc-for list="{{ studio.brandKit }}" as="i" hint-placeholder-count="4">
+                    <li>{{ i }}</li>
+                  </sc-for>
+                </ul>
+              </section>
+              <section data-card="raised">
+                <div data-label>REFERENCES CONSULTED</div>
+                <ul data-list>
+                  <sc-for list="{{ studio.references }}" as="i" hint-placeholder-count="3">
+                    <li>{{ i }}</li>
+                  </sc-for>
+                </ul>
+              </section>
+              <section data-card="raised">
+                <div data-label>TARGET CHANNELS AND SIZES</div>
+                <ul data-list>
+                  <sc-for list="{{ studio.channels }}" as="i" hint-placeholder-count="3">
+                    <li>{{ i }}</li>
+                  </sc-for>
+                </ul>
+              </section>
+            </div>
+
+            <div>
+              <div data-row style="justify-content:space-between;align-items:flex-end">
+                <div>
+                  <div data-label>THREE DIRECTIONS — PICK ONE TO TAKE FORWARD</div>
+                  <p data-body="small">Each is a different structure, not a recolour. Selecting one sets the artifact the approval package points at.</p>
+                </div>
+                <sc-if value="{{ studio.hasV2 }}" hint-placeholder-val="{{ false }}">
+                  <div role="group" aria-label="Version shown" style="display:flex;border:1px solid var(--panel-border);border-radius:var(--r-md);overflow:hidden">
+                    <button data-btn="small" onClick="{{ showBefore }}" aria-pressed="{{ beforePressed }}" style="border:none;border-radius:0;background:{{ beforeBg }};color:{{ beforeColor }}">BEFORE v1</button>
+                    <button data-btn="small" onClick="{{ showAfter }}" aria-pressed="{{ afterPressed }}" style="border:none;border-radius:0;border-left:1px solid var(--panel-border);background:{{ afterBg }};color:{{ afterColor }}">AFTER v2</button>
+                  </div>
+                </sc-if>
+              </div>
+
+              <div style="display:flex;flex-wrap:wrap;gap:var(--s3);margin-top:var(--s3)">
+
+                <article data-card style="border:{{ dirA.ring }};flex:1 1 300px;max-width:360px">
+                  <div data-row style="justify-content:space-between">
+                    <span data-chip style="color:var(--exec);border-color:var(--exec)">CONSERVATIVE</span>
+                    <span data-chip>{{ dirA.version }}</span>
+                  </div>
+                  <h3 data-h3 style="margin-top:var(--s2)">{{ dirA.name }}</h3>
+                  <div style="margin-top:var(--s3);width:100%;aspect-ratio:4/5;background:#f2f0e6;color:#0f2a1b;border:1px solid var(--panel-border);border-radius:var(--r-sm);padding:22px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden">
+                    <div style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:#4a5a4e">{{ dirA.kicker }}</div>
+                    <div>
+                      <div style="height:3px;width:52px;background:#b3d100"></div>
+                      <div style="font-size:26px;font-weight:600;line-height:1.15;margin-top:14px;letter-spacing:-.01em">{{ dirA.head }}</div>
+                      <div style="font-size:14px;line-height:1.5;color:#3a4f42;margin-top:10px">{{ dirA.sub }}</div>
+                    </div>
+                    <div style="border-top:1px solid rgba(15,42,27,.2);padding-top:10px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#4a5a4e">{{ dirA.foot }}</div>
+                  </div>
+                  <p data-body="small">{{ dirA.rationale }}</p>
+                  <div data-row style="margin-top:var(--s3)">
+                    <button data-btn="small" onClick="{{ dirA.select }}" style="background:{{ dirA.btnBg }};color:{{ dirA.btnColor }};border-color:{{ dirA.btnBorder }}">{{ dirA.btnLabel }}</button>
+                  </div>
+                </article>
+
+                <article data-card style="border:{{ dirB.ring }};flex:1 1 300px;max-width:360px">
+                  <div data-row style="justify-content:space-between">
+                    <span data-chip style="color:var(--brand-text);border-color:var(--brand)">RECOMMENDED</span>
+                    <span data-chip>{{ dirB.version }}</span>
+                  </div>
+                  <h3 data-h3 style="margin-top:var(--s2)">{{ dirB.name }}</h3>
+                  <div style="margin-top:var(--s3);width:100%;aspect-ratio:4/5;background:#0f2a1b;color:#f2f0e6;border:1px solid var(--panel-border);border-radius:var(--r-sm);display:grid;grid-template-rows:auto 1fr auto;overflow:hidden">
+                    <div style="background:#b3d100;color:#0d1a0f;padding:12px 18px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase">{{ dirB.kicker }}</div>
+                    <div style="padding:18px;display:flex;flex-direction:column;justify-content:center;gap:12px">
+                      <sc-if value="{{ dirB.hasNumeral }}" hint-placeholder-val="{{ true }}">
+                        <div style="font-family:var(--mono);font-size:74px;font-weight:600;line-height:.9;letter-spacing:-.04em;color:#b3d100">{{ dirB.numeral }}</div>
+                      </sc-if>
+                      <div style="font-size:23px;font-weight:600;line-height:1.2;letter-spacing:-.01em">{{ dirB.head }}</div>
+                      <div style="font-size:14px;line-height:1.5;color:#c6d4c9">{{ dirB.sub }}</div>
+                    </div>
+                    <div style="border-top:1px solid rgba(242,240,230,.22);padding:12px 18px;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#b3d100">{{ dirB.foot }}</div>
+                  </div>
+                  <p data-body="small">{{ dirB.rationale }}</p>
+                  <div data-row style="margin-top:var(--s3)">
+                    <button data-btn="small" onClick="{{ dirB.select }}" style="background:{{ dirB.btnBg }};color:{{ dirB.btnColor }};border-color:{{ dirB.btnBorder }}">{{ dirB.btnLabel }}</button>
+                  </div>
+                </article>
+
+                <article data-card style="border:{{ dirC.ring }};flex:1 1 300px;max-width:360px">
+                  <div data-row style="justify-content:space-between">
+                    <span data-chip style="color:var(--marketing);border-color:var(--marketing)">DIVERGENT</span>
+                    <span data-chip>{{ dirC.version }}</span>
+                  </div>
+                  <h3 data-h3 style="margin-top:var(--s2)">{{ dirC.name }}</h3>
+                  <div style="margin-top:var(--s3);width:100%;aspect-ratio:4/5;background:#0a1a12;border:1px solid var(--panel-border);border-radius:var(--r-sm);position:relative;overflow:hidden;padding:20px;display:flex;flex-direction:column;justify-content:flex-end">
+                    <div aria-hidden="true" style="position:absolute;inset:0;background-image:linear-gradient(rgba(179,209,0,.14) 1px,transparent 1px),linear-gradient(90deg,rgba(179,209,0,.14) 1px,transparent 1px);background-size:26px 26px"></div>
+                    <div style="position:absolute;top:16px;left:20px;right:20px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#fb85c0">{{ dirC.kicker }}</div>
+                    <div style="position:relative">
+                      <div style="font-size:40px;font-weight:600;line-height:.95;letter-spacing:-.03em;color:#fb85c0;mix-blend-mode:normal">{{ dirC.head }}</div>
+                      <div style="font-size:40px;font-weight:600;line-height:.95;letter-spacing:-.03em;color:#b79dff;margin-top:-14px;margin-left:22px">{{ dirC.head2 }}</div>
+                      <div style="font-size:14px;line-height:1.5;color:#e7efeb;margin-top:16px;max-width:24ch">{{ dirC.sub }}</div>
+                      <div style="font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#b3d100;margin-top:14px">{{ dirC.foot }}</div>
+                    </div>
+                  </div>
+                  <p data-body="small">{{ dirC.rationale }}</p>
+                  <div data-row style="margin-top:var(--s3)">
+                    <button data-btn="small" onClick="{{ dirC.select }}" style="background:{{ dirC.btnBg }};color:{{ dirC.btnColor }};border-color:{{ dirC.btnBorder }}">{{ dirC.btnLabel }}</button>
+                  </div>
+                </article>
+              </div>
+            </div>
+
+            <sc-if value="{{ studio.hasV2 }}" hint-placeholder-val="{{ false }}">
+              <section data-card>
+                <div data-label>VERSION COMPARISON — v1 → v2 FOR {{ studio.selName }}</div>
+                <div data-scroll style="margin-top:var(--s3);border:none">
+                  <table data-table style="min-width:520px">
+                    <thead><tr><th scope="col">Element</th><th scope="col">Before — v1</th><th scope="col">After — v2</th></tr></thead>
+                    <tbody>
+                      <sc-for list="{{ studio.diff }}" as="d" hint-placeholder-count="3">
+                        <tr>
+                          <td style="font-family:var(--mono);font-size:13px;color:var(--text)">{{ d.el }}</td>
+                          <td>{{ d.before }}</td>
+                          <td style="color:var(--text)">{{ d.after }}</td>
+                        </tr>
+                      </sc-for>
+                    </tbody>
+                  </table>
+                </div>
+                <p data-meta>{{ studio.diffMeta }}</p>
+              </section>
+            </sc-if>
+
+            <div data-grid="2">
+              <section data-card>
+                <div data-label>BRAND QA — {{ studio.selName }} {{ studio.selVersion }}</div>
+                <div data-scroll style="margin-top:var(--s3);border:none">
+                  <table data-table style="min-width:420px">
+                    <thead><tr><th scope="col">Check</th><th scope="col">Result</th><th scope="col">Detail</th></tr></thead>
+                    <tbody>
+                      <sc-for list="{{ studio.qa }}" as="q" hint-placeholder-count="6">
+                        <tr>
+                          <td style="color:var(--text)">{{ q.check }}</td>
+                          <td><span data-chip style="color:{{ q.color }};border-color:{{ q.color }}">{{ q.result }}</span></td>
+                          <td>{{ q.detail }}</td>
+                        </tr>
+                      </sc-for>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+              <section data-card>
+                <div data-label>ASSET PROVENANCE AND LICENSING</div>
+                <ul data-list>
+                  <sc-for list="{{ studio.provenance }}" as="p" hint-placeholder-count="4">
+                    <li>{{ p }}</li>
+                  </sc-for>
+                </ul>
+                <p data-meta>{{ studio.provMeta }}</p>
+              </section>
+            </div>
+
+            <section data-card>
+              <div data-label>STRUCTURED FEEDBACK — WHAT SHOULD CHANGE</div>
+              <p data-body="small">Pick the changes you want. The Designer Agent produces a new revision; your earlier approval, if any, is invalidated.</p>
+              <div style="display:flex;flex-direction:column;gap:var(--s2);margin-top:var(--s3)">
+                <sc-for list="{{ feedbackItems }}" as="f" hint-placeholder-count="4">
+                  <label style="display:flex;gap:10px;align-items:flex-start;font-size:15px;line-height:1.5;color:var(--text2);cursor:pointer;padding:6px 0">
+                    <input type="checkbox" checked="{{ f.on }}" onChange="{{ f.toggle }}" style="width:20px;height:20px;margin-top:2px;accent-color:var(--brand)" />
+                    <span>{{ f.text }}</span>
+                  </label>
+                </sc-for>
+              </div>
+              <label style="display:block;margin-top:var(--s3)">
+                <span data-label>ADD A NOTE (OPTIONAL)</span>
+                <textarea data-input value="{{ fbNote }}" onChange="{{ setFbNote }}" rows="3" placeholder="e.g. keep the lime panel, it reads well on a phone" style="margin-top:6px;resize:vertical"></textarea>
+              </label>
+              <div data-row style="margin-top:var(--s3)">
+                <button data-btn="primary" onClick="{{ sendFeedback }}" disabled="{{ fbDisabled }}">SEND TO DESIGNER AGENT</button>
+                <span style="font-size:14px;color:var(--muted)">{{ fbHint }}</span>
+              </div>
+            </section>
+
+            <section data-card style="border:2px solid var(--panel-border)">
+              <div data-label>EXPORT PACKAGE AND APPROVAL STATUS</div>
+              <div data-grid="2" style="margin-top:var(--s3)">
+                <sc-for list="{{ studio.exportFacts }}" as="f" hint-placeholder-count="4">
+                  <div>
+                    <div data-label style="font-size:12px">{{ f.k }}</div>
+                    <div style="font-size:15px;line-height:1.5;color:var(--text);margin-top:4px">{{ f.v }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div data-row style="margin-top:var(--s4)">
+                <button data-btn="primary" onClick="{{ goCreativeApproval }}">{{ studio.approvalCta }}</button>
+                <span data-chip><span data-dot style="background:{{ studio.stateDot }}"></span>{{ studio.stateLabel }}</span>
+              </div>
+            </section>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isTeam }}" hint-placeholder-val="{{ false }}">
+          <div data-grid="2">
+            <sc-for list="{{ teamCards }}" as="a" hint-placeholder-count="4">
+              <article data-card style="border-left:4px solid {{ a.hue }}">
+                <div data-row style="justify-content:space-between">
+                  <span data-chip style="color:{{ a.hue }};border-color:{{ a.hue }}">{{ a.role }}</span>
+                  <span data-chip><span data-dot style="background:{{ a.statusColor }}"></span>{{ a.status }}</span>
+                </div>
+                <h2 data-h2 style="margin-top:var(--s3)">{{ a.name }}</h2>
+                <p data-body>{{ a.plain }}</p>
+                <div data-label style="margin-top:var(--s4);font-size:12px">CURRENT ASSIGNMENT</div>
+                <p data-body="small" style="margin-top:4px">{{ a.assignment }}</p>
+                <div data-label style="margin-top:var(--s3);font-size:12px">RECENT OUTPUT</div>
+                <ul data-list style="margin-top:6px">
+                  <sc-for list="{{ a.outputs }}" as="o" hint-placeholder-count="2">
+                    <li>{{ o }}</li>
+                  </sc-for>
+                </ul>
+                <div data-label style="margin-top:var(--s3);font-size:12px">WHAT IT MAY NEVER DO</div>
+                <ul data-list style="margin-top:6px">
+                  <sc-for list="{{ a.limits }}" as="l" hint-placeholder-count="2">
+                    <li>{{ l }}</li>
+                  </sc-for>
+                </ul>
+                <div data-row style="margin-top:var(--s4)">
+                  <button data-btn="small" onClick="{{ a.goWork }}">{{ a.workCta }}</button>
+                </div>
+              </article>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isResults }}" hint-placeholder-val="{{ false }}">
+          <div data-stack>
+            <p data-body="lead" style="margin-top:0">Three columns, kept apart on purpose. Sample results come from the labelled scenario. Expected results are what we intend to measure. Real results stay empty until a real run exists — never shown as zero.</p>
+            <div data-grid="3">
+              <sc-for list="{{ resultCols }}" as="c" hint-placeholder-count="3">
+                <section data-card style="border-top:3px solid {{ c.hue }}">
+                  <div data-label style="color:{{ c.hue }}">{{ c.label }}</div>
+                  <p data-body="small">{{ c.note }}</p>
+                  <div style="display:flex;flex-direction:column;gap:var(--s3);margin-top:var(--s3)">
+                    <sc-for list="{{ c.rows }}" as="r" hint-placeholder-count="4">
+                      <div style="border-top:1px solid var(--hair);padding-top:var(--s2)">
+                        <div data-label style="font-size:12px">{{ r.k }}</div>
+                        <div style="font-family:var(--mono);font-size:19px;font-weight:600;color:{{ r.color }};margin-top:4px">{{ r.v }}</div>
+                        <div style="font-size:14px;line-height:1.45;color:var(--text2);margin-top:4px">{{ r.note }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </section>
+              </sc-for>
+            </div>
+            <section data-card>
+              <div data-label>RECOMMENDATIONS FROM THE TEAM</div>
+              <ul data-list>
+                <sc-for list="{{ recommendations }}" as="r" hint-placeholder-count="3">
+                  <li>{{ r }}</li>
+                </sc-for>
+              </ul>
+              <p data-meta>Recommendations are proposals. None of them starts work until you set it as an objective.</p>
+            </section>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isAsk }}" hint-placeholder-val="{{ false }}">
+          <div data-stack style="max-width:820px">
+            <section data-card>
+              <div data-label>ASK THE TEAM</div>
+              <p data-body>Ask in your own words. Hermes reads it, says who would handle it, and stops there. A conversation never authorises an external action.</p>
+              <label style="display:block;margin-top:var(--s3)">
+                <span data-label>YOUR QUESTION OR REQUEST</span>
+                <textarea data-input value="{{ askText }}" onChange="{{ setAsk }}" rows="4" placeholder="e.g. can we fill the autumn cohort without paid ads?" style="margin-top:6px;resize:vertical"></textarea>
+              </label>
+              <div data-row style="margin-top:var(--s2)">
+                <sc-for list="{{ askSuggestions }}" as="s" hint-placeholder-count="3">
+                  <button data-btn="small" onClick="{{ s.use }}" style="background:transparent;color:var(--text2)">{{ s.label }}</button>
+                </sc-for>
+              </div>
+              <div data-row style="margin-top:var(--s3)">
+                <button data-btn="primary" onClick="{{ sendAsk }}" disabled="{{ askDisabled }}">SEND TO HERMES</button>
+                <sc-if value="{{ askSent }}" hint-placeholder-val="{{ false }}">
+                  <button data-btn="ghost" onClick="{{ resetAsk }}">CLEAR</button>
+                </sc-if>
+              </div>
+            </section>
+
+            <sc-if value="{{ askSent }}" hint-placeholder-val="{{ false }}">
+              <section data-card style="border-left:4px solid var(--exec)" aria-live="polite">
+                <div data-label style="color:var(--exec)">HERMES CONDUCTOR — ROUTING, NOT DECIDING</div>
+                <p data-body="lead">{{ askRouting.lead }}</p>
+                <div data-grid="2" style="margin-top:var(--s3)">
+                  <div>
+                    <div data-label style="font-size:12px">WHO WOULD HANDLE IT</div>
+                    <ul data-list style="margin-top:6px">
+                      <sc-for list="{{ askRouting.handlers }}" as="h" hint-placeholder-count="2">
+                        <li>{{ h }}</li>
+                      </sc-for>
+                    </ul>
+                  </div>
+                  <div>
+                    <div data-label style="font-size:12px">STATUS OF THIS MESSAGE</div>
+                    <ul data-list style="margin-top:6px">
+                      <sc-for list="{{ askRouting.status }}" as="h" hint-placeholder-count="3">
+                        <li>{{ h }}</li>
+                      </sc-for>
+                    </ul>
+                  </div>
+                </div>
+                <div data-row style="margin-top:var(--s4)">
+                  <button data-btn="primary" onClick="{{ makeObjective }}" disabled="{{ objDisabled }}">MAKE THIS A FORMAL OBJECTIVE</button>
+                  <span style="font-size:14px;color:var(--muted);max-width:44ch">{{ objHint }}</span>
+                </div>
+              </section>
+            </sc-if>
+
+            <sc-if value="{{ objMade }}" hint-placeholder-val="{{ false }}">
+              <section data-card style="border:2px solid var(--brand);background:var(--raised)" aria-live="polite">
+                <div data-label style="color:var(--brand-text)">DRAFT OBJECTIVE — NOT YET RUNNING</div>
+                <p data-body="lead">{{ objDraft.title }}</p>
+                <ul data-list>
+                  <sc-for list="{{ objDraft.steps }}" as="s" hint-placeholder-count="3">
+                    <li>{{ s }}</li>
+                  </sc-for>
+                </ul>
+                <p data-meta>{{ objDraft.meta }}</p>
+              </section>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isOrg }}" hint-placeholder-val="{{ false }}">
+          <div data-stack>
+            <section data-card style="background:var(--surface-glow);position:relative;overflow:hidden;padding:var(--s2)">
+              <div aria-hidden="true" style="position:absolute;inset:0;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:40px 40px;pointer-events:none"></div>
+              <svg viewBox="0 0 900 560" role="img" aria-label="Organization graph. Hadeer holds authority over Hermes Conductor; three specialist agents report to Hermes; all converge to shared memory. The table below states every relationship." style="display:block;width:100%;height:auto;position:relative">
+                <g fill="none">
+                  <sc-for list="{{ edges }}" as="e" hint-placeholder-count="8">
+                    <path d="{{ e.d }}" stroke="{{ e.stroke }}" stroke-width="{{ e.w }}" stroke-dasharray="{{ e.dash }}" stroke-opacity="{{ e.o }}" stroke-linecap="round"></path>
+                  </sc-for>
+                </g>
+                <circle cx="450" cy="72" r="26" fill="var(--panel)" stroke="var(--amber)" stroke-width="2"></circle>
+                <text x="450" y="34" text-anchor="middle" fill="var(--amber)" style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.14em">HUMAN</text>
+                <text x="450" y="78" text-anchor="middle" fill="var(--text)" style="font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.06em">HD</text>
+                <text x="498" y="66" fill="var(--text)" style="font-family:var(--sans);font-size:17px;font-weight:600">Hadeer</text>
+                <text x="498" y="86" fill="var(--muted)" style="font-family:var(--mono);font-size:12px;letter-spacing:.1em">BUSINESS OWNER · FINAL AUTHORITY</text>
+                <circle cx="450" cy="218" r="52" fill="none" stroke="var(--exec)" stroke-opacity="0.3" stroke-width="1"></circle>
+                <rect x="450" y="180" width="53.7" height="53.7" transform="rotate(45 450 180)" fill="var(--panel)" stroke="var(--exec)" stroke-width="1.5"></rect>
+                <text x="450" y="223" text-anchor="middle" fill="var(--text)" style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.08em">HERMES</text>
+                <text x="520" y="212" fill="var(--text)" style="font-family:var(--sans);font-size:17px;font-weight:600">Hermes Conductor</text>
+                <text x="520" y="232" fill="var(--muted)" style="font-family:var(--mono);font-size:12px;letter-spacing:.1em">COORDINATOR · APPROVES NOTHING</text>
+                <sc-for list="{{ agentNodes }}" as="n" hint-placeholder-count="3">
+                  <g>
+                    <circle cx="{{ n.x }}" cy="{{ n.y }}" r="20" fill="var(--panel)" stroke="{{ n.hue }}" stroke-width="1.5"></circle>
+                    <text x="{{ n.x }}" y="{{ n.ty }}" text-anchor="middle" fill="var(--text)" style="font-family:var(--sans);font-size:15px;font-weight:600">{{ n.short }}</text>
+                    <text x="{{ n.x }}" y="{{ n.ty2 }}" text-anchor="middle" fill="{{ n.hue }}" style="font-family:var(--mono);font-size:12px;letter-spacing:.12em">{{ n.domain }}</text>
+                  </g>
+                </sc-for>
+                <circle cx="450" cy="502" r="48" fill="var(--panel)" stroke="var(--amber)" stroke-width="2"></circle>
+                <circle cx="450" cy="502" r="60" fill="none" stroke="var(--amber)" stroke-opacity="0.35" stroke-width="1" stroke-dasharray="2 8"></circle>
+                <text x="450" y="507" text-anchor="middle" fill="var(--amber)" style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.12em">MEMORY</text>
+                <text x="524" y="498" fill="var(--text)" style="font-family:var(--sans);font-size:17px;font-weight:600">Shared Knowledge</text>
+                <text x="524" y="518" fill="var(--muted)" style="font-family:var(--mono);font-size:12px;letter-spacing:.1em">RECORD OF RECORD · 1,284 INDEXED</text>
+              </svg>
+            </section>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasOpTables }}" hint-placeholder-val="{{ false }}">
+          <div data-stack>
+            <sc-for list="{{ opTables }}" as="t" hint-placeholder-count="2">
+              <section>
+                <div data-label style="margin-bottom:var(--s2)">{{ t.caption }}</div>
+                <div data-scroll>
+                  <table data-table>
+                    <thead>
+                      <tr>
+                        <sc-for list="{{ t.cols }}" as="c" hint-placeholder-count="5">
+                          <th scope="col">{{ c }}</th>
+                        </sc-for>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <sc-for list="{{ t.rows }}" as="r" hint-placeholder-count="5">
+                        <tr>
+                          <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="5">
+                            <td style="font-family:{{ c.font }};font-size:{{ c.size }};color:{{ c.color }}">{{ c.v }}</td>
+                          </sc-for>
+                        </tr>
+                      </sc-for>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </sc-for>
+            <div data-grid="2">
+              <sc-for list="{{ opNotes }}" as="n" hint-placeholder-count="2">
+                <section data-card="raised">
+                  <div data-label>{{ n.label }}</div>
+                  <p data-body>{{ n.body }}</p>
+                </section>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+      </sc-if>
+    </main>
+
+    <aside data-ctx aria-label="Context" style="background:var(--nav);border-left:1px solid var(--hair);padding:var(--s4);min-width:0">
+      <div data-label>{{ ctx.label }}</div>
+      <div data-card style="margin-top:var(--s3);border-left:4px solid {{ ctx.hue }}">
+        <div data-label style="color:{{ ctx.hue }};font-size:12px">{{ ctx.kind }}</div>
+        <div data-h3 style="margin-top:6px">{{ ctx.title }}</div>
+        <div style="display:flex;flex-direction:column;gap:var(--s2);margin-top:var(--s3)">
+          <sc-for list="{{ ctx.facts }}" as="f" hint-placeholder-count="4">
+            <div>
+              <div data-label style="font-size:12px">{{ f.k }}</div>
+              <div style="font-size:14px;line-height:1.45;color:var(--text2);margin-top:2px">{{ f.v }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div data-card="raised" style="margin-top:var(--s3)">
+        <div data-label>AUTHORITY IN VIEW</div>
+        <p data-body="small">{{ ctx.authority }}</p>
+      </div>
+      <div data-card="raised" style="margin-top:var(--s3)">
+        <div data-label>RECENT RECORD</div>
+        <div style="display:flex;flex-direction:column;gap:var(--s2);margin-top:var(--s2)">
+          <sc-for list="{{ ctx.audit }}" as="a" hint-placeholder-count="3">
+            <div style="border-top:1px solid var(--hair);padding-top:6px">
+              <div style="font-family:var(--mono);font-size:12px;color:var(--faint)">{{ a.t }} · {{ a.actor }}</div>
+              <div style="font-size:14px;line-height:1.4;color:var(--text2);margin-top:2px">{{ a.what }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <button data-btn="small" onClick="{{ goAudit }}" style="margin-top:var(--s3)">FULL AUDIT TRAIL</button>
+      </div>
+    </aside>
+  </div>
+
+  <nav data-bottom aria-label="Primary" style="position:fixed;bottom:0;left:0;right:0;z-index:40;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--panel-border);border-top:1px solid var(--panel-border)">
+    <sc-for list="{{ bottomNav }}" as="b" hint-placeholder-count="5">
+      <button onClick="{{ b.go }}" aria-current="{{ b.cur }}" style="border:none;background:var(--nav);color:{{ b.color }};padding:10px 4px;min-height:56px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">{{ b.label }}</button>
+    </sc-for>
+  </nav>
+
+  <sc-if value="{{ moreOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeMore }}" style="position:fixed;inset:0;background:rgba(5,12,9,.62);z-index:60;display:flex;align-items:flex-end">
+      <div role="dialog" aria-modal="true" aria-label="More screens" onClick="{{ stop }}" style="width:100%;background:var(--panel);border-top:2px solid var(--brand);border-radius:var(--r-xl) var(--r-xl) 0 0;padding:var(--s4);max-height:82vh;overflow:auto">
+        <div data-row style="justify-content:space-between">
+          <div data-label>ALL SCREENS · {{ modeCaption }}</div>
+          <button data-btn="small" onClick="{{ closeMore }}">CLOSE</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--s1);margin-top:var(--s3)">
+          <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7">
+            <button data-btn onClick="{{ n.goClose }}" aria-current="{{ n.cur }}" style="justify-content:flex-start;text-align:left;background:{{ n.bg }};color:{{ n.color }}">{{ n.label }}</button>
+          </sc-for>
+        </div>
+        <div data-row style="margin-top:var(--s4);border-top:1px solid var(--hair);padding-top:var(--s3)">
+          <button data-btn="small" onClick="{{ setOwner }}">OWNER VIEW</button>
+          <button data-btn="small" onClick="{{ setOperator }}">OPERATOR VIEW</button>
+          <button data-btn="small" onClick="{{ toggleTheme }}">{{ themeLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ dlg.open }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDlg }}" style="position:fixed;inset:0;background:rgba(5,12,9,.62);z-index:70;display:flex;align-items:center;justify-content:center;padding:16px">
+      <div role="dialog" aria-modal="true" aria-labelledby="dlgTitle" onClick="{{ stop }}" style="width:100%;max-width:560px;background:var(--panel);border:1px solid var(--panel-border);border-top:3px solid {{ dlg.hue }};border-radius:var(--r-xl);padding:var(--s5);max-height:86vh;overflow:auto">
+        <div data-label style="color:{{ dlg.hue }}">{{ dlg.eyebrow }}</div>
+        <h2 id="dlgTitle" data-h2 style="margin-top:var(--s2)">{{ dlg.title }}</h2>
+        <p data-body>{{ dlg.body }}</p>
+
+        <sc-if value="{{ dlg.isApprove }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:var(--s3)">
+            <div data-card="raised" style="padding:var(--s3)">
+              <div data-label style="font-size:12px">EXACT ARTIFACT</div>
+              <div style="font-family:var(--mono);font-size:13px;color:var(--text);margin-top:4px;word-break:break-all">{{ dlg.artifact }}</div>
+            </div>
+            <label style="display:block;margin-top:var(--s3)">
+              <span data-label>TYPE {{ dlg.word }} TO CONFIRM</span>
+              <input data-input value="{{ confirmText }}" onChange="{{ setConfirm }}" autoFocus="{{ true }}" aria-describedby="cfhint" placeholder="{{ dlg.word }}" style="margin-top:6px;font-family:var(--mono);letter-spacing:.08em" />
+            </label>
+            <p id="cfhint" data-meta>This is the only control that records a decision. Nothing else on this screen writes.</p>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ dlg.isChanges }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:var(--s2);margin-top:var(--s3)">
+            <sc-for list="{{ feedbackItems }}" as="f" hint-placeholder-count="4">
+              <label style="display:flex;gap:10px;align-items:flex-start;font-size:15px;line-height:1.5;color:var(--text2);cursor:pointer">
+                <input type="checkbox" checked="{{ f.on }}" onChange="{{ f.toggle }}" style="width:20px;height:20px;margin-top:2px;accent-color:var(--brand)" />
+                <span>{{ f.text }}</span>
+              </label>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ dlg.isReject }}" hint-placeholder-val="{{ false }}">
+          <label style="display:block;margin-top:var(--s3)">
+            <span data-label>REASON FOR REJECTION</span>
+            <select data-input value="{{ rejectReason }}" onChange="{{ setReject }}" style="margin-top:6px">
+              <sc-for list="{{ rejectReasons }}" as="r" hint-placeholder-count="3">
+                <option value="{{ r }}">{{ r }}</option>
+              </sc-for>
+            </select>
+          </label>
+        </sc-if>
+
+        <div data-row style="margin-top:var(--s5)">
+          <button data-btn="primary" onClick="{{ commitDlg }}" disabled="{{ dlg.disabled }}" style="background:{{ dlg.hue }};border-color:{{ dlg.hue }};color:{{ dlg.onHue }}">{{ dlg.commit }}</button>
+          <button data-btn="ghost" onClick="{{ closeDlg }}">CANCEL</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;initialMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;owner&quot;,&quot;operator&quot;],&quot;default&quot;:&quot;owner&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;initialRoute&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;today&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;showStateSelector&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototype&quot;}}">
+const BATCH = 'BATCH-2026-08-30';
+const AS_OF = '2026-08-30 08:40';
+const TZ = 'Africa/Cairo';
+const BASE = 8 * 60 + 40;
+function clk(add) {
+  const t = BASE + add, p = n => String(n).padStart(2, '0');
+  return p(Math.floor(t / 60) % 24) + ':' + p(t % 60);
+}
+
+const TEAM = [
+  { id: 'hermes', name: 'Hermes Conductor', short: 'Hermes', role: 'CHIEF OF STAFF', hue: 'var(--exec)',
+    status: 'Waiting on your decision', tone: 'amber',
+    plain: 'Keeps the team in order. Breaks your objective into steps, hands each step to the right specialist, and assembles what you need to decide. It never approves anything, including its own coordination.',
+    assignment: 'Holding the autumn cohort campaign at the creative approval step until you decide.',
+    outputs: ['Approval package APR-2101, assembled from the Designer Agent output.', 'Stage summary for the autumn cohort campaign.'],
+    limits: ['Cannot approve any package, at any tier.', 'Cannot publish, spend, or contact anyone outside the tenant.'],
+    workCta: 'OPEN CAMPAIGN', work: 'campaign' },
+  { id: 'market', name: 'Market Intelligence Agent', short: 'Market Intelligence', role: 'RESEARCH', hue: 'var(--marketing)',
+    status: 'Finished its assignment', tone: 'ok',
+    plain: 'Reads what you already have — enquiry notes, past cohort records, public pages of nearby programmes — and writes an opportunity brief with its assumptions and confidence stated in the open.',
+    assignment: 'None. Its brief for the autumn cohort was accepted on 29 Aug.',
+    outputs: ['Opportunity brief MI-BRF-014, accepted by you on 29 Aug.', 'Audience and positioning observations with confidence levels.'],
+    limits: ['Cannot state a market number it did not source.', 'Cannot contact a competitor, parent, or partner.'],
+    workCta: 'READ THE BRIEF', work: 'brief' },
+  { id: 'social', name: 'Social Media Agent', short: 'Social Media', role: 'CHANNELS', hue: 'var(--social)',
+    status: 'Waiting on your decision', tone: 'amber',
+    plain: 'Turns an approved direction into a week of posts: hooks, captions, formats and proposed times, per channel. Everything sits in staging until you approve it.',
+    assignment: 'Seven-day plan for the autumn cohort is drafted and waiting in package APR-2102.',
+    outputs: ['Seven-day content plan SOC-PLN-031, staged, not scheduled.', 'Reply guidance for enquiries the team should not answer alone.'],
+    limits: ['Cannot post, reply or delete on a live account.', 'Cannot connect or authorise a channel credential.'],
+    workCta: 'SEE THE PLAN', work: 'plan' },
+  { id: 'designer', name: 'Designer Agent', short: 'Designer', role: 'CREATIVE', hue: 'var(--creative)',
+    status: 'Waiting on your decision', tone: 'amber',
+    plain: 'Builds real artwork inside your brand kit — three genuinely different directions, checked for contrast, safe area and brand rules, with every asset accounted for.',
+    assignment: 'Three directions delivered for the autumn cohort. Awaiting your choice and any changes.',
+    outputs: ['Three creative directions, v1, in the brand kit i-STEMer Core v4.', 'Brand QA and accessibility report per direction.'],
+    limits: ['Cannot change the brand kit itself.', 'Cannot license or buy third-party imagery.'],
+    workCta: 'OPEN DESIGNER STUDIO', work: 'studio' }
+];
+
+const DIRECTIONS = [
+  { key: 'a', slot: 'A', name: 'Quiet Notebook', label: 'Conservative', hue: 'var(--exec)',
+    rationale: 'Closest to what parents already recognise from your printed handouts. Lowest risk, lowest stopping power in a feed.',
+    v1: { kicker: 'i-STEMer · Saturday club', head: 'Six Saturdays. One working robot.', sub: 'Autumn cohort · ages 9–13 · ten places', foot: 'Enquire on WhatsApp' },
+    v2: { kicker: 'i-STEMer · Saturday club', head: '"I built the arm that picks up my pencil."', sub: 'Autumn cohort · ages 9–13 · ten places', foot: 'Saturdays 10:00–13:00 · Maadi' } },
+  { key: 'b', slot: 'B', name: 'Evidence Card', label: 'Strong fit — recommended', hue: 'var(--brand-text)',
+    rationale: 'Leads with the finished thing a child made, which is the angle the brief recommends. Reads at thumb size and holds the lime for the club, not the promise.',
+    v1: { kicker: 'Autumn cohort · ten places', numeral: '06', head: 'Six Saturdays. One working robot.', sub: 'Ages 9–13 · no experience needed', foot: 'i-STEMer · Maadi' },
+    v2: { kicker: 'Autumn cohort · ten places', numeral: null, head: '"I built the arm that picks up my pencil." — Malak, 11', sub: 'Ages 9–13 · no experience needed', foot: 'Saturdays 10:00–13:00 · Maadi' } },
+  { key: 'c', slot: 'C', name: 'Chalk Static', label: 'Divergent', hue: 'var(--marketing)',
+    rationale: 'Deliberately unlike anything in the category. Highest stopping power, furthest from the current brand temperature — a real choice, not a decoy.',
+    v1: { kicker: 'Saturday club · autumn', head: 'BUILD', head2: 'IT LOUD', sub: 'Six Saturdays of circuits, code and mess. Ages 9–13.', foot: 'Ten places · Maadi' },
+    v2: { kicker: 'Saturday club · autumn', head: 'BUILD', head2: 'IT LOUD', sub: '"I built the arm that picks up my pencil." — Malak, 11', foot: 'Saturdays 10:00–13:00 · Maadi' } }
+];
+
+const QA = {
+  a: [
+    { check: 'Body text contrast', result: 'PASS 8.9:1', detail: 'Deep green #0F2A1B on ivory #F2F0E6.' },
+    { check: 'Kicker contrast', result: 'PASS 5.4:1', detail: 'Slate #4A5A4E on ivory, above 4.5:1 for small text.' },
+    { check: 'Instagram feed safe area', result: 'PASS', detail: 'All type inside 60px inset, no crop at 1:1 preview.' },
+    { check: 'Reels crop', result: 'ATTENTION', detail: 'Footer line falls under the caption bar in a 9:16 crop.' },
+    { check: 'Brand compliance', result: 'PASS', detail: 'Lime used as a rule only, never behind body text.' },
+    { check: 'Type licence', result: 'PASS', detail: 'IBM Plex, open licence, bundled in the brand kit.' }
+  ],
+  b: [
+    { check: 'Body text contrast', result: 'PASS 12.1:1', detail: 'Ivory #F2F0E6 on deep green #0F2A1B.' },
+    { check: 'Lime panel text', result: 'PASS 10.8:1', detail: 'Near-black #0D1A0F on lime #B3D100.' },
+    { check: 'Instagram feed safe area', result: 'PASS', detail: 'Type inside 64px inset at 1080×1350.' },
+    { check: 'Reels crop', result: 'PASS', detail: 'Footer line clears the 9:16 caption bar.' },
+    { check: 'Brand compliance', result: 'PASS', detail: 'Lime as a container, deep green as the ground — matches kit rule 3.' },
+    { check: 'Small-screen legibility', result: 'PASS', detail: 'Headline holds at 320px preview width.' }
+  ],
+  c: [
+    { check: 'Headline contrast', result: 'PASS 6.2:1', detail: 'Magenta #FB85C0 on near-black #0A1A12.' },
+    { check: 'Second headline contrast', result: 'ATTENTION 4.3:1', detail: 'Violet #B79DFF on near-black sits just under 4.5:1 for text under 24px. Used at 40px, so it passes as large text only.' },
+    { check: 'Instagram feed safe area', result: 'PASS', detail: 'Overlap kept inside the inset.' },
+    { check: 'Reels crop', result: 'ATTENTION', detail: 'Overlapping words collide with the caption bar in 9:16.' },
+    { check: 'Brand compliance', result: 'ATTENTION', detail: 'Grid texture is not in the kit. Needs your sign-off as a one-off.' },
+    { check: 'Type licence', result: 'PASS', detail: 'IBM Plex only, no third-party face.' }
+  ]
+};
+
+const PLAN = [
+  { day: 'MON 01 SEP', channel: 'Instagram', format: 'Carousel, 4 cards', hook: 'The thing Malak built on a Saturday', caption: 'Opens on the finished robot arm, then the six steps that got there. Ends with the cohort dates, no hard sell.', time: '19:30' },
+  { day: 'TUE 02 SEP', channel: 'Facebook', format: 'Single image + long caption', hook: 'What a beginner actually does in week one', caption: 'Written for a parent who is unsure their child is "technical". Names the ages and the three-hour session.', time: '20:00' },
+  { day: 'WED 03 SEP', channel: 'Instagram Stories', format: '3 frames', hook: 'Three questions parents keep asking', caption: 'One question per frame, answered plainly. Last frame points to WhatsApp enquiries.', time: '13:00' },
+  { day: 'THU 04 SEP', channel: 'WhatsApp community', format: 'Text + one image', hook: 'Ten places, and how they are allocated', caption: 'For the existing parent group only. States the allocation rule so nobody thinks it is first-come chaos.', time: '18:00' },
+  { day: 'FRI 05 SEP', channel: 'Instagram', format: 'Reel, 18s', hook: 'Six Saturdays in eighteen seconds', caption: 'Cuts of student work in sequence. Needs a photo or clip from you — the Designer Agent cannot license footage.', time: '20:30' },
+  { day: 'SAT 06 SEP', channel: 'Instagram Stories', format: '2 frames', hook: 'Live from the club', caption: 'Placeholder for the session itself. Owner captures, agent drafts the caption after.', time: '11:00' },
+  { day: 'SUN 07 SEP', channel: 'Facebook + Instagram', format: 'Single image', hook: 'Enrolment closes Thursday', caption: 'The only post with a deadline in it. Uses the approved artwork, no new claims.', time: '19:00' }
+];
+
+const PACKAGES = [
+  { id: 'APR-2101', title: 'Approve creative direction for staging review', hue: 'var(--creative)',
+    tier: 'TIER 2 — OWNER ONLY', requester: 'Designer Agent', deadline: '31 Aug, 17:00',
+    cost: 'No direct cost', word: 'STAGING', hasPreview: true,
+    summary: 'Puts one creative direction into the staging review folder so the Social Media Agent can build the week around it. Nothing is published and no account is touched.',
+    facts: [
+      { k: 'What you are approving', v: 'One creative direction, at one exact revision, into staging review.' },
+      { k: 'Requested by', v: 'Designer Agent, packaged by Hermes Conductor' },
+      { k: 'Where it goes', v: 'Staging review folder · tenant i-STEMer Demo' },
+      { k: 'Why now', v: 'The seven-day plan cannot be built until the artwork is fixed.' },
+      { k: 'Cost', v: 'No direct cost. Staging only, no media spend.' },
+      { k: 'Decision is yours alone', v: 'Tier 2. No agent can make or unblock this decision.' }
+    ],
+    will: ['The chosen direction, at the exact revision named above, is copied to staging review.', 'The Social Media Agent may start building the week around that artwork.', 'The decision is written to the audit trail with your name, the time, and the revision.'],
+    wont: ['Nothing is posted to Instagram, Facebook or WhatsApp.', 'No advertising budget is committed.', 'No live publication happens — that is a separate approval you have not been asked for yet.'],
+    evidence: ['Opportunity brief MI-BRF-014, accepted by you on 29 Aug 2026.', 'Brand QA and contrast report for the selected direction, produced 30 Aug 08:12.', 'Sample scenario note: no external performance data exists for this campaign yet.'],
+    risk: 'Low. Staging review is internal and reversible. The consequential risk sits with live publication, which is held behind a separate Tier 2 decision.',
+    reversal: 'Reversal: withdraw the staging artifact by its revision id. No external surface has changed.',
+    decisionNote: 'Approving names one artifact revision. If the Designer Agent produces a new revision afterwards, this approval is invalidated and you will be asked again.',
+    next: ['The Social Media Agent builds the seven-day plan around the approved artwork.', 'You will be asked for a separate live-publication approval only after staging is checked.', 'Nothing reaches a real account on this decision.'] },
+  { id: 'APR-2102', title: 'Approve the seven-day plan into the staging queue', hue: 'var(--social)',
+    tier: 'TIER 1 — ROUTINE', requester: 'Social Media Agent', deadline: '01 Sep, 09:00',
+    cost: 'No direct cost', word: null, hasPreview: false,
+    summary: 'Loads seven drafted posts into the staging queue with proposed times. They stay unpublished and unscheduled on any live account.',
+    facts: [
+      { k: 'What you are approving', v: 'Seven post drafts entering the staging queue.' },
+      { k: 'Requested by', v: 'Social Media Agent' },
+      { k: 'Where it goes', v: 'Staging queue · tenant i-STEMer Demo' },
+      { k: 'Why now', v: 'The queue must be filled before the week can be reviewed as a whole.' },
+      { k: 'Cost', v: 'No direct cost.' },
+      { k: 'Decision', v: 'Tier 1 routine. Contained to staging.' }
+    ],
+    will: ['Seven drafts appear in the staging queue with proposed times.', 'You can read the whole week in one place before anything goes live.'],
+    wont: ['No live account is connected or touched.', 'No post is scheduled on a real platform.'],
+    evidence: ['Plan SOC-PLN-031, drafted 30 Aug 07:55.', 'Each post cites the creative direction it depends on.'],
+    risk: 'Contained to staging. Reordering or deleting a staged draft costs nothing.',
+    reversal: 'Reversal: clear the staging queue. No external state exists to undo.',
+    decisionNote: 'Routine tier. Still yours to decide, and still recorded.',
+    next: ['You can read the week as a whole on the campaign screen.', 'Live publication remains a separate approval.'] },
+  { id: 'APR-2103', title: 'Publish the approved week to live accounts', hue: 'var(--marketing)',
+    tier: 'TIER 2 — OWNER ONLY · LIVE', requester: 'Not yet requested', deadline: 'Not set',
+    cost: 'No direct cost', word: 'PUBLISH LIVE', hasPreview: false, locked: true,
+    lockReason: 'Cannot be opened yet. Live publication needs verified staging evidence, and no staging run has been recorded. Approving for staging does not approve this.',
+    summary: 'The separate decision that would let anything leave the tenant. It stays closed until staging has been checked and its evidence recorded.',
+    facts: [
+      { k: 'Status', v: 'Not requestable. Missing prerequisite.' },
+      { k: 'Prerequisite', v: 'A recorded staging run with verification evidence.' },
+      { k: 'Who could decide it', v: 'Hadeer only, with typed confirmation.' },
+      { k: 'Cost', v: 'No direct cost in this build. No connector exists.' }
+    ],
+    will: [], wont: [],
+    evidence: ['No staging run has been recorded, so there is no evidence to show.'],
+    risk: 'This is the only decision in the system with an external consequence, which is why it is held separately.',
+    reversal: 'Reversal after live publication depends on the platform and is never guaranteed. That asymmetry is the reason for the separation.',
+    decisionNote: '', next: [] }
+];
+
+const FEEDBACK = [
+  { id: 'f1', text: 'Lead with the student\u2019s own words instead of the big numeral.' },
+  { id: 'f2', text: 'State the club time and place explicitly in the footer.' },
+  { id: 'f3', text: 'Keep the lime panel — it reads well at thumb size.' },
+  { id: 'f4', text: 'Drop any claim we cannot evidence from our own records.' }
+];
+
+const REJECT_REASONS = [
+  'Wrong direction for this audience',
+  'Claim cannot be evidenced',
+  'Off-brand',
+  'Timing is wrong',
+  'Needs a conversation first'
+];
+
+const STATES = [
+  { k: 'default', label: 'DEFAULT' }, { k: 'loading', label: 'LOADING' }, { k: 'empty', label: 'EMPTY' },
+  { k: 'firstrun', label: 'AWAITING FIRST RUN' }, { k: 'blocked', label: 'BLOCKED BY APPROVAL' },
+  { k: 'dependency', label: 'DEPENDENCY UNAVAILABLE' }, { k: 'denied', label: 'PERMISSION DENIED' },
+  { k: 'error', label: 'ERROR' }, { k: 'changes', label: 'CHANGES REQUESTED' }, { k: 'rejected', label: 'REJECTED' },
+  { k: 'staged', label: 'APPROVED FOR STAGING' }, { k: 'awaitlive', label: 'AWAITING LIVE APPROVAL' },
+  { k: 'verified', label: 'COMPLETED AND VERIFIED' }
+];
+
+const OWNER_ROUTES = [
+  { k: 'today', label: 'TODAY', glyph: 'TD', crumb: 'owner / today' },
+  { k: 'approvals', label: 'NEEDS YOUR APPROVAL', glyph: 'AP', crumb: 'owner / approvals' },
+  { k: 'campaign', label: 'CAMPAIGNS', glyph: 'CM', crumb: 'owner / campaigns' },
+  { k: 'studio', label: 'DESIGNER STUDIO', glyph: 'DS', crumb: 'owner / campaigns / designer' },
+  { k: 'team', label: 'AI TEAM', glyph: 'TM', crumb: 'owner / team' },
+  { k: 'results', label: 'RESULTS', glyph: 'RS', crumb: 'owner / results' },
+  { k: 'ask', label: 'ASK THE TEAM', glyph: 'AS', crumb: 'owner / ask' }
+];
+
+const OP_ROUTES = [
+  { k: 'org', label: 'ORG TOPOLOGY', glyph: 'OR', crumb: 'operator / organization' },
+  { k: 'manifests', label: 'AGENT MANIFESTS', glyph: 'AG', crumb: 'operator / agents' },
+  { k: 'sops', label: 'SOP REVISIONS', glyph: 'SO', crumb: 'operator / sops' },
+  { k: 'runs', label: 'WORKFLOW RUNS', glyph: 'RU', crumb: 'operator / runs' },
+  { k: 'artifacts', label: 'EVIDENCE & ARTIFACTS', glyph: 'EV', crumb: 'operator / evidence' },
+  { k: 'rules', label: 'APPROVAL RULES', glyph: 'AR', crumb: 'operator / approval-rules' },
+  { k: 'connectors', label: 'CONNECTOR HEALTH', glyph: 'CN', crumb: 'operator / connectors' },
+  { k: 'memory', label: 'SHARED KNOWLEDGE', glyph: 'MK', crumb: 'operator / knowledge' },
+  { k: 'cost', label: 'MODEL USAGE & COST', glyph: 'MC', crumb: 'operator / usage' },
+  { k: 'audit', label: 'AUDIT TRAIL', glyph: 'AU', crumb: 'operator / audit' },
+  { k: 'diagnostics', label: 'FIXTURE & SCHEMA', glyph: 'FX', crumb: 'operator / diagnostics' },
+  { k: 'system', label: 'SYSTEM HEALTH', glyph: 'SH', crumb: 'operator / health' }
+];
+
+const NODES = { hadeer: [450, 72], hermes: [450, 218], market: [250, 372], social: [450, 372], designer: [650, 372], memory: [450, 502] };
+const EDGES = [
+  { d: 'M450 98 C 450 130, 450 152, 450 180', stroke: 'var(--amber)', w: 2, dash: '0', o: 0.85 },
+  { d: 'M250 352 C 250 286, 330 218, 412 218', stroke: 'var(--marketing)', w: 1.5, dash: '0', o: 0.8 },
+  { d: 'M450 352 C 450 320, 450 300, 450 256', stroke: 'var(--social)', w: 1.5, dash: '0', o: 0.8 },
+  { d: 'M650 352 C 650 286, 570 218, 488 218', stroke: 'var(--creative)', w: 1.5, dash: '0', o: 0.8 },
+  { d: 'M412 218 C 190 268, 156 466, 402 502', stroke: 'var(--amber)', w: 1.5, dash: '6 5', o: 0.55 },
+  { d: 'M250 392 C 250 462, 330 502, 402 502', stroke: 'var(--amber)', w: 1.5, dash: '6 5', o: 0.5 },
+  { d: 'M450 392 C 450 418, 450 432, 450 454', stroke: 'var(--amber)', w: 1.5, dash: '6 5', o: 0.5 },
+  { d: 'M650 392 C 650 462, 570 502, 498 502', stroke: 'var(--amber)', w: 1.5, dash: '6 5', o: 0.5 }
+];
+
+const OP = {
+  org: { tables: [{ caption: 'ROLE TOPOLOGY AND AUTHORITY', cols: ['Role', 'Held by', 'Authority', 'May approve', 'May never'], mono: [0], rows: [
+      ['BUSINESS OWNER', 'Hadeer', 'Final authority on every consequential action', 'All tiers, including live publication', 'Delegate Tier 2 to any agent or operator'],
+      ['TECHNICAL OPERATOR', 'Unassigned in this build', 'Configuration, connectors, schema', 'Tier 0 configuration only', 'Approve a business action or publish anything'],
+      ['CONDUCTOR', 'Hermes', 'Coordination, dispatch, packaging', 'Nothing', 'Approve its own or any other work'],
+      ['SPECIALIST AGENT', 'Market Intelligence · Social · Designer', 'Produce proposals in staging', 'Nothing', 'Publish, spend, or self-approve'],
+      ['SHARED KNOWLEDGE', 'Index', 'Record of record', 'Not applicable', 'Originate an action']
+    ] }],
+    notes: [
+      { label: 'WHY TWO AUTHORITIES', body: 'Owner authority and technical operator authority are deliberately separate. The operator can break the system but cannot commit the business; the owner can commit the business but is never asked to read a schema to do it.' },
+      { label: 'CONDUCTOR CONSTRAINT', body: 'Hermes is the only node with dispatch rights and the only node with zero approval rights. Coordination and consent are never held by the same actor.' }
+    ] },
+  manifests: { tables: [{ caption: 'AGENT MANIFESTS AND PERMISSIONS', cols: ['Agent', 'Manifest', 'Permissions', 'Autonomy rung', 'Enabled by default', 'Last real run'], mono: [1, 3, 4, 5], rows: [
+      ['Hermes Conductor', 'mf/hermes.v6', 'dispatch, package, read memory', 'RUNG 2 — PROPOSE', 'TRUE', 'AWAITING FIRST RUN'],
+      ['Market Intelligence Agent', 'mf/market.v3', 'read memory, read public pages, write draft', 'RUNG 1 — SUGGEST', 'FALSE', 'AWAITING FIRST RUN'],
+      ['Social Media Agent', 'mf/social.v4', 'read memory, write staging queue', 'RUNG 2 — PROPOSE', 'FALSE', 'AWAITING FIRST RUN'],
+      ['Designer Agent', 'mf/designer.v5', 'read brand kit, compose asset, write staging', 'RUNG 2 — PROPOSE', 'FALSE', 'AWAITING FIRST RUN']
+    ] }, { caption: 'CAPABILITIES DELIBERATELY ABSENT', cols: ['Capability', 'State', 'Reason'], mono: [1], rows: [
+      ['Publish to external channel', 'NOT PROVISIONED', 'No connector exists in this build. Publication is a separate Tier 2 decision by design.'],
+      ['Spend or purchase', 'NOT PROVISIONED', 'No agent holds a payment permission at any rung.'],
+      ['Self-approval', 'PROHIBITED', 'Enforced at the rule layer, not by configuration.'],
+      ['Unsupervised action', 'PROHIBITED', 'Rung 5 is not implemented and is not reachable.']
+    ] }],
+    notes: [{ label: 'ENABLED BY DEFAULT', body: 'Three of four agents are false by default. They run only when the conductor dispatches them against an approved SOP revision.' }] },
+  sops: { tables: [{ caption: 'SOP REVISIONS', cols: ['SOP', 'Title', 'Revision', 'Hash', 'Owner', 'State'], mono: [0, 2, 3, 5], rows: [
+      ['SOP-CAMP-002', 'Cohort awareness campaign, end to end', 'REV 4', 'a91f3c', 'Hadeer', 'ACTIVE'],
+      ['SOP-CRE-003', 'Creative direction set', 'REV 5', '9f30ab', 'Hadeer', 'ACTIVE'],
+      ['SOP-SOC-002', 'Weekly post cycle', 'REV 2', '4bd022', 'Hadeer', 'ACTIVE'],
+      ['SOP-PUB-005', 'Live publication with verification', 'REV 1', 'c70d18', 'Hadeer', 'BLOCKED — NO CONNECTOR']
+    ] }, { caption: 'SOP-CAMP-002 REV 4 — STEPS', cols: ['#', 'Step', 'Owner', 'Output', 'Completion test'], mono: [0, 2], rows: [
+      ['01', 'Frame the objective', 'HADEER', 'Objective statement', 'Objective names one measurable outcome'],
+      ['02', 'Opportunity brief', 'MARKET', 'Brief with cited sources', 'Every claim carries a source and a confidence'],
+      ['03', 'Owner accepts direction', 'HADEER', 'Accepted angle', 'Decision recorded with a timestamp'],
+      ['04', 'Creative directions', 'DESIGNER', 'Three structurally distinct directions', 'Each direction passes brand QA and contrast'],
+      ['05', 'Owner selects and comments', 'HADEER', 'Selection and structured feedback', 'Feedback attached to an exact revision'],
+      ['06', 'Revision', 'DESIGNER', 'New revision with diff', 'Diff lists every changed element'],
+      ['07', 'Owner approves for staging', 'HADEER', 'Tier 2 decision', 'Decision names the exact revision and hash'],
+      ['08', 'Seven-day plan', 'SOCIAL', 'Staged post queue', 'Every post cites the approved artifact'],
+      ['09', 'Live publication approval', 'HADEER', 'Separate Tier 2 decision', 'Requires verified staging evidence']
+    ] }],
+    notes: [{ label: 'REVISION DISCIPLINE', body: 'An approval is bound to a revision hash. A material change produces a new hash, which invalidates any approval attached to the old one. The owner is asked again rather than silently inheriting consent.' }] },
+  runs: { tables: [{ caption: 'WORKFLOW RUN STATES', cols: ['Run', 'SOP revision', 'Stage', 'State', 'Started', 'Evidence'], mono: [0, 1, 3, 4], rows: [
+      ['SAMPLE-RUN-0001', 'SOP-CAMP-002 REV 4', 'Step 05 — owner selection', 'AWAITING OWNER', 'SAMPLE SCENARIO', 'Sample only, not a real execution'],
+      ['—', 'SOP-SOC-002 REV 2', 'Step 01', 'NOT STARTED', 'NEVER', '0 of 6 steps started'],
+      ['—', 'SOP-PUB-005 REV 1', 'Step 01', 'BLOCKED', 'NEVER', 'Prerequisite connector absent'],
+      ['—', 'SOP-CRE-003 REV 5', 'Step 01', 'NOT STARTED', 'NEVER', '0 of 7 steps started']
+    ] }],
+    notes: [
+      { label: 'ONE SAMPLE RUN ONLY', body: 'Exactly one run row exists and it is labelled as the sample scenario. Every other workflow reads 0 of n steps started, which is measured, not estimated.' },
+      { label: 'NO PROGRESS BARS', body: 'Unstarted work gets no progress bar. A bar at zero implies a run that does not exist.' }
+    ] },
+  artifacts: { tables: [{ caption: 'ARTIFACT AND EVIDENCE RECORDS', cols: ['Artifact', 'Kind', 'Revision', 'Hash', 'Produced by', 'Provenance', 'Verified'], mono: [0, 2, 3, 6], rows: [
+      ['MI-BRF-014', 'Opportunity brief', 'v1', '3d81f0', 'Market Intelligence Agent', 'Own enquiry notes + public programme pages (sample)', 'ACCEPTED BY OWNER'],
+      ['CRE-DIR-A', 'Creative direction', 'v1', '5be207', 'Designer Agent', 'Brand kit i-STEMer Core v4, type only', 'QA PASSED'],
+      ['CRE-DIR-B', 'Creative direction', 'v1', '7c41ae', 'Designer Agent', 'Brand kit i-STEMer Core v4, type only', 'QA PASSED'],
+      ['CRE-DIR-C', 'Creative direction', 'v1', 'e0a934', 'Designer Agent', 'Brand kit + non-kit grid texture', 'QA ATTENTION'],
+      ['SOC-PLN-031', 'Content plan', 'v1', 'b21c55', 'Social Media Agent', 'Derived from MI-BRF-014', 'AWAITING OWNER'],
+      ['PHOTO-SLOT-01', 'Image requirement', '—', '—', 'Designer Agent', 'None. Owner must supply; no stock licence held', 'NOT SUPPLIED']
+    ] }],
+    notes: [
+      { label: 'NO LICENSED IMAGERY', body: 'The system holds no stock photography licence and no agent may buy one. Where a photograph is needed the artifact records an unfilled image requirement rather than substituting a stand-in.' },
+      { label: 'HASHES', body: 'A hash identifies an exact artifact revision. It appears here and in the audit trail; the owner sees it only behind View technical references.' }
+    ] },
+  rules: { tables: [{ caption: 'APPROVAL RULES', cols: ['Action class', 'Tier', 'Who decides', 'Confirmation', 'Separate live approval'], mono: [1, 3, 4], rows: [
+      ['Internal draft circulation', 'TIER 0', 'Conductor may proceed', 'NONE', 'N/A'],
+      ['Write to staging queue', 'TIER 1', 'Hadeer', 'SINGLE CLICK', 'N/A'],
+      ['Approve creative for staging', 'TIER 2', 'Hadeer', 'TYPED WORD', 'YES — REQUIRED LATER'],
+      ['Publish to a live account', 'TIER 2 LIVE', 'Hadeer', 'TYPED PHRASE', 'THIS IS THAT APPROVAL'],
+      ['Spend money', 'PROHIBITED', 'Nobody in this build', 'N/A', 'N/A']
+    ] }, { caption: 'INVARIANTS ENFORCED AT THE RULE LAYER', cols: ['Invariant', 'Effect'], mono: [], rows: [
+      ['Approval binds to one action and one artifact revision', 'A second action, or a new revision, needs a new decision.'],
+      ['Material change invalidates prior approval', 'The approval state resets and the owner is asked again.'],
+      ['No actor may approve its own work', 'Conductor and specialists have zero approval rights.'],
+      ['Chat is never consent', 'A conversational reply cannot move an approval state.'],
+      ['Approved is not executed', 'Executed and externally verified is a distinct state requiring evidence.'],
+      ['External action runs on a restricted path', 'Only the publication path may leave the tenant, and only after a live approval.']
+    ] }],
+    notes: [{ label: 'WHY TYPED CONFIRMATION', body: 'Typing is the only control in the product that records a decision. It makes consent deliberate and makes an accidental click impossible on the two tiers where consequence is real.' }] },
+  connectors: { tables: [{ caption: 'CONNECTOR HEALTH', cols: ['Connector', 'State', 'Scope', 'Last check', 'Note'], mono: [1, 3], rows: [
+      ['Fixture data adapter', 'OK', 'Read-only', '30 AUG 08:40', 'Parsed 61 records against schema v4.'],
+      ['Staging review folder', 'OK', 'Write staging', '30 AUG 08:40', 'Internal to the tenant.'],
+      ['Instagram / Facebook', 'NOT CONNECTED', 'Would be publish', 'NEVER', 'Deliberately absent. No credential is held.'],
+      ['WhatsApp community', 'NOT CONNECTED', 'Would be publish', 'NEVER', 'Deliberately absent.'],
+      ['Run recorder', 'NOT PROVISIONED', 'Write runs', 'NEVER', 'Without it, no execution claim can be made.'],
+      ['Billing / usage meter', 'NOT PROVISIONED', 'Read cost', 'NEVER', 'Cost cannot be shown as a number.']
+    ] }],
+    notes: [{ label: 'ABSENCE IS A FEATURE HERE', body: 'Four connectors are absent on purpose. The interface never implies a live integration exists; where one would be needed it names the missing capability and stops.' }] },
+  memory: { tables: [{ caption: 'SHARED KNOWLEDGE STATUS', cols: ['Collection', 'Items', 'Source', 'Freshness', 'Write policy'], mono: [1, 3], rows: [
+      ['Brand kit', '38', 'i-STEMer Core v4, owner supplied', 'AT FREEZE', 'Owner only'],
+      ['Past cohort records', '214', 'Owner spreadsheets, imported', 'AT FREEZE', 'Read-only for agents'],
+      ['Enquiry notes', '486', 'Owner WhatsApp exports (sample)', 'AT FREEZE', 'Read-only for agents'],
+      ['Agent outputs', '3', 'Sample scenario artifacts', 'AT FREEZE', 'Append only, revision bound'],
+      ['Decisions', '4', 'Audit trail', 'LIVE IN SESSION', 'Append only, never edited'],
+      ['Public programme pages', '543', 'Sample crawl fixture', 'AT FREEZE', 'Read-only, cited on use']
+    ] }],
+    notes: [
+      { label: 'RECORD OF RECORD', body: 'Every agent reads from here and writes back only revision-bound artifacts. Nothing in shared knowledge can be edited in place, so a claim can always be traced to the version it came from.' },
+      { label: 'NO REFRESH JOB', body: 'This build has no scheduler, so freshness reads AT FREEZE rather than a rolling age. Staleness is stated, not hidden.' }
+    ] },
+  cost: { tables: [{ caption: 'MODEL USAGE AND COST VISIBILITY', cols: ['Model role', 'Used for', 'Sample scenario estimate', 'Real usage', 'Cost'], mono: [2, 3, 4], rows: [
+      ['Reasoning, large', 'Conductor planning and packaging', '≈ 9 CALLS (SAMPLE)', 'AWAITING FIRST RUN', 'NOT VISIBLE — NO METER'],
+      ['Reasoning, small', 'Caption and hook drafting', '≈ 21 CALLS (SAMPLE)', 'AWAITING FIRST RUN', 'NOT VISIBLE — NO METER'],
+      ['Vision / layout', 'Creative composition and QA', '≈ 6 CALLS (SAMPLE)', 'AWAITING FIRST RUN', 'NOT VISIBLE — NO METER'],
+      ['Embedding', 'Shared knowledge indexing', '≈ 1,284 ITEMS (SAMPLE)', 'AWAITING FIRST RUN', 'NOT VISIBLE — NO METER']
+    ] }],
+    notes: [
+      { label: 'WHY NO CURRENCY FIGURE', body: 'No usage meter or billing connector is provisioned, so a cost in pounds or dollars would be invented. The column says so instead of printing a plausible number.' },
+      { label: 'SAMPLE ESTIMATES ARE LABELLED', body: 'Call counts describe the labelled sample scenario only. They are not a forecast and not a bill.' }
+    ] },
+  diagnostics: { tables: [{ caption: 'FIXTURE AND SCHEMA DIAGNOSTICS', cols: ['Check', 'Result', 'Detail', 'When'], mono: [1, 3], rows: [
+      ['Fixture parse', 'OK', 'BATCH-2026-08-30 parsed, 61 records.', 'AT FREEZE'],
+      ['Schema version', 'OK', 'Schema v4. All records conform.', 'AT FREEZE'],
+      ['Required fields', 'OK', 'Every artifact row carries kind, revision and provenance.', 'AT FREEZE'],
+      ['Orphan references', 'OK', 'No artifact points at a missing SOP revision.', 'AT FREEZE'],
+      ['Run table', 'EMPTY', 'One sample row, clearly labelled. No real runs.', 'AT FREEZE'],
+      ['Cost table', 'NOT PROVISIONED', 'No meter, so the table does not exist.', 'NEVER']
+    ] }],
+    notes: [{ label: 'WHAT DIAGNOSTICS ARE FOR', body: 'These rows let an operator tell the difference between a system that measured zero and a system that measured nothing. The owner view never has to make that distinction.' }] },
+  system: { tables: [{ caption: 'SYSTEM HEALTH AND BLOCKED STATES', cols: ['Subsystem', 'State', 'Reason', 'What it blocks'], mono: [1], rows: [
+      ['Fixture reader', 'OK', 'Read-only adapter resolves.', 'Nothing'],
+      ['Approval writer', 'IN SESSION ONLY', 'Decisions are recorded in this session, not persisted to a backend.', 'Durable audit'],
+      ['Run recorder', 'NOT PROVISIONED', 'No runtime in this build.', 'Any claim that work executed'],
+      ['Publication path', 'BLOCKED', 'No connector and no live approval.', 'All external actions'],
+      ['Usage meter', 'NOT PROVISIONED', 'No billing integration.', 'Cost figures'],
+      ['Verification service', 'NOT PROVISIONED', 'Nothing can confirm an external result.', 'The completed and verified state']
+    ] }],
+    notes: [
+      { label: 'BLOCKED IS NOT BROKEN', body: 'Four of these states are intentional. The system refuses to represent a capability it does not have, which is why the publication path reads BLOCKED rather than READY.' },
+      { label: 'PROTOTYPE BOUNDARY', body: 'Decisions taken in this artifact live in the browser session only. Reloading returns the sample scenario to its starting state.' }
+    ] }
+};
+
+class Component extends DCLogic {
+  state = {
+    mode: 'owner', route: 'today', stateKey: 'default', theme: null,
+    stage: 'objective', dir: 'b', revision: 1, showVer: 'after',
+    fb: {}, fbNote: '', pkgId: null, decisions: {}, invalidated: {},
+    techOpen: false, evOpen: false, moreOpen: false,
+    dlg: { open: false, kind: null, pkgId: null }, confirmText: '', rejectReason: REJECT_REASONS[0],
+    askText: '', askSent: false, objMade: false,
+    audit: [
+      { t: '29 AUG 16:20', actor: 'Hadeer', what: 'Set the objective: fill the autumn Saturday cohort using owned channels only.', ref: 'OBJ-0007' },
+      { t: '29 AUG 17:05', actor: 'Hadeer', what: 'Accepted the recommended campaign angle from brief MI-BRF-014 v1.', ref: 'MI-BRF-014 · 3d81f0' },
+      { t: '30 AUG 07:55', actor: 'Social Media Agent', what: 'Submitted the seven-day plan for approval. No account touched.', ref: 'SOC-PLN-031 · b21c55' },
+      { t: '30 AUG 08:12', actor: 'Designer Agent', what: 'Delivered three creative directions v1 with brand QA.', ref: 'CRE-DIR-A/B/C · v1' }
+    ]
+  };
+
+  componentDidMount() {
+    document.title = 'Business Agent OS — Owner and Operator prototype (sample scenario)';
+    const m = this.props.initialMode;
+    if (m === 'owner' || m === 'operator') {
+      const rs = m === 'owner' ? OWNER_ROUTES : OP_ROUTES;
+      const r = this.props.initialRoute;
+      this.setState({ mode: m, route: rs.some(x => x.k === r) ? r : rs[0].k });
+    } else {
+      const r = this.props.initialRoute;
+      if (r && OWNER_ROUTES.some(x => x.k === r)) this.setState({ route: r });
+    }
+    let t = null;
+    try { t = window.localStorage.getItem('baos-theme'); } catch (e) { t = null; }
+    if (t === 'dark' || t === 'light') { this.setState({ theme: t }); document.documentElement.setAttribute('data-theme', t); }
+    this.onKey = e => {
+      if (e.key !== 'Escape') return;
+      if (this.state.dlg.open) this.closeDlg();
+      else if (this.state.moreOpen) this.setState({ moreOpen: false });
+    };
+    document.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() { document.removeEventListener('keydown', this.onKey); }
+
+  routes() { return this.state.mode === 'owner' ? OWNER_ROUTES : OP_ROUTES; }
+  go = r => this.setState({ route: r, moreOpen: false, techOpen: false, evOpen: false });
+  setMode = m => this.setState({ mode: m, route: m === 'owner' ? 'today' : 'org', moreOpen: false, pkgId: null });
+
+  toggleTheme = () => {
+    const cur = this.state.theme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { window.localStorage.setItem('baos-theme', next); } catch (e) {}
+    this.setState({ theme: next });
+  };
+
+  openPkg = id => this.setState({ route: 'approvals', pkgId: id, techOpen: this.state.mode === 'operator', evOpen: false });
+  openDlg = kind => this.setState({ dlg: { open: true, kind: kind, pkgId: this.state.pkgId }, confirmText: '' });
+  closeDlg = () => this.setState({ dlg: { open: false, kind: null, pkgId: null }, confirmText: '' });
+
+  addAudit(what, ref, actor) {
+    const n = this.state.audit.length;
+    this.setState(s => ({ audit: [{ t: '30 AUG ' + clk(20 + n * 3), actor: actor || 'Hadeer', what: what, ref: ref }].concat(s.audit) }));
+  }
+
+  selectedDir() { return DIRECTIONS.find(d => d.key === this.state.dir) || DIRECTIONS[1]; }
+  artifactRef() {
+    const d = this.selectedDir();
+    const hash = { a: '5be207', b: '7c41ae', c: 'e0a934' }[d.key];
+    const rev = 'v' + this.state.revision;
+    return 'CRE-DIR-' + d.slot + ' · ' + rev + ' · hash ' + (this.state.revision === 2 ? hash.split('').reverse().join('') : hash);
+  }
+
+  commitDlg = () => {
+    const k = this.state.dlg.kind, id = this.state.dlg.pkgId;
+    if (k === 'approve') {
+      const dec = Object.assign({}, this.state.decisions); dec[id] = 'staged';
+      const inv = Object.assign({}, this.state.invalidated); delete inv[id];
+      this.setState({ decisions: dec, invalidated: inv });
+      this.addAudit('Approved for staging review: ' + this.artifactRef() + '. Live publication not approved.', id);
+    } else if (k === 'reject') {
+      const dec = Object.assign({}, this.state.decisions); dec[id] = 'rejected';
+      this.setState({ decisions: dec });
+      this.addAudit('Rejected ' + id + '. Reason: ' + this.state.rejectReason + '. ' + this.artifactRef() + ' not staged.', id);
+    } else if (k === 'changes') {
+      this.applyFeedback(id);
+    }
+    this.closeDlg();
+  };
+
+  applyFeedback(id) {
+    const picked = FEEDBACK.filter(f => this.state.fb[f.id]);
+    const dec = Object.assign({}, this.state.decisions);
+    const inv = Object.assign({}, this.state.invalidated);
+    if (dec[id] === 'staged') inv[id] = true;
+    dec[id] = 'changes';
+    this.setState({ decisions: dec, invalidated: inv, revision: 2, showVer: 'after' });
+    const list = picked.length ? picked.map(f => f.text).join(' ') : 'See note.';
+    this.addAudit('Requested changes on ' + this.artifactRef() + '. ' + list + (this.state.fbNote ? ' Note: ' + this.state.fbNote : ''), id);
+    this.addAudit('Produced revision v2 of the selected direction with a change list attached.', 'CRE-DIR-' + this.selectedDir().slot + ' · v2', 'Designer Agent');
+  }
+
+  sendFeedback = () => {
+    this.applyFeedback('APR-2101');
+    this.setState({ route: 'studio' });
+  };
+
+  resetPkg = () => {
+    const dec = Object.assign({}, this.state.decisions); delete dec[this.state.pkgId];
+    const inv = Object.assign({}, this.state.invalidated); delete inv[this.state.pkgId];
+    this.setState({ decisions: dec, invalidated: inv });
+  };
+
+  toneColor(t) {
+    return t === 'ok' ? 'var(--ok)' : t === 'amber' ? 'var(--amber)' : t === 'error' ? 'var(--error)' : 'var(--status)';
+  }
+  cellColor(v) {
+    const s = String(v).toUpperCase();
+    if (s.indexOf('BLOCKED') === 0 || s.indexOf('PROHIBITED') === 0 || s.indexOf('ERROR') === 0) return 'var(--error)';
+    if (s.indexOf('OK') === 0 || s.indexOf('PASS') === 0 || s.indexOf('ACTIVE') === 0 || s.indexOf('ACCEPTED') === 0 || s.indexOf('QA PASSED') === 0) return 'var(--ok)';
+    if (s.indexOf('AWAITING') === 0 || s.indexOf('ATTENTION') === 0 || s.indexOf('NOT ') === 0 || s.indexOf('NEVER') === 0 || s.indexOf('EMPTY') === 0 || s.indexOf('IN SESSION') === 0) return 'var(--amber)';
+    return 'var(--text2)';
+  }
+
+  renderVals() {
+    const st = this.state;
+    const routes = this.routes();
+    const route = routes.find(r => r.k === st.route) || routes[0];
+    const isOwner = st.mode === 'owner';
+    const activeBg = 'var(--brand)', activeColor = 'var(--on-brand)';
+
+    const nav = routes.map(r => ({
+      label: r.label, glyph: r.glyph,
+      cur: r.k === st.route ? 'page' : null,
+      bg: r.k === st.route ? activeBg : 'transparent',
+      color: r.k === st.route ? activeColor : 'var(--text2)',
+      border: r.k === st.route ? 'var(--brand)' : 'var(--panel-border)',
+      go: () => this.go(r.k),
+      goClose: () => { this.go(r.k); this.setState({ moreOpen: false }); }
+    }));
+
+    const bottomKeys = isOwner ? ['today', 'approvals', 'campaign', 'studio'] : ['org', 'manifests', 'runs', 'audit'];
+    const bottomLabels = isOwner ? ['Today', 'Approve', 'Campaign', 'Studio'] : ['Org', 'Agents', 'Runs', 'Audit'];
+    const bottomNav = bottomKeys.map((k, i) => ({
+      label: bottomLabels[i], cur: k === st.route ? 'page' : null,
+      color: k === st.route ? 'var(--brand-text)' : 'var(--text2)', go: () => this.go(k)
+    })).concat([{ label: 'More', cur: null, color: 'var(--text2)', go: () => this.setState({ moreOpen: true }) }]);
+
+    const team = TEAM.map(a => ({
+      short: a.short, hue: a.hue, status: a.status, statusColor: this.toneColor(a.tone),
+      open: () => this.setState({ route: isOwner ? 'team' : 'manifests' })
+    }));
+    const teamCards = TEAM.map(a => ({
+      name: a.name, role: a.role, hue: a.hue, status: a.status, statusColor: this.toneColor(a.tone),
+      plain: a.plain, assignment: a.assignment, outputs: a.outputs, limits: a.limits, workCta: a.workCta,
+      goWork: () => {
+        if (a.work === 'studio') this.setState({ route: 'studio' });
+        else if (a.work === 'campaign') this.setState({ route: 'campaign', stage: 'objective' });
+        else if (a.work === 'brief') this.setState({ route: 'campaign', stage: 'brief' });
+        else this.setState({ route: 'campaign', stage: 'plan' });
+      }
+    }));
+
+    const decOf = id => st.decisions[id] || (id === 'APR-2103' ? 'locked' : 'awaiting');
+    const stateMeta = {
+      awaiting: { label: 'AWAITING YOUR DECISION', dot: 'var(--amber)' },
+      staged: { label: 'APPROVED FOR STAGING', dot: 'var(--ok)' },
+      changes: { label: 'CHANGES REQUESTED', dot: 'var(--amber)' },
+      rejected: { label: 'REJECTED', dot: 'var(--error)' },
+      locked: { label: 'AWAITING SEPARATE LIVE APPROVAL', dot: 'var(--error)' }
+    };
+
+    const packages = PACKAGES.map(p => {
+      const d = decOf(p.id), m = stateMeta[d];
+      return {
+        title: p.title, summary: p.summary, hue: p.hue, tier: p.tier, requester: p.requester,
+        deadline: p.deadline, cost: p.cost, locked: !!p.locked, lockReason: p.lockReason,
+        tierColor: p.tier.indexOf('OWNER') > -1 ? 'var(--amber)' : 'var(--text2)',
+        stateLabel: m.label, stateDot: m.dot,
+        openLabel: p.locked ? 'LOCKED' : d === 'awaiting' || d === 'changes' ? 'REVIEW AND DECIDE' : 'OPEN RECORD',
+        open: () => this.openPkg(p.id)
+      };
+    });
+
+    const raw = PACKAGES.find(p => p.id === st.pkgId) || null;
+    const d = raw ? decOf(raw.id) : null;
+    const dm = raw ? stateMeta[d] : null;
+    const pkg = raw ? {
+      title: raw.title, summary: raw.summary, tier: raw.tier,
+      tierColor: raw.tier.indexOf('OWNER') > -1 ? 'var(--amber)' : 'var(--text2)',
+      stateLabel: dm.label, stateDot: dm.dot,
+      facts: raw.facts.map(f => f.k === 'What you are approving' && raw.id === 'APR-2101'
+        ? { k: f.k, v: 'Direction ' + this.selectedDir().slot + ' — ' + this.selectedDir().name + ', revision v' + st.revision + ', into staging review.' } : f),
+      tech: [
+        { k: 'ARTIFACT', v: this.artifactRef() },
+        { k: 'SOP REVISION', v: 'SOP-CAMP-002 REV 4 · hash a91f3c' },
+        { k: 'RUN', v: 'SAMPLE-RUN-0001 (sample scenario, not a real execution)' },
+        { k: 'RULE', v: 'Tier 2 · typed confirmation · self-approval prohibited' }
+      ],
+      hasPreview: !!raw.hasPreview,
+      previewNotes: ['This is the exact revision the decision names.', 'Brand QA and contrast results are attached in the studio.', 'Any later change produces a new revision and asks you again.'],
+      will: raw.will, wont: raw.wont, evidence: raw.evidence, risk: raw.risk, reversal: raw.reversal,
+      decisionNote: raw.decisionNote,
+      decidable: !raw.locked && (d === 'awaiting' || d === 'changes'),
+      decided: d === 'staged' || d === 'rejected' || d === 'locked',
+      decidedBody: d === 'staged'
+        ? 'Approved for staging review at ' + this.artifactRef() + '. This is an internal state: nothing has been executed externally and nothing is verified.'
+        : d === 'rejected'
+          ? 'Rejected. Reason recorded: ' + st.rejectReason + '. The artifact stays out of staging and the campaign holds at this step.'
+          : raw.lockReason || '',
+      next: d === 'staged' ? raw.next : d === 'rejected'
+        ? ['The Designer Agent is not asked to revise unless you request changes instead.', 'The campaign holds at step 05 until you give a direction.', 'No external action was possible at any point in this path.']
+        : ['A staging run must be recorded and verified before this can be requested.'],
+      invalidated: !!st.invalidated[raw.id],
+      invalidNote: 'You approved an earlier revision, then asked for a change. That approval no longer applies, because it named a revision that has been superseded. The package is back with you.'
+    } : {};
+
+    const fbSel = FEEDBACK.filter(f => st.fb[f.id]).length;
+    const feedbackItems = FEEDBACK.map(f => ({
+      text: f.text, on: !!st.fb[f.id],
+      toggle: () => this.setState(s => { const n = Object.assign({}, s.fb); n[f.id] = !n[f.id]; return { fb: n }; })
+    }));
+
+    const dlgKind = st.dlg.kind;
+    const word = raw && raw.word ? raw.word : 'STAGING';
+    const dlg = {
+      open: st.dlg.open,
+      isApprove: dlgKind === 'approve', isChanges: dlgKind === 'changes', isReject: dlgKind === 'reject',
+      hue: dlgKind === 'reject' ? 'var(--error)' : dlgKind === 'changes' ? 'var(--amber)' : 'var(--brand)',
+      onHue: dlgKind === 'approve' ? 'var(--on-brand)' : '#ffffff',
+      eyebrow: dlgKind === 'approve' ? 'TIER 2 · TYPED CONFIRMATION REQUIRED' : dlgKind === 'changes' ? 'REQUEST CHANGES' : 'REJECT',
+      title: dlgKind === 'approve' ? 'Approve this exact revision for staging'
+        : dlgKind === 'changes' ? 'Tell the Designer Agent what to change'
+          : 'Reject this package',
+      body: dlgKind === 'approve'
+        ? 'You are approving one artifact revision into staging review. Live publication is a separate approval and is not granted here.'
+        : dlgKind === 'changes'
+          ? 'A new revision will be produced. If you had already approved an earlier revision, that approval is invalidated.'
+          : 'Rejection stops this step. The campaign will hold until you give a direction.',
+      artifact: this.artifactRef(), word: word,
+      commit: dlgKind === 'approve' ? 'RECORD APPROVAL' : dlgKind === 'changes' ? 'SEND CHANGE REQUEST' : 'RECORD REJECTION',
+      disabled: dlgKind === 'approve' ? st.confirmText.trim().toUpperCase() !== word : dlgKind === 'changes' ? fbSel === 0 : false
+    };
+
+    const stages = [
+      { k: 'objective', n: '01', label: 'Objective', status: 'Set by you' },
+      { k: 'brief', n: '02', label: 'Market brief', status: 'Accepted' },
+      { k: 'plan', n: '03', label: 'Seven-day plan', status: 'Awaiting you' },
+      { k: 'creative', n: '04', label: 'Creative', status: st.revision === 2 ? 'Revised v2' : 'Three directions' },
+      { k: 'decision', n: '05', label: 'Your decision', status: stateMeta[decOf('APR-2101')].label.toLowerCase() },
+      { k: 'next', n: '06', label: 'What happens next', status: 'Explained' },
+      { k: 'live', n: '07', label: 'Live publication', status: 'Separate approval' }
+    ].map(s => ({
+      n: s.n, label: s.label, status: s.status, cur: s.k === st.stage ? 'step' : null,
+      bg: s.k === st.stage ? activeBg : 'var(--panel-fill)',
+      color: s.k === st.stage ? activeColor : 'var(--text2)',
+      border: s.k === st.stage ? 'var(--brand)' : 'var(--panel-border)',
+      go: () => this.setState({ stage: s.k })
+    }));
+
+    const sel = this.selectedDir();
+    const STAGE_CONTENT = {
+      objective: { label: 'STEP 01 · OBJECTIVE', owner: 'HADEER', title: 'Fill the autumn Saturday cohort using owned channels only',
+        lead: 'Ten places, ages 9 to 13, enrolment closing the second week of September. No paid advertising, no new claims about outcomes we have not recorded.',
+        blocks: [
+          { label: 'HOW IT WAS SET', isProse: true, text: 'You stated it in your own words on 29 Aug. Hermes turned it into a workflow against SOP-CAMP-002 rev 4 and stopped there — an objective is not permission to act.' },
+          { label: 'WHAT COUNTS AS DONE', isList: true, items: ['Ten confirmed places, recorded in your own cohort sheet.', 'Every published claim traceable to your records.', 'No spend committed at any point.'] }
+        ] },
+      brief: { label: 'STEP 02 · MARKET BRIEF', owner: 'MARKET INTELLIGENCE AGENT', title: 'Parents are buying evidence, not curriculum',
+        lead: 'The brief reads your own enquiry notes and the public pages of nearby programmes, and states plainly which parts are observation and which are assumption.',
+        blocks: [
+          { label: 'OPPORTUNITY — OBSERVED', isList: true, items: ['Enquiry notes repeatedly ask what a child will have built, not what they will study. (Source: enquiry notes fixture, 486 items.)', 'Nearby programmes describe syllabus and equipment on their public pages; none show finished student work. (Source: public programme pages fixture, 543 items.)', 'Your past cohorts converted best when a parent had already seen a finished project. (Source: past cohort records, 214 rows.)'] },
+          { label: 'AUDIENCE AND POSITIONING', isList: true, items: ['Primary: a parent who is unsure their child is "technical" and does not want to waste a Saturday.', 'Secondary: a parent already inside the WhatsApp community, who needs the dates and the allocation rule.', 'Positioning: the club where a nine-year-old finishes something that works.'] },
+          { label: 'ASSUMPTIONS AND CONFIDENCE', isList: true, items: ['MEDIUM — evidence beats curriculum for this audience. Based on your own notes, not market research.', 'LOW — September timing. Assumed from two prior cohorts; two is not a pattern.', 'UNKNOWN — how many enquiries a single post produces. Never measured here; the brief refuses to estimate it.'] },
+          { label: 'RECOMMENDED ANGLE', isProse: true, text: 'Show the work, not the promise. Lead every asset with one finished thing a child built, and let the dates follow. You accepted this angle on 29 Aug at 17:05.', hasMeta: true, meta: 'Brief MI-BRF-014 v1 · sample scenario · no external market data was purchased or invented.' }
+        ] },
+      plan: { label: 'STEP 03 · SEVEN-DAY PLAN', owner: 'SOCIAL MEDIA AGENT', title: 'One week, four channels, nothing scheduled',
+        lead: 'The plan below is a proposal in staging. Approving it fills the staging queue; it does not connect an account or schedule a post.', isPlan: true,
+        blocks: [
+          { label: 'WHAT NEEDS YOU', isList: true, items: ['Package APR-2102 approves this week into the staging queue.', 'Friday\u2019s reel needs a photo or clip from you — no imagery is licensed.', 'Saturday\u2019s frames are a placeholder for the session itself.'] },
+          { label: 'DEPENDENCY', isProse: true, text: 'Every post cites the creative direction it depends on. Until the artwork is approved for staging, the week cannot be finalised — that is why the creative decision comes first.' }
+        ] },
+      creative: { label: 'STEP 04 · CREATIVE', owner: 'DESIGNER AGENT', title: 'Three directions on the accepted angle',
+        lead: 'Conservative, recommended, and a genuine divergent option. Real artwork, brand QA, contrast and safe-area checks, and a version history live in the Designer Studio.', isCreative: true,
+        blocks: [
+          { label: 'WHAT TO LOOK FOR', isList: true, items: ['Whether the headline still works at thumb size.', 'Whether the club time and place are explicit enough.', 'Whether any claim goes beyond what your records support.'] }
+        ] },
+      decision: { label: 'STEP 05 · YOUR DECISION', owner: 'HADEER', title: 'Approve, request changes, or reject — on one exact revision',
+        lead: 'The decision names direction ' + sel.slot + ' at revision v' + st.revision + '. Nothing else is included, and nothing goes live.',
+        hasCta: true, cta: 'OPEN THE APPROVAL PACKAGE', ctaKey: 'APR-2101',
+        blocks: [
+          { label: 'YOUR THREE PATHS', isList: true, items: ['Approve for staging — internal, reversible, recorded against this revision.', 'Request changes — produces a new revision and invalidates any earlier approval.', 'Reject — stops the step and records why.'] },
+          { label: 'WHAT NOBODY ELSE CAN DO', isList: true, items: ['No agent can approve this, including Hermes.', 'A reply in chat cannot move this state.', 'The technical operator cannot approve a business action.'] }
+        ] },
+      next: { label: 'STEP 06 · WHAT HAPPENS NEXT', owner: 'HERMES CONDUCTOR', title: 'After a staging approval',
+        lead: 'Approval for staging is an internal state. It is not execution, and it is certainly not verification.',
+        blocks: [
+          { label: 'IMMEDIATELY', isList: true, items: ['The approved revision is copied to the staging review folder.', 'The Social Media Agent finalises the week around that artwork.', 'The decision is written to the audit trail with your name and the revision.'] },
+          { label: 'STILL NOT TRUE', isList: true, items: ['Nothing has been posted.', 'Nothing has been measured.', 'No result is verified — there is no verification service in this build.'] }
+        ] },
+      live: { label: 'STEP 07 · LIVE PUBLICATION', owner: 'HADEER', title: 'A separate approval, deliberately out of reach',
+        lead: 'Publishing to a real account is the only action with an irreversible external consequence, so it never rides along with a staging decision.',
+        hasCta: true, cta: 'SEE WHY IT IS LOCKED', ctaKey: 'APR-2103',
+        blocks: [
+          { label: 'PREREQUISITES', isList: true, items: ['A recorded staging run with verification evidence. None exists.', 'A connected channel credential. None is held, on purpose.', 'A fresh Tier 2 decision with a typed phrase.'] },
+          { label: 'WHY THE SPLIT', isProse: true, text: 'Staging is cheap to undo; a live post is not. Approved and successfully executed and externally verified are three different states, and this product refuses to collapse them.' }
+        ] }
+    };
+    const sc = STAGE_CONTENT[st.stage] || STAGE_CONTENT.objective;
+    const stage = {
+      label: sc.label, owner: sc.owner, title: sc.title, lead: sc.lead,
+      hasBlocks: !!sc.blocks, blocks: (sc.blocks || []).map(b => ({
+        label: b.label, isProse: !!b.isProse, isList: !!b.isList, text: b.text, items: b.items || [],
+        hasMeta: !!b.hasMeta, meta: b.meta
+      })),
+      isPlan: !!sc.isPlan, isCreative: !!sc.isCreative,
+      hasCta: !!sc.hasCta, cta: sc.cta, ctaGo: () => this.openPkg(sc.ctaKey)
+    };
+
+    const ver = st.revision === 2 && st.showVer === 'before' ? 'v1' : 'v' + st.revision;
+    const dirVals = DIRECTIONS.map(dd => {
+      const isSel = dd.key === st.dir;
+      const useV2 = isSel && st.revision === 2 && st.showVer === 'after';
+      const c = useV2 ? dd.v2 : dd.v1;
+      return {
+        name: dd.name, rationale: dd.rationale,
+        version: isSel && st.revision === 2 ? (st.showVer === 'after' ? 'v2 · SELECTED' : 'v1 · SELECTED') : isSel ? 'v1 · SELECTED' : 'v1',
+        kicker: c.kicker, head: c.head, head2: c.head2, sub: c.sub, foot: c.foot,
+        numeral: c.numeral, hasNumeral: !!c.numeral,
+        ring: isSel ? '2px solid var(--brand)' : '1px solid var(--panel-border)',
+        btnLabel: isSel ? 'SELECTED' : 'TAKE THIS ONE FORWARD',
+        btnBg: isSel ? 'var(--brand)' : 'var(--raised)',
+        btnColor: isSel ? 'var(--on-brand)' : 'var(--text)',
+        btnBorder: isSel ? 'var(--brand)' : 'var(--panel-border)',
+        select: () => this.setState({ dir: dd.key })
+      };
+    });
+
+    const DIFF = {
+      a: [['Headline', 'Six Saturdays. One working robot.', 'Student quote, attributed'], ['Footer', 'Enquire on WhatsApp', 'Saturdays 10:00–13:00 · Maadi'], ['Lime rule', 'Kept', 'Kept, unchanged']],
+      b: [['Focal element', 'Numeral 06 in lime', 'Student quote replaces the numeral'], ['Footer', 'i-STEMer · Maadi', 'Saturdays 10:00–13:00 · Maadi'], ['Lime panel', 'Kept', 'Kept, unchanged']],
+      c: [['Sub-line', 'Six Saturdays of circuits, code and mess.', 'Student quote, attributed'], ['Footer', 'Ten places · Maadi', 'Saturdays 10:00–13:00 · Maadi'], ['Overlap type', 'Kept', 'Kept, unchanged']]
+    };
+    const qa = (QA[st.dir] || QA.b).map(q => ({
+      check: q.check, result: q.result, detail: q.detail,
+      color: q.result.indexOf('PASS') === 0 ? 'var(--ok)' : q.result.indexOf('ATTENTION') === 0 ? 'var(--amber)' : 'var(--text2)'
+    }));
+
+    const decCre = decOf('APR-2101');
+    const studio = {
+      versionChip: st.revision === 2 ? 'REVISION v2 AVAILABLE' : 'REVISION v1',
+      briefTitle: 'Autumn Saturday cohort — show the work, not the promise',
+      briefBody: 'Lead each asset with one finished thing a child built. Ages 9–13, ten places, Maadi, Saturdays. No outcome claim beyond what the cohort records support, and no imagery we do not own.',
+      briefFacts: [
+        { k: 'Accepted angle', v: 'From brief MI-BRF-014, accepted 29 Aug' },
+        { k: 'Primary channel', v: 'Instagram feed, 1080 × 1350' },
+        { k: 'Secondary', v: 'Facebook 1200 × 1500 · Stories 1080 × 1920' },
+        { k: 'Brand kit', v: 'i-STEMer Core v4' }
+      ],
+      brandKit: ['IBM Plex Sans and Plex Mono, bundled under an open licence.', 'Deep green #0F2A1B ground, ivory #F2F0E6 paper, lime #B3D100 accent.', 'Kit rule 3: lime is a container or a rule, never a text ground for long copy.', 'Magenta and violet are secondary, permitted for divergent work only.'],
+      references: ['Your own printed handout, autumn 2025 — layout logic reused in the conservative direction.', 'Past cohort project photographs, 214 records — read for subject matter, not reproduced.', 'Public pages of four nearby programmes — read to avoid resembling them.'],
+      channels: ['Instagram feed 1080 × 1350 — primary, all three directions built here.', 'Instagram Stories / Reels 1080 × 1920 — crop checked, two directions flagged.', 'Facebook 1200 × 1500 — derived, not separately composed.'],
+      hasV2: st.revision === 2,
+      selName: 'Direction ' + sel.slot + ' — ' + sel.name,
+      selVersion: ver,
+      diff: (DIFF[st.dir] || DIFF.b).map(r => ({ el: r[0], before: r[1], after: r[2] })),
+      diffMeta: 'Change request recorded against ' + this.artifactRef() + '. The diff is what the approval decision is read against.',
+      qa: qa,
+      provenance: [
+        'Type: IBM Plex, open licence, bundled in the brand kit. No third-party face.',
+        'Colour and shapes: brand kit i-STEMer Core v4, owner supplied.',
+        'Photography: none used. No stock licence is held and no agent may buy one.',
+        'Image requirement PHOTO-SLOT-01 is recorded as unfilled — you supply it, or the reel does not run.'
+      ],
+      provMeta: 'Every asset in this package is either owner-supplied or generated inside the kit. Nothing is scraped.',
+      exportFacts: [
+        { k: 'Package', v: 'CRE-DIR-' + sel.slot + ' export set, ' + ver },
+        { k: 'Contents', v: '1080 × 1350 primary, 1080 × 1920 crop, 1200 × 1500 derived, plus the QA report' },
+        { k: 'Destination if approved', v: 'Staging review folder only' },
+        { k: 'Approval status', v: stateMeta[decCre].label }
+      ],
+      approvalCta: decCre === 'staged' ? 'SEE THE RECORDED DECISION' : 'OPEN THE APPROVAL PACKAGE',
+      stateLabel: stateMeta[decCre].label, stateDot: stateMeta[decCre].dot
+    };
+
+    const resultCols = [
+      { label: 'SAMPLE SCENARIO', hue: 'var(--creative)', note: 'From the labelled scenario in this prototype. Illustrative, not measured.', rows: [
+        { k: 'Steps completed in the sample', v: '4 of 9', color: 'var(--text)', note: 'Objective, brief, plan draft and creative set.' },
+        { k: 'Decisions recorded', v: String(st.audit.filter(a => a.actor === 'Hadeer').length), color: 'var(--text)', note: 'Includes anything you decided in this session.' },
+        { k: 'Artifacts produced', v: '6', color: 'var(--text)', note: 'Brief, three directions, plan, one unfilled image requirement.' },
+        { k: 'External actions', v: '0', color: 'var(--ok)', note: 'Measured, not assumed: no connector exists.' }
+      ] },
+      { label: 'EXPECTED — WHAT WE WILL MEASURE', hue: 'var(--exec)', note: 'Defined now so the first real run has something to be judged against. No forecast is implied.', rows: [
+        { k: 'Confirmed places', v: 'Target 10', color: 'var(--text)', note: 'From your own cohort sheet, not a platform metric.' },
+        { k: 'Enquiries attributable to a post', v: 'To be measured', color: 'var(--amber)', note: 'Needs a question added to the enquiry form.' },
+        { k: 'Owner hours spent reviewing', v: 'To be measured', color: 'var(--amber)', note: 'Recorded from decision timestamps once runs exist.' },
+        { k: 'Cost', v: 'No direct cost', color: 'var(--text)', note: 'Owned channels only. Any spend would need a new rule.' }
+      ] },
+      { label: 'REAL RESULTS', hue: 'var(--amber)', note: 'Empty until a real run exists. Nothing here is shown as zero, because nothing has been measured.', rows: [
+        { k: 'Confirmed places', v: 'Awaiting first run', color: 'var(--amber)', note: 'No cohort record has been updated by this system.' },
+        { k: 'Posts published', v: 'Awaiting first run', color: 'var(--amber)', note: 'No publication has been approved or attempted.' },
+        { k: 'Enquiries', v: 'Awaiting first run', color: 'var(--amber)', note: 'No enquiry data has been imported since the freeze.' },
+        { k: 'Verified outcomes', v: 'Not verifiable yet', color: 'var(--amber)', note: 'No verification service is provisioned in this build.' }
+      ] }
+    ];
+
+    const askDisabled = st.askText.trim().length < 4;
+    const askRouting = {
+      lead: 'Read and understood. This is a question, not an instruction, so nothing has been dispatched and nothing has been authorised.',
+      handlers: ['Market Intelligence Agent would answer the "can we" part from your own records.', 'Social Media Agent would draft the channel implications, as a proposal.'],
+      status: ['Not an objective. No workflow has started.', 'No external action is possible from this message.', 'If you want work to begin, it must become a formal objective below.']
+    };
+
+    const audit = st.audit;
+    const opRoute = OP[st.route] || null;
+    const opTables = opRoute ? opRoute.tables.map(t => ({
+      caption: t.caption, cols: t.cols,
+      rows: t.rows.map(r => ({
+        cells: r.map((v, i) => ({
+          v: v,
+          font: (t.mono || []).indexOf(i) > -1 ? 'var(--mono)' : 'var(--sans)',
+          size: (t.mono || []).indexOf(i) > -1 ? '13px' : '14px',
+          color: (t.mono || []).indexOf(i) > -1 ? this.cellColor(v) : 'var(--text2)'
+        }))
+      }))
+    })) : [];
+    const auditTable = [{
+      caption: 'AUDIT TRAIL — APPEND ONLY, NEVER EDITED',
+      cols: ['When', 'Actor', 'Decision or output', 'Exact reference'],
+      rows: audit.map(a => ({
+        cells: [
+          { v: a.t, font: 'var(--mono)', size: '13px', color: 'var(--text2)' },
+          { v: a.actor, font: 'var(--sans)', size: '14px', color: 'var(--text)' },
+          { v: a.what, font: 'var(--sans)', size: '14px', color: 'var(--text2)' },
+          { v: a.ref, font: 'var(--mono)', size: '13px', color: 'var(--muted)' }
+        ]
+      }))
+    }];
+
+    const blockMap = {
+      empty: { badge: 'EMPTY', title: 'Nothing to show here yet', body: 'This screen has no rows in ' + BATCH + '. The table exists and has no members — that is different from a failure.', meta: 'NEXT: LOAD A FIXTURE BATCH THAT CONTAINS THIS ENTITY', dot: 'var(--status)' },
+      firstrun: { badge: 'AWAITING FIRST RUN', title: 'Awaiting first run', body: 'Nothing has run yet, so there is nothing to report. When the first run completes, this screen fills from its record rather than an estimate.', meta: 'NO RUN RECORDER IS PROVISIONED IN THIS BUILD', dot: 'var(--amber)' },
+      blocked: { badge: 'BLOCKED BY APPROVAL', title: 'Waiting on your decision', body: 'This step cannot start until you decide package APR-2101. No agent can unblock it, including Hermes.', meta: 'TIER 2 · OWNER ONLY · DUE 31 AUG 17:00', dot: 'var(--error)', cta: 'OPEN THE APPROVAL' },
+      dependency: { badge: 'DEPENDENCY UNAVAILABLE', title: 'A capability this screen needs is missing', body: 'This screen would need the run recorder to say anything about execution. It is not provisioned, so it declines to estimate.', meta: 'MISSING: RUN RECORDER · REQUIRED BY SOP-CAMP-002 STEP 08', dot: 'var(--amber)' },
+      denied: { badge: 'NOT AVAILABLE', title: 'Not available to you', body: 'Either this does not exist or your role cannot see it. The screen does not distinguish the two, so a link cannot be used to probe for entities.', meta: 'CORRELATION ID C-4F19-0002', dot: 'var(--status)' },
+      error: { badge: 'ERROR', title: 'The data adapter refused the read', body: 'A record in ' + BATCH + ' did not match schema v4. The screen shows nothing rather than a partial guess.', meta: 'CORRELATION ID C-4F19-0117', dot: 'var(--error)' }
+    };
+    const bannerMap = {
+      changes: { title: 'CHANGES REQUESTED', body: 'A new revision has been produced. Any approval attached to the previous revision no longer applies.', hue: 'var(--amber)' },
+      rejected: { title: 'REJECTED', body: 'The package was rejected and the reason recorded. The campaign holds at this step.', hue: 'var(--error)' },
+      staged: { title: 'APPROVED FOR STAGING', body: 'Internal state only. Nothing has been executed externally and nothing is verified.', hue: 'var(--ok)' },
+      awaitlive: { title: 'AWAITING SEPARATE LIVE APPROVAL', body: 'Staging is approved. Live publication is a distinct Tier 2 decision and has not been requested.', hue: 'var(--amber)' },
+      verified: { title: 'COMPLETED AND EXTERNALLY VERIFIED', body: 'This state would require verification evidence from outside the system. No verification service is provisioned, so this state is unreachable in this build — it is shown here only as a design state.', hue: 'var(--ok)' }
+    };
+    const block = blockMap[st.stateKey] || null;
+    const banner = bannerMap[st.stateKey] || null;
+    const isLoading = st.stateKey === 'loading';
+    const showContent = !isLoading && !block;
+
+    const ctxAudit = audit.slice(0, 3);
+    const ctx = {
+      label: 'CONTEXT',
+      hue: isOwner ? 'var(--brand-text)' : 'var(--exec)',
+      kind: isOwner ? 'OWNER VIEW' : 'OPERATOR VIEW',
+      title: isOwner ? 'Hadeer — Business Owner' : 'Technical operator — unassigned',
+      facts: isOwner
+        ? [{ k: 'AUTHORITY', v: 'Final authority on every consequential action' }, { k: 'DECISIONS WAITING', v: '2 packages, 1 locked' }, { k: 'CAMPAIGN', v: 'Autumn Saturday cohort · step 05' }, { k: 'DATA AS OF', v: AS_OF + ' ' + TZ }]
+        : [{ k: 'AUTHORITY', v: 'Configuration only. No business approvals.' }, { k: 'FIXTURE', v: BATCH + ' · schema v4' }, { k: 'RUNS RECORDED', v: 'None. One labelled sample row.' }, { k: 'CONNECTORS', v: '2 of 6 present, 4 absent by design' }],
+      authority: isOwner
+        ? 'You are the only actor who can approve. Hermes coordinates and packages; the specialists propose. Nobody approves their own work, and a chat reply is never consent.'
+        : 'The operator can change configuration and read every technical layer, and cannot approve a business action or publish anything. That separation is enforced at the rule layer.',
+      audit: ctxAudit
+    };
+
+    const primaryRaw = PACKAGES[0];
+    const primary = {
+      title: primaryRaw.title, tier: primaryRaw.tier, tierColor: 'var(--amber)',
+      summary: 'The Designer Agent has three directions ready. Approving one sends that exact artwork to staging review so the week can be built around it. Nothing is published.',
+      facts: [
+        { k: 'From', v: 'Designer Agent, via Hermes' },
+        { k: 'Needed by', v: '31 Aug, 17:00' },
+        { k: 'Cost', v: 'No direct cost' },
+        { k: 'Scope', v: 'Staging review only' }
+      ],
+      authority: 'Tier 2 — only you can decide this. Live publication stays a separate approval.',
+      open: () => this.openPkg('APR-2101')
+    };
+
+    return {
+      modeCaption: isOwner ? 'OWNER VIEW · HADEER' : 'OPERATOR VIEW · ADMIN',
+      ownerPressed: isOwner ? 'true' : 'false', operatorPressed: isOwner ? 'false' : 'true',
+      ownerBg: isOwner ? activeBg : 'transparent', ownerColor: isOwner ? activeColor : 'var(--text2)',
+      opBg: isOwner ? 'transparent' : activeBg, opColor: isOwner ? 'var(--text2)' : activeColor,
+      setOwner: () => this.setMode('owner'), setOperator: () => this.setMode('operator'),
+      themeLabel: (st.theme || 'system') === 'dark' ? 'LIGHT' : 'DARK',
+      toggleTheme: this.toggleTheme,
+      stateOptions: STATES, stateKey: st.stateKey, setStateKey: e => this.setState({ stateKey: e.target.value }),
+      stateSelectorDisplay: this.props.showStateSelector === false ? 'none' : 'flex',
+      selIsA: st.dir === 'a', selIsB: st.dir === 'b', selIsC: st.dir === 'c',
+      dirSel: dirVals[DIRECTIONS.findIndex(x => x.key === st.dir)] || dirVals[1],
+      nav: nav, bottomNav: bottomNav, team: team, teamCards: teamCards,
+      asOf: AS_OF, batch: BATCH,
+      routeLabel: route.label, breadcrumb: route.crumb,
+      stateChip: st.stateKey === 'default' ? (isOwner ? '2 DECISIONS WAITING' : 'READ-ONLY FIXTURE') : (STATES.find(s => s.k === st.stateKey) || {}).label,
+      chipDot: st.stateKey === 'default' ? 'var(--status)' : 'var(--amber)',
+      moreOpen: st.moreOpen, closeMore: () => this.setState({ moreOpen: false }), stop: e => e.stopPropagation(),
+      isLoading: isLoading, showContent: showContent,
+      block: !!block, blockBadge: block && block.badge, blockTitle: block && block.title,
+      blockBody: block && block.body, blockMeta: block && block.meta, blockDot: block && block.dot,
+      blockCta: block && block.cta, blockGo: () => this.openPkg('APR-2101'),
+      banner: !!banner, bannerTitle: banner && banner.title, bannerBody: banner && banner.body, bannerHue: banner && banner.hue,
+
+      isToday: st.route === 'today',
+      isApprovalList: st.route === 'approvals' && !raw,
+      isApprovalDetail: st.route === 'approvals' && !!raw,
+      isCampaign: st.route === 'campaign',
+      isStudio: st.route === 'studio',
+      isTeam: st.route === 'team',
+      isResults: st.route === 'results',
+      isAsk: st.route === 'ask',
+      isOrg: st.route === 'org',
+      hasOpTables: st.route === 'audit' ? true : !!opRoute,
+      opTables: st.route === 'audit' ? auditTable : opTables,
+      opNotes: st.route === 'audit'
+        ? [{ label: 'WHAT IS RECORDED', body: 'Every decision names the actor, the exact artifact revision, and the time. Approved is recorded as approved — never as executed, and never as verified.' },
+           { label: 'SESSION SCOPE', body: 'Decisions you take in this prototype are appended here for the session only. A reload restores the sample scenario.' }]
+        : (opRoute ? opRoute.notes : []),
+
+      briefing: {
+        lead: 'Good morning. Your AI team has one thing that needs you: the creative direction for the autumn cohort campaign.',
+        body: 'The market brief was accepted yesterday and the seven-day plan is drafted. Both are waiting behind one decision — which artwork goes to staging review. Nothing has been published, and nothing can be without a separate approval from you.',
+        cta: 'GO TO YOUR DECISION'
+      },
+      goApprovals: () => this.setState({ route: 'approvals', pkgId: null }),
+      goAsk: () => this.go('ask'), goStudio: () => this.go('studio'),
+      goCampaign: () => this.setState({ route: 'campaign', stage: 'objective' }),
+      goAudit: () => this.setState({ mode: 'operator', route: 'audit', pkgId: null }),
+      goCreativeApproval: () => this.openPkg('APR-2101'),
+      primary: primary,
+      todayPanels: [
+        { label: 'DONE BY YOUR TEAM', hue: 'var(--ok)', hasItems: true, isEmpty: false, items: ['Market Intelligence delivered the opportunity brief; you accepted the angle.', 'The Designer Agent produced three creative directions with brand QA.', 'The Social Media Agent drafted the seven-day plan.'] },
+        { label: 'UNDERWAY', hue: 'var(--exec)', hasItems: true, isEmpty: false, items: ['Nothing is running right now. The team is holding at your decision, by design.', 'Hermes is not working ahead — it will not build on an unapproved artifact.'] },
+        { label: 'BLOCKERS THAT NEED YOU', hue: 'var(--amber)', hasItems: true, isEmpty: false, items: ['Creative direction for staging review — APR-2101, due 31 Aug 17:00.', 'Seven-day plan into the staging queue — APR-2102, routine tier.', 'Friday\u2019s reel needs a photo or clip from you. No imagery is licensed.'] },
+        { label: 'RECOMMENDATIONS', hue: 'var(--creative)', hasItems: true, isEmpty: false, items: ['Take direction B forward — it leads with the finished thing a child made.', 'Add one question to the enquiry form so the next cohort can be measured.', 'Decide the artwork before the plan, so the week is built once.'] }
+      ],
+      objective: { title: 'Fill the autumn Saturday cohort using owned channels only', body: 'Ten places, ages 9–13, enrolment closing the second week of September. No paid advertising and no claim your own records cannot support.', set: '29 AUG 16:20', stage: '05 OF 09' },
+
+      packages: packages, pkg: pkg,
+      techOpen: st.techOpen, techOpenAttr: st.techOpen ? 'true' : 'false',
+      techLabel: st.techOpen ? 'HIDE TECHNICAL REFERENCES' : 'VIEW TECHNICAL REFERENCES',
+      toggleTech: () => this.setState(s => ({ techOpen: !s.techOpen })),
+      evOpen: st.evOpen, evOpenAttr: st.evOpen ? 'true' : 'false',
+      evLabel: st.evOpen ? 'HIDE EVIDENCE' : 'VIEW EVIDENCE',
+      toggleEvidence: () => this.setState(s => ({ evOpen: !s.evOpen })),
+      openApprove: () => this.openDlg('approve'), openChanges: () => this.openDlg('changes'), openReject: () => this.openDlg('reject'),
+      resetPkg: this.resetPkg,
+
+      dlg: dlg, closeDlg: this.closeDlg, commitDlg: this.commitDlg,
+      confirmText: st.confirmText, setConfirm: e => this.setState({ confirmText: e.target.value }),
+      rejectReason: st.rejectReason, setReject: e => this.setState({ rejectReason: e.target.value }), rejectReasons: REJECT_REASONS,
+      feedbackItems: feedbackItems,
+      fbNote: st.fbNote, setFbNote: e => this.setState({ fbNote: e.target.value }),
+      fbDisabled: fbSel === 0, fbHint: fbSel === 0 ? 'Pick at least one change.' : fbSel + ' change(s) selected. A new revision will be produced.',
+      sendFeedback: this.sendFeedback,
+
+      stages: stages, stage: stage, plan: PLAN,
+      planCols: ['Day', 'Channel', 'Format', 'Hook', 'What the caption does', 'Proposed time'],
+
+      studio: studio,
+      dirA: dirVals[0], dirB: dirVals[1], dirC: dirVals[2],
+      showBefore: () => this.setState({ showVer: 'before' }), showAfter: () => this.setState({ showVer: 'after' }),
+      beforePressed: st.showVer === 'before' ? 'true' : 'false', afterPressed: st.showVer === 'after' ? 'true' : 'false',
+      beforeBg: st.showVer === 'before' ? activeBg : 'transparent', beforeColor: st.showVer === 'before' ? activeColor : 'var(--text2)',
+      afterBg: st.showVer === 'after' ? activeBg : 'transparent', afterColor: st.showVer === 'after' ? activeColor : 'var(--text2)',
+
+      resultCols: resultCols,
+      recommendations: [
+        'Take direction B forward. It is the only one that leads with a finished thing a child made, which is the accepted angle.',
+        'Ask one question on the enquiry form — "where did you hear about us?" — so the next cohort has a real number instead of an assumption.',
+        'Supply one photograph or clip for Friday. Without it that post cannot run, and no agent may license a substitute.'
+      ],
+
+      askText: st.askText, setAsk: e => this.setState({ askText: e.target.value }),
+      askSuggestions: [
+        { label: 'CAN WE FILL THE COHORT WITHOUT ADS?', use: () => this.setState({ askText: 'Can we fill the autumn cohort without paid ads?' }) },
+        { label: 'WHAT DID THE BRIEF ACTUALLY FIND?', use: () => this.setState({ askText: 'What did the market brief actually find, and what is only assumed?' }) },
+        { label: 'WHY IS THE WEEK NOT SCHEDULED?', use: () => this.setState({ askText: 'Why is the week not scheduled yet?' }) }
+      ],
+      askDisabled: askDisabled, askSent: st.askSent,
+      sendAsk: () => this.setState({ askSent: true }),
+      resetAsk: () => this.setState({ askText: '', askSent: false, objMade: false }),
+      askRouting: askRouting,
+      makeObjective: () => { this.setState({ objMade: true }); this.addAudit('Turned a question into a draft objective. Not started; awaiting your confirmation.', 'OBJ-DRAFT'); },
+      objDisabled: st.objMade, objHint: st.objMade ? 'A draft objective has been created below. It is not running.' : 'This is the moment a conversation becomes work — and it still needs your word.',
+      objMade: st.objMade,
+      objDraft: {
+        title: st.askText ? 'Draft objective from your message: "' + st.askText.trim() + '"' : 'Draft objective from your message',
+        steps: ['Hermes would map it onto SOP-CAMP-002 rev 4 and name the steps.', 'Each specialist would produce a proposal, never an action.', 'You would be asked to approve each consequential step separately.'],
+        meta: 'Nothing has started. A draft objective is a plan on paper until you confirm it.'
+      },
+
+      edges: EDGES,
+      agentNodes: [
+        { x: NODES.market[0], y: NODES.market[1], hue: 'var(--marketing)', short: 'Market Intel', domain: 'RESEARCH', ty: NODES.market[1] + 44, ty2: NODES.market[1] + 64 },
+        { x: NODES.social[0], y: NODES.social[1], hue: 'var(--social)', short: 'Social Media', domain: 'CHANNELS', ty: NODES.social[1] + 44, ty2: NODES.social[1] + 64 },
+        { x: NODES.designer[0], y: NODES.designer[1], hue: 'var(--creative)', short: 'Designer', domain: 'CREATIVE', ty: NODES.designer[1] + 44, ty2: NODES.designer[1] + 64 }
+      ],
+      ctx: ctx
+    };
+  }
+}
+
+</script>
+</body>
+</html>

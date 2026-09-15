@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --sans:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --deep:#e7efeb; --canvas:#f5f8f6; --nav:#eff4f2; --panel:#ffffff; --raised:#f8faf9; --hover:#eaf2ee;
+  --text:#08161d; --text2:#26414c; --muted:#4c6672; --faint:#6b8791;
+  --brand:#b3d100; --brand-text:#596800; --on-brand:#0d1a0f;
+  --exec:#0a6c7a; --social:#10713b; --creative:#6737f6; --marketing:#be0f6a;
+  --amber:#955104; --status:#4c6672; --error:#c7001e;
+  --panel-fill:#ffffff; --panel-border:rgba(20,58,41,0.14); --hair:rgba(20,58,41,0.12);
+  --blur:none; --grid:rgba(20,58,41,0.07); --focus:#08161d;
+  --bloom-strong:none; --bloom-soft:none; --hub-shadow:0 8px 26px rgba(20,58,41,0.20);
+  --surface-glow:radial-gradient(120% 90% at 50% 78%,#dde9e3 0%,#f5f8f6 62%,#e7efeb 100%);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --deep:#050c09; --canvas:#091710; --nav:#0c1d14; --panel:#0e2118; --raised:#132d20; --hover:#193d2b;
+    --text:#eaf6f8; --text2:#a8c2c9; --muted:#8aa3ad; --faint:#6b8791;
+    --brand-text:#b3d100;
+    --exec:#3fd8ef; --social:#46e08a; --creative:#a78bfa; --marketing:#f472b6;
+    --amber:#faa442; --status:#a8c2c9; --error:#ff6b81;
+    --panel-fill:rgba(200,225,210,0.055); --panel-border:rgba(200,225,210,0.14); --hair:rgba(200,225,210,0.12);
+    --blur:blur(14px); --grid:rgba(94,190,140,0.10); --focus:#eaf6f8;
+    --bloom-strong:0 0 34px rgba(250,164,66,0.42); --bloom-soft:0 0 16px rgba(200,225,210,0.18); --hub-shadow:none;
+    --surface-glow:radial-gradient(120% 90% at 50% 78%,#173a29 0%,#091710 62%,#050c09 100%);
+  }
+}
+:root[data-theme="dark"]{
+  --deep:#050c09; --canvas:#091710; --nav:#0c1d14; --panel:#0e2118; --raised:#132d20; --hover:#193d2b;
+  --text:#eaf6f8; --text2:#a8c2c9; --muted:#8aa3ad; --faint:#6b8791;
+  --brand-text:#b3d100;
+  --exec:#3fd8ef; --social:#46e08a; --creative:#a78bfa; --marketing:#f472b6;
+  --amber:#faa442; --status:#a8c2c9; --error:#ff6b81;
+  --panel-fill:rgba(200,225,210,0.055); --panel-border:rgba(200,225,210,0.14); --hair:rgba(200,225,210,0.12);
+  --blur:blur(14px); --grid:rgba(94,190,140,0.10); --focus:#eaf6f8;
+  --bloom-strong:0 0 34px rgba(250,164,66,0.42); --bloom-soft:0 0 16px rgba(200,225,210,0.18); --hub-shadow:none;
+  --surface-glow:radial-gradient(120% 90% at 50% 78%,#173a29 0%,#091710 62%,#050c09 100%);
+}
+html{font-size:16px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--deep);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--brand-text);text-decoration:none;border-bottom:1px solid var(--hair)}
+a:hover{color:var(--text)}
+button{font-family:var(--mono);cursor:pointer}
+button:disabled{cursor:not-allowed}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+[data-shell]{display:grid;grid-template-columns:240px minmax(0,1fr) 260px 300px}
+[data-acttab]{display:none}
+[data-railglyph]{display:none}
+[data-viewgraph]{display:none}
+[data-bottom]{display:none}
+@media (max-width:1439px){
+  [data-shell]{grid-template-columns:240px minmax(0,1fr) 260px}
+  [data-act]{display:none}
+  [data-acttab]{display:flex}
+}
+@media (max-width:1279px){
+  [data-shell]{grid-template-columns:56px minmax(0,1fr)}
+  [data-ctx]{grid-column:2}
+  [data-railtext]{display:none}
+  [data-railglyph]{display:flex}
+}
+@media (max-width:1023px){
+  [data-shell]{grid-template-columns:minmax(0,1fr)}
+  [data-rail]{flex-direction:row!important;overflow-x:auto;gap:12px;min-height:0!important;align-items:flex-start;-webkit-mask-image:linear-gradient(90deg,#000 0,#000 88%,transparent 100%);mask-image:linear-gradient(90deg,#000 0,#000 88%,transparent 100%)}
+  [data-railtext]{display:block;flex:0 0 auto;min-width:210px;margin-top:0!important}
+  [data-railglyph]{display:none}
+  [data-railcard]{min-width:236px;flex:0 0 auto}
+  [data-ctx]{grid-column:1}
+  [data-graphcanvas]{display:none}
+  [data-viewgraph]{display:flex}
+}
+@media (max-width:767px){
+  [data-nav]{display:none}
+  [data-bottom]{display:grid}
+  [data-pad]{padding:16px!important}
+}
+@media (prefers-reduced-motion:reduce){
+  [data-packet]{transition:none!important}
+}
+@media (pointer:coarse){
+  button{min-height:44px}
+}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--deep)">
+
+  <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--nav);border-bottom:1px solid var(--creative)">
+    <div style="display:flex;align-items:center;gap:10px;min-width:0">
+      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--creative)"></span>
+      <span style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text2)">DEMO ENVIRONMENT · SAMPLE DATA — NO LIVE EXTERNAL ACTIONS</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">STATE</span>
+      <select value="{{ stateKey }}" onChange="{{ setStateKey }}" aria-label="Render state for this route" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);background:var(--raised);border:1px solid var(--panel-border);border-radius:6px;padding:6px 8px">
+        <sc-for list="{{ stateOptions }}" as="s" hint-placeholder-count="4">
+          <option value="{{ s.k }}">{{ s.label }}</option>
+        </sc-for>
+      </select>
+      <button onClick="{{ toggleTheme }}" style="font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text2);background:var(--raised);border:1px solid var(--panel-border);border-radius:6px;padding:7px 12px" style-hover="background:var(--hover)">{{ themeLabel }}</button>
+    </div>
+  </div>
+
+  <div data-shell>
+
+    <aside data-rail style="display:flex;flex-direction:column;gap:16px;padding:18px 14px;background:var(--nav);border-right:1px solid var(--hair);min-height:calc(100vh - 41px)">
+      <div data-railtext>
+        <div style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.16em;color:var(--brand-text)">BUSINESS AGENT OS</div>
+        <div style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:5px">I-STEMER DEMO</div>
+      </div>
+
+      <div data-railglyph style="flex-direction:column;gap:10px;align-items:center">
+        <sc-for list="{{ nav }}" as="n" hint-placeholder-count="8">
+          <button onClick="{{ n.go }}" title="{{ n.label }}" aria-label="{{ n.label }}" style="width:34px;height:34px;border-radius:8px;border:1px solid var(--panel-border);background:{{ n.bg }};color:{{ n.color }};font-size:12px;font-weight:600;letter-spacing:0">{{ n.glyph }}</button>
+        </sc-for>
+      </div>
+
+      <div data-railtext style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">ROSTER · AVAILABLE</div>
+
+      <sc-for list="{{ roster }}" as="a" hint-placeholder-count="3">
+        <div data-railcard style="border-left:3px solid {{ a.hue }};background:var(--panel-fill);backdrop-filter:var(--blur);border-top:1px solid var(--panel-border);border-right:1px solid var(--panel-border);border-bottom:1px solid var(--panel-border);border-radius:10px;padding:12px 12px 12px 11px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <button onClick="{{ a.open }}" style="all:unset;cursor:pointer;font-family:var(--sans);font-size:16px;font-weight:600;color:var(--text)" style-hover="color:{{ a.hue }}">{{ a.name }}</button>
+            <span style="display:inline-flex;align-items:center;gap:5px;border:1px solid var(--panel-border);border-radius:4px;padding:3px 6px">
+              <span style="width:6px;height:6px;border-radius:50%;background:var(--status)"></span>
+              <span style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;color:var(--text2)">IDLE</span>
+            </span>
+          </div>
+          <div style="font-size:14px;line-height:1.45;color:var(--text2);margin-top:6px">{{ a.purpose }}</div>
+          <div style="font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--faint);margin-top:8px">{{ a.example }}</div>
+        </div>
+      </sc-for>
+
+      <div data-railtext style="border-top:1px solid var(--hair);padding-top:14px">
+        <div style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">NOT PROVISIONED</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-top:10px;opacity:.4">
+          <sc-for list="{{ notProvisioned }}" as="p" hint-placeholder-count="4">
+            <div style="font-family:var(--sans);font-size:14px;color:var(--text2)">{{ p.name }} <span style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)">{{ p.note }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div data-railtext style="margin-top:auto;border-top:1px solid var(--hair);padding-top:14px">
+        <div style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">FROZEN</div>
+        <div style="font-family:var(--mono);font-size:32px;font-weight:600;letter-spacing:-0.02em;color:var(--text);margin-top:6px;font-variant-numeric:tabular-nums">09:15</div>
+        <div style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text2)">2026-08-19 · AFRICA/CAIRO</div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
+          <sc-for list="{{ freshness }}" as="f" hint-placeholder-count="2">
+            <div>
+              <div style="display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">
+                <span>{{ f.label }}</span><span style="color:var(--text2)">{{ f.value }}</span>
+              </div>
+              <div style="height:4px;border-radius:2px;background:var(--hover);margin-top:6px;overflow:hidden">
+                <div style="height:4px;border-radius:2px;background:var(--brand);width:{{ f.pct }}"></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </aside>
+
+    <main data-pad style="min-width:0;background:var(--canvas);padding:20px 24px 40px">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--hair);padding-bottom:14px">
+        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:baseline;min-width:0">
+          <span style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--brand-text)">// {{ routeLabel }}</span>
+          <span style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)">{{ breadcrumb }}</span>
+        </div>
+        <span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--panel-border);border-radius:4px;padding:5px 9px;background:var(--raised)">
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--status)"></span>
+          <span style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text2)">{{ stateChip }}</span>
+        </span>
+      </div>
+
+      <nav data-nav style="display:flex;flex-wrap:wrap;gap:6px;margin-top:14px">
+        <sc-for list="{{ nav }}" as="n" hint-placeholder-count="8">
+          <button onClick="{{ n.go }}" style="border:1px solid var(--panel-border);border-radius:6px;padding:7px 11px;font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:{{ n.bg }};color:{{ n.color }}" style-hover="background:var(--hover)">{{ n.label }}</button>
+        </sc-for>
+      </nav>
+
+      <sc-if value="{{ banner }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;margin-top:16px;border:1px solid var(--panel-border);border-left:3px solid var(--amber);border-radius:10px;padding:12px 14px;background:var(--panel-fill)">
+          <span style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--amber)">{{ bannerTitle }}</span>
+          <span style="font-size:14px;color:var(--text2)">{{ bannerBody }}</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:20px;display:grid;gap:14px">
+          <div style="height:104px;border:1px solid var(--panel-border);border-radius:14px;background:var(--raised)"></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">
+            <div style="height:150px;border:1px solid var(--panel-border);border-radius:10px;background:var(--raised)"></div>
+            <div style="height:150px;border:1px solid var(--panel-border);border-radius:10px;background:var(--raised)"></div>
+            <div style="height:150px;border:1px solid var(--panel-border);border-radius:10px;background:var(--raised)"></div>
+            <div style="height:150px;border:1px solid var(--panel-border);border-radius:10px;background:var(--raised)"></div>
+          </div>
+          <div style="height:220px;border:1px solid var(--panel-border);border-radius:14px;background:var(--raised)"></div>
+          <div style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">LOADING SKELETON — LAYOUT MATCHES FINAL CONTENT</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ block }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:20px;border:1px solid var(--panel-border);border-radius:14px;padding:26px;background:var(--panel-fill);backdrop-filter:var(--blur);max-width:72ch">
+          <div style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--panel-border);border-radius:4px;padding:4px 8px">
+            <span style="width:6px;height:6px;border-radius:50%;background:{{ blockDot }}"></span>
+            <span style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text2)">{{ blockBadge }}</span>
+          </div>
+          <div style="font-family:var(--mono);font-size:22px;font-weight:600;letter-spacing:-0.02em;color:var(--text);margin-top:14px">{{ blockTitle }}</div>
+          <p style="font-size:14px;line-height:1.6;color:var(--text2);max-width:72ch">{{ blockBody }}</p>
+          <div style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">{{ blockMeta }}</div>
+          <sc-if value="{{ blockAction }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;align-items:center">
+              <button disabled style="border:1px solid var(--panel-border);border-radius:6px;padding:9px 13px;background:var(--raised);color:var(--faint);font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase">{{ blockAction }}</button>
+              <span style="display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--panel-border);border-radius:4px;padding:4px 8px;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">DISABLED · READ-ONLY DEMO</span>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showContent }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:18px">
+
+          <sc-if value="{{ isCommand }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
+              <section style="border:1px solid var(--panel-border);border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">ATTENTION QUEUE</div>
+                <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px">
+                  <sc-for list="{{ approvals }}" as="p" hint-placeholder-count="2">
+                    <article style="border:1px solid var(--panel-border);border-left:3px solid {{ p.hue }};border-radius:10px;padding:14px;background:var(--raised)">
+                      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:baseline">
+                        <span style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:{{ p.tierColor }};border:1px solid var(--panel-border);border-radius:4px;padding:3px 7px">{{ p.tier }}</span>
+                        <span style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--muted)">{{ p.id }}</span>
+                      </div>
+                      <h3 style="font-size:16px;font-weight:600;color:var(--text);margin:10px 0 6px">{{ p.title }}</h3>
+                      <p style="font-size:14px;line-height:1.55;color:var(--text2);margin:0;max-width:72ch">{{ p.decision }}</p>
+                      <div style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:10px">DEADLINE {{ p.deadline }}</div>
+                      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px">
+                        <button disabled style="border:1px solid var(--panel-border);border-radius:6px;padding:9px 13px;background:var(--hover);color:var(--faint);font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase">{{ p.actionLabel }}</button>
+                        <span style="display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--panel-border);border-radius:4px;padding:5px 8px;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">DISABLED · READ-ONLY DEMO</span>
+                        <button onClick="{{ p.open }}" style="border:1px solid var(--panel-border);border-radius:6px;padding:9px 13px;background:transparent;color:var(--text2);font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase" style-hover="background:var(--hover)">OPEN PACKAGE</button>
+                      </div>
+                    </article>
+                  </sc-for>
+                </div>
+              </section>
+
+              <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+                <section style="border:1px solid var(--panel-border);border-radius:14px;padding:18px;background:var(--surface-glow)">
+                  <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">CURRENT OBJECTIVE</div>
+                  <div style="font-family:var(--mono);font-size:32px;font-weight:600;letter-spacing:-0.02em;color:var(--text);margin-top:10px">Campaign — end to end</div>
+                  <div style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text2);margin-top:8px">SOP-CAMP-001 · REV 3 · OWNER HADEER</div>
+                </section>
+                <section style="border:1px solid var(--panel-border);border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                  <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">EXECUTION</div>
+                  <div style="font-family:var(--mono);font-size:22px;font-weight:600;color:var(--text);margin-top:10px">9 OF 9 STEPS NOT STARTED</div>
+                  <p style="font-size:14px;line-height:1.6;color:var(--text2);max-width:72ch">No run rows exist for this SOP revision, so no step has a start time. There is nothing to show progress against.</p>
+                  <div style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">SOURCE: RUNS WHERE SOP_ID='SOP-CAMP-001' AND REVISION=3</div>
+                </section>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:16px">
+              <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="4">
+                <article style="border:1px solid var(--panel-border);border-radius:10px;padding:16px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                  <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">{{ m.label }}</div>
+                  <div style="font-family:var(--mono);font-size:44px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;color:{{ m.color }};margin-top:8px;line-height:1.05">{{ m.value }}</div>
+                  <p style="font-size:14px;line-height:1.5;color:var(--text2);margin:8px 0 12px;max-width:72ch">{{ m.note }}</p>
+                  <div style="font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--muted)">SOURCE: {{ m.source }}</div>
+                  <div style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:3px">CAPTURED {{ m.captured }}</div>
+                </article>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isOrg }}" hint-placeholder-val="{{ false }}">
+            <div data-graphcanvas style="{{ graphStyle }}">
+              <div style="position:absolute;inset:0;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:40px 40px;pointer-events:none"></div>
+              <svg viewBox="0 0 900 560" role="img" aria-label="Organization graph. The accessible tree below prints every relationship as a sentence." style="display:block;width:100%;height:auto;position:relative">
+                <g fill="none">
+                  <sc-for list="{{ edges }}" as="e" hint-placeholder-count="8">
+                    <path d="{{ e.d }}" stroke="{{ e.stroke }}" stroke-width="{{ e.w }}" stroke-dasharray="{{ e.dash }}" stroke-opacity="{{ e.o }}" stroke-linecap="round"></path>
+                  </sc-for>
+                </g>
+                <circle cx="450" cy="72" r="26" fill="var(--panel)" stroke="var(--amber)" stroke-width="2" style="filter:drop-shadow(var(--bloom-soft))"></circle>
+                <text x="450" y="34" text-anchor="middle" fill="var(--amber)" style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em">HUMAN</text>
+                <text x="450" y="77" text-anchor="middle" fill="var(--text)" style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.06em">HD</text>
+                <text x="498" y="66" fill="var(--text)" style="font-family:var(--sans);font-size:16px;font-weight:600">Hadeer</text>
+                <text x="498" y="84" fill="var(--muted)" style="font-family:var(--mono);font-size:11px;letter-spacing:.12em">PRINCIPAL · OWNER-ONLY APPROVALS</text>
+
+                <circle cx="450" cy="218" r="52" fill="none" stroke="var(--exec)" stroke-opacity="0.28" stroke-width="1"></circle>
+                <rect x="450" y="180" width="53.7" height="53.7" transform="rotate(45 450 180)" fill="var(--panel)" stroke="var(--exec)" stroke-width="1.5" style="filter:drop-shadow(var(--bloom-soft))"></rect>
+                <text x="450" y="222" text-anchor="middle" fill="var(--text)" style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.1em">HERMES</text>
+                <text x="520" y="212" fill="var(--text)" style="font-family:var(--sans);font-size:16px;font-weight:600">Hermes Conductor</text>
+                <text x="520" y="230" fill="var(--muted)" style="font-family:var(--mono);font-size:11px;letter-spacing:.12em">CONDUCTOR · EXACTLY ONE</text>
+
+                <sc-for list="{{ agentNodes }}" as="n" hint-placeholder-count="3">
+                  <g>
+                    <circle cx="{{ n.x }}" cy="{{ n.y }}" r="20" fill="var(--panel-fill)" stroke="{{ n.hue }}" stroke-width="{{ n.sw }}" style="filter:drop-shadow(var(--bloom-soft))"></circle>
+                    <text x="{{ n.x }}" y="{{ n.ty }}" text-anchor="middle" fill="var(--text)" style="font-family:var(--sans);font-size:14px;font-weight:600">{{ n.short }}</text>
+                    <text x="{{ n.x }}" y="{{ n.ty2 }}" text-anchor="middle" fill="{{ n.hue }}" style="font-family:var(--mono);font-size:11px;letter-spacing:.14em">{{ n.domain }}</text>
+                  </g>
+                </sc-for>
+
+                <circle cx="450" cy="502" r="48" fill="var(--panel)" stroke="var(--amber)" stroke-width="2" style="filter:drop-shadow(var(--bloom-strong));box-shadow:var(--hub-shadow)"></circle>
+                <circle cx="450" cy="502" r="60" fill="none" stroke="var(--amber)" stroke-opacity="0.35" stroke-width="1" stroke-dasharray="2 8"></circle>
+                <text x="450" y="506" text-anchor="middle" fill="var(--amber)" style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.14em">MEMORY</text>
+                <text x="524" y="498" fill="var(--text)" style="font-family:var(--sans);font-size:16px;font-weight:600">Shared Memory</text>
+                <text x="524" y="516" fill="var(--muted)" style="font-family:var(--mono);font-size:11px;letter-spacing:.12em">TERMINAL RANK · 1,284 INDEXED</text>
+
+                <sc-if value="{{ packetVisible }}" hint-placeholder-val="{{ false }}">
+                  <circle data-packet r="7" fill="none" stroke="var(--status)" stroke-width="2" stroke-dasharray="3 3" style="{{ packetStyle }}"></circle>
+                </sc-if>
+              </svg>
+            </div>
+
+            <button data-viewgraph onClick="{{ toggleGraph }}" style="border:1px solid var(--panel-border);border-radius:6px;padding:11px 14px;background:var(--raised);color:var(--text2);font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;align-items:center;gap:8px">{{ graphCta }}</button>
+            <sc-if value="{{ graphOpen }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ toggleGraph }}" style="position:fixed;top:52px;right:14px;z-index:46;border:1px solid var(--panel-border);border-radius:6px;padding:11px 14px;background:var(--nav);color:var(--text2);font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase">CLOSE GRAPH</button>
+            </sc-if>
+
+            <section style="margin-top:16px;border:1px solid var(--panel-border);border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+              <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">ACCESSIBLE TREE — SAME NODES AND EDGES</div>
+              <ul style="list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ edges }}" as="e" hint-placeholder-count="8">
+                  <li style="font-size:14px;line-height:1.5;color:var(--text2);display:flex;gap:10px;align-items:baseline">
+                    <span style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);min-width:16ch">{{ e.kind }}</span>
+                    <span>{{ e.sentence }}</span>
+                  </li>
+                </sc-for>
+              </ul>
+            </section>
+          </sc-if>
+
+          <sc-if value="{{ isAgents }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:6px;margin-bottom:14px">
+              <button onClick="{{ setTable }}" style="border:1px solid var(--panel-border);border-radius:6px;padding:7px 11px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;background:{{ tableBg }};color:{{ tableColor }}">TABLE</button>
+              <button onClick="{{ setCards }}" style="border:1px solid var(--panel-border);border-radius:6px;padding:7px 11px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;background:{{ cardsBg }};color:{{ cardsColor }}">CARDS</button>
+            </div>
+            <sc-if value="{{ isTableView }}" hint-placeholder-val="{{ true }}">
+              <div style="border:1px solid var(--panel-border);border-radius:14px;background:var(--panel-fill);backdrop-filter:var(--blur);overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;min-width:840px">
+                  <thead>
+                    <tr>
+                      <sc-for list="{{ agentCols }}" as="c" hint-placeholder-count="7">
+                        <th style="text-align:left;padding:12px 14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">{{ c }}</th>
+                      </sc-for>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <sc-for list="{{ roster }}" as="a" hint-placeholder-count="3">
+                      <tr>
+                        <td style="padding:14px;border-bottom:1px solid var(--hair);font-size:14px"><button onClick="{{ a.open }}" style="all:unset;cursor:pointer;font-family:var(--sans);font-size:14px;font-weight:600;color:var(--text);border-bottom:1px solid var(--hair)">{{ a.name }}</button></td>
+                        <td style="padding:14px;border-bottom:1px solid var(--hair)"><span style="display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2)"><span style="width:6px;height:6px;border-radius:50%;background:{{ a.hue }}"></span>{{ a.domain }}</span></td>
+                        <td style="padding:14px;border-bottom:1px solid var(--hair)"><span style="display:inline-flex;align-items:center;gap:5px;border:1px solid var(--panel-border);border-radius:4px;padding:3px 7px"><span style="width:6px;height:6px;border-radius:50%;background:var(--status)"></span><span style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--text2)">IDLE</span></span></td>
+                        <td style="padding:14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2)">{{ a.mode }}</td>
+                        <td style="padding:14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2)">FALSE</td>
+                        <td style="padding:14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">NEVER</td>
+                        <td style="padding:14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">{{ a.freshness }}</td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </sc-if>
+            <sc-if value="{{ isCardsView }}" hint-placeholder-val="{{ false }}">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
+                <sc-for list="{{ roster }}" as="a" hint-placeholder-count="3">
+                  <article style="border:1px solid var(--panel-border);border-left:3px solid {{ a.hue }};border-radius:10px;padding:16px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                    <div style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:{{ a.hue }}">{{ a.domain }}</div>
+                    <h3 style="font-size:16px;font-weight:600;margin:8px 0 6px;color:var(--text)">{{ a.name }}</h3>
+                    <p style="font-size:14px;line-height:1.5;color:var(--text2);margin:0 0 12px">{{ a.purpose }}</p>
+                    <button onClick="{{ a.open }}" style="border:1px solid var(--panel-border);border-radius:6px;padding:8px 12px;background:transparent;color:var(--text2);font-size:12px;letter-spacing:.1em;text-transform:uppercase" style-hover="background:var(--hover)">OPEN DETAIL</button>
+                  </article>
+                </sc-for>
+              </div>
+            </sc-if>
+          </sc-if>
+
+          <sc-if value="{{ isAgentDetail }}" hint-placeholder-val="{{ false }}">
+            <article style="max-width:980px">
+              <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:baseline">
+                <h1 style="font-family:var(--mono);font-size:32px;font-weight:600;letter-spacing:-0.02em;margin:0;color:var(--text)">{{ agent.name }}</h1>
+                <span style="display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--text2);border:1px solid var(--panel-border);border-radius:4px;padding:4px 8px"><span style="width:6px;height:6px;border-radius:50%;background:{{ agent.hue }}"></span>{{ agent.domain }}</span>
+                <span style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">KIND: SPECIALIST AGENT</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">
+                <sc-for list="{{ agentMarks }}" as="m" hint-placeholder-count="3">
+                  <div style="border:1px solid var(--panel-border);border-radius:6px;padding:9px 12px;background:var(--raised)">
+                    <div style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">{{ m.label }}</div>
+                    <div style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text)">{{ m.value }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:18px">
+                <sc-for list="{{ agentSections }}" as="s" hint-placeholder-count="6">
+                  <section style="border:1px solid var(--panel-border);border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                    <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">{{ s.label }}</div>
+                    <sc-if value="{{ s.isProse }}" hint-placeholder-val="{{ false }}">
+                      <p style="font-size:14px;line-height:1.6;color:var(--text2);max-width:72ch">{{ s.text }}</p>
+                    </sc-if>
+                    <sc-if value="{{ s.isList }}" hint-placeholder-val="{{ true }}">
+                      <ul style="list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px">
+                        <sc-for list="{{ s.items }}" as="i" hint-placeholder-count="3">
+                          <li style="font-size:14px;line-height:1.5;color:var(--text2);display:flex;gap:9px"><span style="color:var(--faint);font-family:var(--mono);font-size:11px;padding-top:3px">—</span><span>{{ i }}</span></li>
+                        </sc-for>
+                      </ul>
+                    </sc-if>
+                  </section>
+                </sc-for>
+              </div>
+              <section style="margin-top:14px;border:1px solid var(--panel-border);border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">RESTRICTIONS — PROHIBITED ACTIONS, READ-ONLY TEXT</div>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+                  <sc-for list="{{ agent.restrictions }}" as="r" hint-placeholder-count="3">
+                    <p style="margin:0;font-size:14px;line-height:1.5;color:var(--text2);display:flex;gap:10px;align-items:baseline"><span aria-hidden="true" style="font-family:var(--mono);font-size:11px;letter-spacing:0;color:var(--muted)">[LOCK]</span><span>{{ r }}</span></p>
+                  </sc-for>
+                </div>
+                <div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:14px">THIS PANEL CONTAINS NO CONTROLS BY CONSTRUCTION</div>
+              </section>
+              <section style="margin-top:14px;border:1px solid var(--panel-border);border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">CURRENT DEMO STATUS</div>
+                <p style="font-size:14px;line-height:1.6;color:var(--text2);max-width:72ch">Provisioned in the manifest with enabled_by_default false. No run rows, no artifacts, no queue items. Status IDLE is the fixture's real value, not a placeholder.</p>
+                <div style="font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--muted)">SOURCE: AGENTS JOIN RUNS ON AGENT_ID — 0 ROWS</div>
+              </section>
+            </article>
+          </sc-if>
+
+          <sc-if value="{{ isApprovals }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid var(--panel-border);border-radius:14px;background:var(--panel-fill);backdrop-filter:var(--blur);overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;min-width:760px">
+                <thead>
+                  <tr>
+                    <sc-for list="{{ apprCols }}" as="c" hint-placeholder-count="5">
+                      <th style="text-align:left;padding:12px 14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">{{ c }}</th>
+                    </sc-for>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ approvals }}" as="p" hint-placeholder-count="2">
+                    <tr>
+                      <td style="padding:14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--text2)">{{ p.id }}</td>
+                      <td style="padding:14px;border-bottom:1px solid var(--hair);font-size:14px"><button onClick="{{ p.open }}" style="all:unset;cursor:pointer;font-family:var(--sans);font-size:14px;font-weight:600;color:var(--text);border-bottom:1px solid var(--hair)">{{ p.title }}</button></td>
+                      <td style="padding:14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:{{ p.tierColor }}">{{ p.tier }}</td>
+                      <td style="padding:14px;border-bottom:1px solid var(--hair)"><span style="display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2)"><span style="width:6px;height:6px;border-radius:50%;background:{{ p.hue }}"></span>{{ p.requester }}</span></td>
+                      <td style="padding:14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">{{ p.deadline }}</td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isApprovalDetail }}" hint-placeholder-val="{{ false }}">
+            <article style="max-width:980px">
+              <sc-if value="{{ rehearsalOn }}" hint-placeholder-val="{{ false }}">
+                <div style="border:1px dashed var(--amber);border-radius:10px;padding:12px 14px;background:var(--raised);margin-bottom:14px">
+                  <span style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--amber)">REHEARSAL — NO DECISION RECORDED</span>
+                </div>
+              </sc-if>
+              <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:baseline">
+                <h1 style="font-family:var(--mono);font-size:32px;font-weight:600;letter-spacing:-0.02em;margin:0;color:var(--text)">{{ approval.id }}</h1>
+                <span style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:{{ approval.tierColor }};border:{{ approval.tierBorder }};border-radius:4px;padding:4px 9px">{{ approval.tier }}</span>
+              </div>
+              <p style="font-size:14px;line-height:1.6;color:var(--text2);max-width:72ch">{{ approval.decision }}</p>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:8px">
+                <sc-for list="{{ approvalSections }}" as="s" hint-placeholder-count="6">
+                  <section style="border:1px solid var(--panel-border);border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                    <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">{{ s.label }}</div>
+                    <sc-if value="{{ s.isProse }}" hint-placeholder-val="{{ true }}">
+                      <p style="font-size:14px;line-height:1.6;color:var(--text2);max-width:72ch">{{ s.text }}</p>
+                    </sc-if>
+                    <sc-if value="{{ s.isList }}" hint-placeholder-val="{{ false }}">
+                      <ul style="list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px">
+                        <sc-for list="{{ s.items }}" as="i" hint-placeholder-count="3">
+                          <li style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--text2)">{{ i }}</li>
+                        </sc-for>
+                      </ul>
+                    </sc-if>
+                  </section>
+                </sc-for>
+              </div>
+              <section style="margin-top:14px;border:2px solid var(--panel-border);border-radius:14px;padding:20px;background:var(--raised)">
+                <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">DECISION — {{ approval.tier }}</div>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;max-width:520px">
+                  <label style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">TYPE {{ approval.confirmWord }} TO CONFIRM</label>
+                  <input disabled placeholder="{{ approval.confirmWord }}" style="font-family:var(--mono);font-size:12px;letter-spacing:.1em;padding:11px 12px;border:1px solid var(--panel-border);border-radius:6px;background:var(--hover);color:var(--faint)" />
+                  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+                    <button disabled style="border:1px solid var(--panel-border);border-radius:6px;padding:11px 15px;background:var(--hover);color:var(--faint);font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase">APPROVE PACKAGE</button>
+                    <button disabled style="border:1px solid var(--panel-border);border-radius:6px;padding:11px 15px;background:transparent;color:var(--faint);font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase">REJECT</button>
+                    <span style="display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--panel-border);border-radius:4px;padding:5px 8px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">DISABLED · READ-ONLY DEMO</span>
+                  </div>
+                </div>
+              </section>
+              <section style="margin-top:14px;border:1px solid var(--panel-border);border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">REHEARSAL — DRY RUN, RECORDS NO DECISION</div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center">
+                  <sc-for list="{{ rehearsalSteps }}" as="r" hint-placeholder-count="4">
+                    <span style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;border:1px solid var(--panel-border);border-radius:4px;padding:5px 9px;color:{{ r.color }};background:{{ r.bg }}">{{ r.label }}</span>
+                  </sc-for>
+                </div>
+                <p style="font-size:14px;line-height:1.6;color:var(--text2);max-width:72ch">{{ rehearsalCopy }}</p>
+                <div style="display:flex;flex-wrap:wrap;gap:8px">
+                  <button onClick="{{ rehearsalNext }}" style="border:1px solid var(--panel-border);border-radius:6px;padding:10px 14px;background:var(--raised);color:var(--text2);font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase" style-hover="background:var(--hover)">{{ rehearsalCta }}</button>
+                  <button onClick="{{ rehearsalReset }}" style="border:1px solid var(--panel-border);border-radius:6px;padding:10px 14px;background:transparent;color:var(--muted);font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase" style-hover="background:var(--hover)">RESET</button>
+                </div>
+              </section>
+            </article>
+          </sc-if>
+
+          <sc-if value="{{ isWorkflows }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid var(--panel-border);border-radius:14px;background:var(--panel-fill);backdrop-filter:var(--blur);overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;min-width:760px">
+                <thead>
+                  <tr>
+                    <sc-for list="{{ sopCols }}" as="c" hint-placeholder-count="5">
+                      <th style="text-align:left;padding:12px 14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">{{ c }}</th>
+                    </sc-for>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ sops }}" as="w" hint-placeholder-count="3">
+                    <tr>
+                      <td style="padding:14px;border-bottom:1px solid var(--hair);border-left:3px solid {{ w.hue }};font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--text2)">{{ w.id }}</td>
+                      <td style="padding:14px;border-bottom:1px solid var(--hair)"><button onClick="{{ w.open }}" style="all:unset;cursor:pointer;font-family:var(--sans);font-size:14px;font-weight:600;color:var(--text);border-bottom:1px solid var(--hair)">{{ w.title }}</button></td>
+                      <td style="padding:14px;border-bottom:1px solid var(--hair)"><span style="display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2)"><span style="width:6px;height:6px;border-radius:50%;background:{{ w.hue }}"></span>{{ w.domain }}</span></td>
+                      <td style="padding:14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2)">{{ w.rev }}</td>
+                      <td style="padding:14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">{{ w.steps }}</td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isWorkflowDetail }}" hint-placeholder-val="{{ false }}">
+            <article style="max-width:1000px">
+              <h1 style="font-family:var(--mono);font-size:32px;font-weight:600;letter-spacing:-0.02em;margin:0;color:var(--text)">{{ sop.title }}</h1>
+              <div style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:8px">{{ sop.id }} · {{ sop.rev }} · HASH {{ sop.hash }} · OWNER {{ sop.owner }}</div>
+              <section style="margin-top:18px;border:1px solid var(--panel-border);border-radius:14px;background:var(--panel-fill);backdrop-filter:var(--blur);overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;min-width:820px">
+                  <thead>
+                    <tr>
+                      <sc-for list="{{ stepCols }}" as="c" hint-placeholder-count="6">
+                        <th style="text-align:left;padding:12px 14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">{{ c }}</th>
+                      </sc-for>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <sc-for list="{{ sop.steps }}" as="s" hint-placeholder-count="9">
+                      <tr>
+                        <td style="padding:13px 14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--muted)">{{ s.n }}</td>
+                        <td style="padding:13px 14px;border-bottom:1px solid var(--hair);font-size:14px;color:var(--text)">{{ s.name }}</td>
+                        <td style="padding:13px 14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text2)">{{ s.owner }}</td>
+                        <td style="padding:13px 14px;border-bottom:1px solid var(--hair);font-size:14px;color:var(--text2)">{{ s.input }}</td>
+                        <td style="padding:13px 14px;border-bottom:1px solid var(--hair);font-size:14px;color:var(--text2)">{{ s.output }}</td>
+                        <td style="padding:13px 14px;border-bottom:1px solid var(--hair);font-size:14px;color:var(--text2)">{{ s.test }}</td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </section>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:14px">
+                <section style="border:1px solid var(--panel-border);border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                  <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">RACI</div>
+                  <ul style="list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px">
+                    <sc-for list="{{ sop.raci }}" as="r" hint-placeholder-count="4">
+                      <li style="display:flex;gap:10px;font-size:14px;color:var(--text2)"><span style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);min-width:14ch">{{ r.role }}</span><span>{{ r.who }}</span></li>
+                    </sc-for>
+                  </ul>
+                </section>
+                <section style="border:1px solid var(--panel-border);border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                  <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">COMPLETION TESTS</div>
+                  <ul style="list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px">
+                    <sc-for list="{{ sop.tests }}" as="t" hint-placeholder-count="3">
+                      <li style="font-size:14px;line-height:1.5;color:var(--text2)">{{ t }}</li>
+                    </sc-for>
+                  </ul>
+                </section>
+              </div>
+              <section style="margin-top:14px;border:1px solid var(--panel-border);border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">AUTONOMY LADDER — ATTACHED TO {{ sop.id }} {{ sop.rev }}</div>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+                  <sc-for list="{{ sop.ladder }}" as="l" hint-placeholder-count="5">
+                    <div style="border:1px solid var(--panel-border);border-radius:10px;padding:14px;background:{{ l.bg }}">
+                      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between">
+                        <span style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:{{ l.titleColor }}">{{ l.rung }}</span>
+                        <span style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--text2)">{{ l.mark }}</span>
+                      </div>
+                      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px">
+                        <div><div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">SYSTEM DOES</div><div style="font-size:14px;line-height:1.5;color:var(--text2)">{{ l.system }}</div></div>
+                        <div><div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">HUMAN STILL DOES</div><div style="font-size:14px;line-height:1.5;color:var(--text2)">{{ l.human }}</div></div>
+                        <div><div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">APPROVAL TIER</div><div style="font-size:14px;line-height:1.5;color:var(--text2)">{{ l.tier }}</div></div>
+                        <div><div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">ROLLBACK</div><div style="font-size:14px;line-height:1.5;color:var(--text2)">{{ l.rollback }}</div></div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+            </article>
+          </sc-if>
+
+          <sc-if value="{{ isCycle }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
+              <sc-for list="{{ cycle }}" as="c" hint-placeholder-count="3">
+                <section style="border:1px solid var(--panel-border);border-top:3px solid {{ c.hue }};border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                  <div style="font-family:var(--mono);font-size:22px;font-weight:600;letter-spacing:-0.02em;color:var(--text)">{{ c.time }}</div>
+                  <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted);margin-top:6px">{{ c.title }}</div>
+                  <ul style="list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px">
+                    <sc-for list="{{ c.agenda }}" as="i" hint-placeholder-count="3">
+                      <li style="font-size:14px;line-height:1.5;color:var(--text2);display:flex;gap:9px"><span style="font-family:var(--mono);font-size:11px;color:var(--faint);padding-top:3px">—</span><span>{{ i }}</span></li>
+                    </sc-for>
+                  </ul>
+                </section>
+              </sc-for>
+            </div>
+            <div style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:16px">TIMEZONE AFRICA/CAIRO · THIS SCHEDULE IS PROPOSED, NOT LIVE</div>
+          </sc-if>
+
+          <sc-if value="{{ isHealth }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid var(--panel-border);border-radius:14px;background:var(--panel-fill);backdrop-filter:var(--blur);overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;min-width:760px">
+                <thead>
+                  <tr>
+                    <sc-for list="{{ healthCols }}" as="c" hint-placeholder-count="4">
+                      <th style="text-align:left;padding:12px 14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">{{ c }}</th>
+                    </sc-for>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ health }}" as="h" hint-placeholder-count="6">
+                    <tr>
+                      <td style="padding:14px;border-bottom:1px solid var(--hair);font-size:14px;color:var(--text)">{{ h.name }}</td>
+                      <td style="padding:14px;border-bottom:1px solid var(--hair)"><span style="display:inline-flex;align-items:center;gap:5px;border:1px solid var(--panel-border);border-radius:4px;padding:3px 7px"><span style="width:6px;height:6px;border-radius:50%;background:{{ h.dot }}"></span><span style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--text2)">{{ h.status }}</span></span></td>
+                      <td style="padding:14px;border-bottom:1px solid var(--hair);font-size:14px;color:var(--text2)">{{ h.checked }}</td>
+                      <td style="padding:14px;border-bottom:1px solid var(--hair);font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">{{ h.when }}</td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:16px">
+              <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="3">
+                <article style="border:1px solid var(--panel-border);border-radius:10px;padding:16px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                  <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">{{ m.label }}</div>
+                  <div style="font-family:var(--mono);font-size:44px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;color:{{ m.color }};margin-top:8px;line-height:1.05">{{ m.value }}</div>
+                  <p style="font-size:14px;line-height:1.5;color:var(--text2);margin:8px 0 12px;max-width:72ch">{{ m.note }}</p>
+                  <div style="font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--muted)">SOURCE: {{ m.source }}</div>
+                  <div style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:3px">CAPTURED {{ m.captured }}</div>
+                </article>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isWorkspace }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+              <sc-for list="{{ roster }}" as="a" hint-placeholder-count="3">
+                <button onClick="{{ a.workspace }}" style="border:1px solid var(--panel-border);border-radius:6px;padding:8px 12px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;background:{{ a.wsBg }};color:{{ a.wsColor }}">{{ a.short }}</button>
+              </sc-for>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
+              <section style="border:1px solid var(--panel-border);border-left:3px solid {{ wsAgent.hue }};border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">QUEUE — {{ wsAgent.name }}</div>
+                <p style="font-size:14px;line-height:1.6;color:var(--text2);max-width:72ch">No queue items exist in this build. Queue rows are written by the conductor on dispatch, and no dispatch has occurred.</p>
+                <div style="font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--muted)">SOURCE: QUEUE WHERE AGENT_ID='{{ wsAgent.id }}' — 0 ROWS</div>
+              </section>
+              <section style="border:1px solid var(--panel-border);border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">RECENT ARTIFACTS</div>
+                <p style="font-size:14px;line-height:1.6;color:var(--text2);max-width:72ch">unknown — artifacts are keyed to run ids and this build has none. This is not zero artifacts; it is no measurement.</p>
+                <div style="font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--muted)">SOURCE: ARTIFACTS JOIN RUNS — 0 ROWS</div>
+              </section>
+              <section style="border:1px solid var(--panel-border);border-radius:14px;padding:18px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+                <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--muted)">RESTRICTIONS — READ-ONLY TEXT</div>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+                  <sc-for list="{{ wsAgent.restrictions }}" as="r" hint-placeholder-count="3">
+                    <p style="margin:0;font-size:14px;line-height:1.5;color:var(--text2);display:flex;gap:10px;align-items:baseline"><span aria-hidden="true" style="font-family:var(--mono);font-size:11px;color:var(--muted)">[LOCK]</span><span>{{ r }}</span></p>
+                  </sc-for>
+                </div>
+              </section>
+            </div>
+          </sc-if>
+
+        </div>
+      </sc-if>
+    </main>
+
+    <aside data-ctx style="background:var(--nav);border-left:1px solid var(--hair);padding:18px 16px;min-width:0">
+      <div style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">{{ ctxLabel }}</div>
+
+      <sc-if value="{{ ctxIsHub }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:18px;border:1px solid var(--panel-border);border-radius:14px;padding:20px 16px;background:var(--surface-glow);text-align:center">
+          <svg viewBox="0 0 160 160" role="img" aria-label="Shared memory hub, 1,284 indexed items" style="width:130px;height:130px;display:block;margin:0 auto">
+            <circle cx="80" cy="80" r="74" fill="none" stroke="var(--amber)" stroke-opacity="0.3" stroke-width="1" stroke-dasharray="2 7"></circle>
+            <circle cx="80" cy="80" r="62" fill="none" stroke="var(--amber)" stroke-opacity="0.45" stroke-width="1" stroke-dasharray="1 10"></circle>
+            <circle cx="80" cy="80" r="48" fill="var(--panel)" stroke="var(--amber)" stroke-width="2" style="filter:drop-shadow(var(--bloom-strong))"></circle>
+            <text x="80" y="85" text-anchor="middle" fill="var(--amber)" style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em">HUB</text>
+          </svg>
+          <div style="font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin-top:14px">SHARED MEMORY</div>
+          <div style="font-family:var(--mono);font-size:22px;font-weight:600;color:var(--text);margin-top:8px;font-variant-numeric:tabular-nums">1,284</div>
+          <div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2)">INDEXED ITEMS</div>
+          <div style="font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--muted);margin-top:12px">SOURCE: MEMORY_INDEX COUNT AT BATCH1</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ ctxIsEntity }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:16px;border:1px solid var(--panel-border);border-left:3px solid {{ ctxHue }};border-radius:14px;padding:16px;background:var(--panel-fill);backdrop-filter:var(--blur)">
+          <div style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:{{ ctxHue }}">{{ ctxKind }}</div>
+          <div style="font-size:16px;font-weight:600;color:var(--text);margin-top:8px">{{ ctxTitle }}</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+            <sc-for list="{{ ctxFacts }}" as="f" hint-placeholder-count="4">
+              <div>
+                <div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">{{ f.k }}</div>
+                <div style="font-size:14px;line-height:1.45;color:var(--text2)">{{ f.v }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <button onClick="{{ clearSelection }}" style="margin-top:16px;border:1px solid var(--panel-border);border-radius:6px;padding:8px 12px;background:transparent;color:var(--muted);font-size:12px;letter-spacing:.1em;text-transform:uppercase" style-hover="background:var(--hover)">CLEAR SELECTION</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;margin-top:14px;border:1px solid var(--panel-border);border-radius:6px;padding:9px 11px;background:var(--raised)">
+          <span style="width:10px;height:10px;border-radius:50%;border:2px solid var(--amber)"></span>
+          <span style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2)">SHARED MEMORY · 1,284</span>
+        </div>
+      </sc-if>
+    </aside>
+
+    <aside data-act style="{{ actStyle }}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div style="font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">ACTIVITY</div>
+        <sc-if value="{{ actOpen }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ toggleAct }}" style="border:1px solid var(--panel-border);border-radius:6px;padding:6px 10px;background:var(--raised);color:var(--text2);font-size:11px;letter-spacing:.12em;text-transform:uppercase">CLOSE</button>
+        </sc-if>
+      </div>
+      <sc-if value="{{ hasLog }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:14px;margin-top:16px">
+          <sc-for list="{{ log }}" as="l" hint-placeholder-count="4">
+            <div>
+              <div style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--faint)">{{ l.t }}</div>
+              <div style="font-family:var(--mono);font-size:11px;line-height:1.6;letter-spacing:.02em;color:var(--text2);margin-top:3px">{{ l.pre }}<span style="color:{{ l.hue }}">{{ l.name }}</span>{{ l.post }}</div>
+              <div style="font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--faint);margin-top:3px">{{ l.run }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ logEmpty }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:16px;border:1px dashed var(--panel-border);border-radius:10px;padding:14px">
+          <div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2)">EMPTY</div>
+          <p style="font-size:14px;line-height:1.55;color:var(--text2);margin:8px 0 0">No run rows exist in this build, so there is no activity to list. Stepping the rehearsal on an approval package writes rehearsal lines here.</p>
+        </div>
+      </sc-if>
+    </aside>
+
+    <button data-acttab onClick="{{ toggleAct }}" style="position:fixed;right:0;top:45%;writing-mode:vertical-rl;border:1px solid var(--panel-border);border-right:none;border-radius:8px 0 0 8px;padding:14px 9px;background:var(--nav);color:var(--text2);font-size:11px;letter-spacing:.14em;text-transform:uppercase;align-items:center">ACTIVITY</button>
+  </div>
+
+  <nav data-bottom style="position:sticky;bottom:0;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--hair);border-top:1px solid var(--panel-border)">
+    <sc-for list="{{ bottomNav }}" as="b" hint-placeholder-count="5">
+      <button onClick="{{ b.go }}" style="border:none;background:var(--nav);color:{{ b.color }};padding:12px 4px;font-size:11px;letter-spacing:.1em;text-transform:uppercase">{{ b.label }}</button>
+    </sc-for>
+  </nav>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;initialRoute&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;command&quot;,&quot;organization&quot;,&quot;agents&quot;,&quot;approvals&quot;,&quot;workflows&quot;,&quot;cycle&quot;,&quot;health&quot;,&quot;workspaces&quot;],&quot;default&quot;:&quot;command&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Demo&quot;},&quot;stateDemo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;live&quot;,&quot;loading&quot;,&quot;empty&quot;,&quot;sample&quot;,&quot;partial&quot;,&quot;stale&quot;,&quot;offline&quot;,&quot;denied&quot;,&quot;notfound&quot;,&quot;blocked&quot;,&quot;dependency&quot;,&quot;error&quot;],&quot;default&quot;:&quot;live&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Demo&quot;}}">
+const FROZEN = '2026-08-19T09:15:00+02:00';
+const BASE = 9 * 3600 + 15 * 60;
+function clk(off) {
+  const t = BASE + off, p = n => String(n).padStart(2, '0');
+  return p(Math.floor(t / 3600) % 24) + ':' + p(Math.floor(t / 60) % 60) + ':' + p(t % 60);
+}
+const CAPTURED = '2026-08-19 09:15 AFRICA/CAIRO';
+
+const ROSTER = [
+  {
+    id: 'marketing', name: 'Marketing Agent', short: 'Marketing', domain: 'Marketing', hue: 'var(--marketing)',
+    purpose: 'Plans and drafts campaign material for a human to approve.',
+    example: '"draft the launch email sequence"',
+    autonomy: 'RUNG 2 — PROPOSE', risk: 'MEDIUM', mode: 'ON DEMAND', freshness: 'BATCH1-2026-08-19',
+    responsibilities: ['Draft campaign briefs against an approved SOP revision.', 'Assemble message hierarchy and channel plan as a proposal.', 'Attach evidence references to every claim it drafts.'],
+    inputs: ['Approved SOP revision and its hash.', 'Brand and tone notes from shared memory.', 'Prior campaign artifacts, read-only.'],
+    outputs: ['Campaign brief draft.', 'Channel plan proposal.', 'Approval package with tier and deadline.'],
+    tools: ['Shared memory read.', 'Document draft writer, staging only.'],
+    restrictions: ['May not publish to any external channel.', 'May not spend budget or create a purchase order.', 'May not approve its own package, at any tier.', 'May not write to production systems of record.'],
+    approvals: ['Tier 2 owner-only for any external publication.', 'Tier 1 routine for internal draft circulation.'],
+    sopList: ['SOP-CAMP-001 rev 3 — Campaign, end to end.', 'SOP-CAMP-004 rev 1 — Post-campaign readout.']
+  },
+  {
+    id: 'social', name: 'Social Media Agent', short: 'Social', domain: 'Social', hue: 'var(--social)',
+    purpose: 'Prepares scheduled social posts and reply drafts for review.',
+    example: '"prepare next week\u2019s post queue"',
+    autonomy: 'RUNG 2 — PROPOSE', risk: 'MEDIUM', mode: 'ON DEMAND', freshness: 'BATCH1-2026-08-19',
+    responsibilities: ['Draft post copy per channel with a proposed schedule.', 'Flag replies that need a human voice.', 'Keep a queue whose every item cites a source artifact.'],
+    inputs: ['Approved campaign brief.', 'Channel constraints from the manifest.', 'Prior post performance, where measured.'],
+    outputs: ['Post queue draft.', 'Reply draft set.', 'Escalation list for human voice.'],
+    tools: ['Shared memory read.', 'Scheduler writer, staging only.'],
+    restrictions: ['May not post, reply or delete on any live account.', 'May not connect or authorise a channel credential.', 'May not respond to a named individual without a human in the loop.'],
+    approvals: ['Tier 2 owner-only for anything that leaves the tenant.', 'Tier 1 routine for queue reordering inside staging.'],
+    sopList: ['SOP-SOC-002 rev 2 — Weekly post cycle.']
+  },
+  {
+    id: 'designer', name: 'Designer Agent', short: 'Designer', domain: 'Creative', hue: 'var(--creative)',
+    purpose: 'Produces layout and asset proposals inside the brand system.',
+    example: '"lay out the three launch banners"',
+    autonomy: 'RUNG 1 — SUGGEST', risk: 'LOW', mode: 'ON DEMAND', freshness: 'BATCH1-2026-08-19',
+    responsibilities: ['Compose layouts from approved brand components.', 'Produce asset variants at declared sizes.', 'Record which brand revision each asset was built from.'],
+    inputs: ['Brand system revision.', 'Approved copy deck.', 'Asset size manifest.'],
+    outputs: ['Layout proposals.', 'Export-ready asset set, staging only.', 'Component usage report.'],
+    tools: ['Shared memory read.', 'Asset composer, staging only.'],
+    restrictions: ['May not alter the brand system itself.', 'May not publish assets to any external surface.', 'May not license or purchase third-party media.'],
+    approvals: ['Tier 1 routine for internal layout review.', 'Tier 2 owner-only for anything shipped to a customer surface.'],
+    sopList: ['SOP-CRE-003 rev 5 — Launch asset set.']
+  }
+];
+
+const NOT_PROVISIONED = [
+  { name: 'Comms Agent', note: 'no runtime' },
+  { name: 'Search Agent', note: 'no runtime' },
+  { name: 'Media Agent', note: 'no runtime' },
+  { name: 'File & PC Agent', note: 'no runtime' }
+];
+
+const APPROVALS = [
+  {
+    id: 'APR-1041', title: 'Publish Q3 campaign landing copy', tier: 'TIER 2 — OWNER ONLY',
+    requester: 'Marketing Agent', agentId: 'marketing', hue: 'var(--marketing)',
+    deadline: '2026-08-20 17:00', actionLabel: 'APPROVE PACKAGE', confirmWord: 'PUBLISH',
+    decision: 'Approve publication of four landing sections to the staging CMS, with the live push held for a separate Tier 2 decision.',
+    action: 'Write four landing sections to the staging CMS under branch camp-q3, then request a second decision for the live push.',
+    reason: 'The Q3 campaign SOP cannot start step 4 until approved copy exists in staging.',
+    target: 'Staging CMS · tenant i-STEMer Demo · branch camp-q3',
+    artifact: 'artifact://drafts/camp-q3/landing.v4',
+    evidence: ['No run ids exist — evidence set is empty in BATCH1-2026-08-19.'],
+    expected: 'Four sections present in staging, step 4 of SOP-CAMP-001 becomes startable.',
+    risks: 'Copy that is wrong in staging is cheap to revert; the risk sits with the later live push, which is a separate decision.',
+    cost: 'unknown — no cost rows exist in this build.'
+  },
+  {
+    id: 'APR-1042', title: 'Schedule six social posts in staging', tier: 'TIER 1 — ROUTINE',
+    requester: 'Social Media Agent', agentId: 'social', hue: 'var(--social)',
+    deadline: '2026-08-21 12:00', actionLabel: 'APPROVE PACKAGE', confirmWord: 'SCHEDULE',
+    decision: 'Approve six drafted posts into the staging scheduler. Nothing leaves the tenant on this decision.',
+    action: 'Insert six post drafts into the staging scheduler with proposed times.',
+    reason: 'The weekly post cycle SOP needs a filled staging queue before its review step.',
+    target: 'Staging scheduler · tenant i-STEMer Demo',
+    artifact: 'artifact://drafts/social/week34.v2',
+    evidence: ['No run ids exist — evidence set is empty in BATCH1-2026-08-19.'],
+    expected: 'Six queue rows in staging, all unpublished.',
+    risks: 'Contained to staging. No external account is touched.',
+    cost: 'unknown — no cost rows exist in this build.'
+  }
+];
+
+const SOPS = [
+  { id: 'SOP-CAMP-001', title: 'Campaign — end to end', domain: 'Marketing', hue: 'var(--marketing)', rev: 'REV 3', steps: '9 STEPS · 0 STARTED', hash: 'e1a7c9', owner: 'HADEER' },
+  { id: 'SOP-SOC-002', title: 'Weekly post cycle', domain: 'Social', hue: 'var(--social)', rev: 'REV 2', steps: '6 STEPS · 0 STARTED', hash: '4bd022', owner: 'HADEER' },
+  { id: 'SOP-CRE-003', title: 'Launch asset set', domain: 'Creative', hue: 'var(--creative)', rev: 'REV 5', steps: '7 STEPS · 0 STARTED', hash: '9f30ab', owner: 'HADEER' }
+];
+
+const SOP_STEPS = [
+  ['Frame the objective', 'HADEER', 'Business goal note', 'Objective statement', 'Objective names one measurable outcome'],
+  ['Draft the campaign brief', 'MARKETING', 'Objective statement', 'Brief draft v1', 'Brief cites the approved SOP revision'],
+  ['Review brief', 'HADEER', 'Brief draft v1', 'Approved brief', 'Owner decision recorded with a timestamp'],
+  ['Draft landing copy', 'MARKETING', 'Approved brief', 'Landing copy v4', 'Every claim carries an evidence reference'],
+  ['Lay out assets', 'DESIGNER', 'Approved brief', 'Asset set, staging', 'Assets record the brand revision used'],
+  ['Prepare post queue', 'SOCIAL', 'Approved brief', 'Post queue draft', 'Every queue item cites a source artifact'],
+  ['Owner approval for publication', 'HADEER', 'Approval package', 'Tier 2 decision', 'Decision written with run id and timestamp'],
+  ['Publish to staging', 'MARKETING', 'Tier 2 decision', 'Staging artifacts', 'Staging matches the approved artifact hash'],
+  ['Readout', 'MARKETING', 'Staging artifacts', 'Readout document', 'Every metric prints its source predicate']
+];
+
+const LADDER = [
+  { rung: 'RUNG 1 — SUGGEST', system: 'Drafts options and ranks them.', human: 'Chooses, edits and executes everything.', tier: 'None required.', rollback: 'Discard the draft.' },
+  { rung: 'RUNG 2 — PROPOSE', system: 'Assembles a complete package ready to act on.', human: 'Approves or rejects; performs the act.', tier: 'Tier 1 routine.', rollback: 'Reject the package; nothing was written.' },
+  { rung: 'RUNG 3 — ACT IN STAGING', system: 'Writes to staging only, then stops.', human: 'Approves the live push separately.', tier: 'Tier 2 owner-only.', rollback: 'Revert the staging branch by hash.' },
+  { rung: 'RUNG 4 — ACT WITH REVIEW WINDOW', system: 'Acts after a declared delay unless held.', human: 'Holds within the window; audits after.', tier: 'Tier 2 owner-only.', rollback: 'Hold cancels; post-hoc revert by run id.' },
+  { rung: 'RUNG 5 — ACT UNSUPERVISED', system: 'Nothing. Not available in this product.', human: 'Retains the decision.', tier: 'Prohibited.', rollback: 'Not applicable.' }
+];
+
+const CYCLE = [
+  { time: '08:00', title: 'MORNING BRIEFING', hue: 'var(--exec)', agenda: ['Owner states the day\u2019s objective.', 'Conductor reads open approval packages aloud.', 'Blocked items name the exact decision required.'] },
+  { time: '10:00 — 18:00', title: 'MIDDAY STREAMS — MARKETING · SOCIAL · CREATIVE', hue: 'var(--marketing)', agenda: ['Each domain works its assigned SOP steps.', 'Every output lands as a proposal, never a live action.', 'Escalations open an approval package immediately.'] },
+  { time: '20:00', title: 'EVENING BRIEFING', hue: 'var(--social)', agenda: ['What was decided, with run ids.', 'What was proposed and is still waiting.', 'What could not be measured, stated as unknown.'] }
+];
+
+const HEALTH = [
+  { name: 'Fixture loader', status: 'OK', dot: 'var(--status)', checked: 'BATCH1-2026-08-19 parsed, 42 records, schema version 3.', when: 'AT FREEZE' },
+  { name: 'Query ports', status: 'OK', dot: 'var(--status)', checked: 'Four ports resolve against the fixture adapter.', when: 'AT FREEZE' },
+  { name: 'Run recorder', status: 'UNKNOWN', dot: 'var(--status)', checked: 'No runtime in this build, so nothing was checked.', when: 'NOT CHECKED' },
+  { name: 'External channel bridge', status: 'OFFLINE', dot: 'var(--status)', checked: 'Deliberately absent — no live external actions in this build.', when: 'AT FREEZE' },
+  { name: 'Approval writer', status: 'BLOCKED', dot: 'var(--error)', checked: 'Read-only demo. Decision writes are refused by construction.', when: 'AT FREEZE' },
+  { name: 'Memory index freshness', status: 'ATTENTION', dot: 'var(--amber)', checked: 'Index built at freeze; no refresh job exists to age it.', when: 'AT FREEZE' }
+];
+
+const METRICS = {
+  command: [
+    { label: 'HOURS RETURNED TO PRINCIPAL', value: 'unknown', tone: 'amber', note: 'No run rows exist in this build — this is not zero.', source: "RUNS.STATUS='COMPLETED'" },
+    { label: 'PACKAGES AWAITING A HUMAN', value: '2', tone: 'text', note: 'Both are fixture rows with a stated tier and deadline.', source: 'APPROVALS WHERE STATE=\u2019PENDING\u2019' },
+    { label: 'STEPS STARTED TODAY', value: '0', tone: 'text', note: 'Zero is measured here: the step table exists and is empty.', source: 'SOP_STEPS WHERE STARTED_AT IS NOT NULL' },
+    { label: 'AGENT UTILISATION', value: 'unknown', tone: 'amber', note: 'Utilisation needs run durations. None have been recorded.', source: 'SUM(RUNS.DURATION) / WINDOW' }
+  ],
+  health: [
+    { label: 'CHECKS PASSED', value: '2', tone: 'green', note: 'Loader and query ports were actually exercised at freeze.', source: 'HEALTH_CHECKS WHERE RESULT=\u2019OK\u2019' },
+    { label: 'MEAN TIME TO RECOVERY', value: 'unknown', tone: 'amber', note: 'No incident rows exist, so nothing has been recovered from.', source: 'AVG(INCIDENTS.RESOLVED_AT - OPENED_AT)' },
+    { label: 'UPTIME', value: 'unknown', tone: 'amber', note: 'There is no runtime to observe in this build.', source: 'UPTIME_SAMPLES — 0 ROWS' }
+  ]
+};
+
+const NODES = { hadeer: [450, 72], hermes: [450, 218], marketing: [250, 372], social: [450, 372], designer: [650, 372], memory: [450, 502] };
+
+const EDGES = [
+  { key: 'hadeer-hermes', d: 'M450 98 C 450 130, 450 152, 450 180', stroke: 'var(--amber)', w: 1.5, dash: '0', o: 0.75, kind: 'AUTHORITY', sentence: 'Hadeer holds authority over Hermes Conductor.' },
+  { key: 'marketing-hermes', d: 'M250 352 C 250 286, 330 218, 412 218', stroke: 'var(--marketing)', w: 1.5, dash: '0', o: 0.8, kind: 'REPORTS_TO', sentence: 'Marketing Agent reports to Hermes Conductor.' },
+  { key: 'social-hermes', d: 'M450 352 C 450 320, 450 300, 450 256', stroke: 'var(--social)', w: 2, dash: '0', o: 0.85, kind: 'REPORTS_TO', sentence: 'Social Media Agent reports to Hermes Conductor.' },
+  { key: 'designer-hermes', d: 'M650 352 C 650 286, 570 218, 488 218', stroke: 'var(--creative)', w: 1.5, dash: '0', o: 0.8, kind: 'REPORTS_TO', sentence: 'Designer Agent reports to Hermes Conductor.' },
+  { key: 'hermes-memory', d: 'M412 218 C 190 268, 156 466, 402 502', stroke: 'var(--amber)', w: 1.5, dash: '6 5', o: 0.6, kind: 'CONVERGES_TO', sentence: 'Hermes Conductor converges to Shared Memory.' },
+  { key: 'marketing-memory', d: 'M250 392 C 250 462, 330 502, 402 502', stroke: 'var(--amber)', w: 1.5, dash: '6 5', o: 0.55, kind: 'CONVERGES_TO', sentence: 'Marketing Agent converges to Shared Memory.' },
+  { key: 'social-memory', d: 'M450 392 C 450 418, 450 432, 450 454', stroke: 'var(--amber)', w: 1.5, dash: '6 5', o: 0.55, kind: 'CONVERGES_TO', sentence: 'Social Media Agent converges to Shared Memory.' },
+  { key: 'designer-memory', d: 'M650 392 C 650 462, 570 502, 498 502', stroke: 'var(--amber)', w: 1.5, dash: '6 5', o: 0.55, kind: 'CONVERGES_TO', sentence: 'Designer Agent converges to Shared Memory.' }
+];
+
+const STATES = [
+  { k: 'live', label: 'LIVE FIXTURE' }, { k: 'loading', label: 'LOADING' }, { k: 'empty', label: 'EMPTY' },
+  { k: 'sample', label: 'SAMPLE' }, { k: 'partial', label: 'PARTIAL' }, { k: 'stale', label: 'STALE' },
+  { k: 'offline', label: 'OFFLINE' }, { k: 'denied', label: 'DENIED' }, { k: 'notfound', label: 'NOT FOUND' },
+  { k: 'blocked', label: 'BLOCKED' }, { k: 'dependency', label: 'DEPENDENCY UNHEALTHY' }, { k: 'error', label: 'ERROR' }
+];
+
+const ROUTES = [
+  { k: 'command', label: 'COMMAND CENTER', glyph: 'CC', crumb: 'i-stemer demo / command', chip: '2 PENDING' },
+  { k: 'organization', label: 'ORGANIZATION', glyph: 'OR', crumb: 'i-stemer demo / organization', chip: 'READ-ONLY' },
+  { k: 'agents', label: 'AGENTS', glyph: 'AG', crumb: 'i-stemer demo / agents', chip: '3 OF 7 PROVISIONED' },
+  { k: 'approvals', label: 'APPROVALS', glyph: 'AP', crumb: 'i-stemer demo / approvals', chip: '2 PENDING' },
+  { k: 'workflows', label: 'WORKFLOWS', glyph: 'WF', crumb: 'i-stemer demo / workflows', chip: '9/9 NOT STARTED' },
+  { k: 'cycle', label: 'COORDINATION CYCLE', glyph: 'CY', crumb: 'i-stemer demo / coordination-cycle', chip: 'PROPOSED' },
+  { k: 'health', label: 'SYSTEM HEALTH', glyph: 'SH', crumb: 'i-stemer demo / system-health', chip: '3 UNKNOWN' },
+  { k: 'workspaces', label: 'WORKSPACES', glyph: 'WS', crumb: 'i-stemer demo / workspaces', chip: 'READ-ONLY' }
+];
+
+class Component extends DCLogic {
+  state = {
+    route: 'command', agentId: null, approvalId: null, sopId: null, wsAgent: 'marketing',
+    view: 'table', theme: null, stateKey: 'live', reh: 0, traversal: null, log: [], reduced: false,
+    actOpen: false, graphOpen: false
+  };
+  timers = [];
+
+  componentDidMount() {
+    const r = this.props.initialRoute;
+    if (r && ROUTES.some(x => x.k === r)) this.setState({ route: r });
+    const sk = this.props.stateDemo;
+    if (sk && STATES.some(x => x.k === sk)) this.setState({ stateKey: sk });
+    let t = null;
+    try { t = window.localStorage.getItem('baos-theme'); } catch (e) { t = null; }
+    if (t === 'dark' || t === 'light') { this.setState({ theme: t }); document.documentElement.setAttribute('data-theme', t); }
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (mq.matches) this.setState({ reduced: true });
+  }
+  componentWillUnmount() { this.timers.forEach(clearTimeout); }
+
+  go(route) { this.setState({ route: route, agentId: null, approvalId: null, sopId: null, reh: 0, graphOpen: false }); }
+
+  toggleAct = () => this.setState(s => ({ actOpen: !s.actOpen }));
+  toggleGraph = () => this.setState(s => ({ graphOpen: !s.graphOpen }));
+
+  toggleTheme = () => {
+    const cur = this.state.theme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { window.localStorage.setItem('baos-theme', next); } catch (e) {}
+    this.setState({ theme: next });
+  };
+
+  runTraversal(agent, runId) {
+    const hops = [
+      { edge: 'hadeer-hermes', node: 'hermes', line: 'Rehearsal packet reaches Hermes Conductor from ', name: 'Hadeer', hue: 'var(--amber)' },
+      { edge: agent.id + '-hermes', node: agent.id, line: 'Rehearsal packet dispatched to ', name: agent.name, hue: agent.hue },
+      { edge: agent.id + '-hermes', node: 'hermes', line: 'Rehearsal packet returns from ', name: agent.name, hue: agent.hue },
+      { edge: 'hermes-memory', node: 'memory', line: 'Rehearsal packet converges to ', name: 'Shared Memory', hue: 'var(--amber)' }
+    ];
+    hops.forEach((h, i) => {
+      this.timers.push(setTimeout(() => {
+        this.setState(s => ({
+          traversal: { runId: runId, edge: h.edge, node: h.node, i: i },
+          log: [{ t: clk(i * 1), pre: h.line, name: h.name, hue: h.hue, post: ' — rehearsal, no decision recorded.', run: runId + ' · HOP ' + (i + 1) + '/4' }].concat(s.log)
+        }));
+      }, i * 200));
+    });
+    this.timers.push(setTimeout(() => this.setState({ traversal: null }), hops.length * 200 + 300));
+  }
+
+  rehearsalNext = () => {
+    const step = this.state.reh;
+    if (step >= 3) return;
+    const next = step + 1;
+    this.setState({ reh: next });
+    if (next === 3) {
+      const p = APPROVALS.find(a => a.id === this.state.approvalId) || APPROVALS[0];
+      const agent = ROSTER.find(a => a.id === p.agentId);
+      const runId = 'REH-2026-08-19-0007';
+      this.setState({ route: 'organization', actOpen: true, graphOpen: window.innerWidth <= 1023 });
+      this.runTraversal(agent, runId);
+    }
+  };
+  rehearsalReset = () => { this.timers.forEach(clearTimeout); this.timers = []; this.setState({ reh: 0, traversal: null }); };
+
+  renderVals() {
+    const st = this.state;
+    const route = ROUTES.find(r => r.k === st.route) || ROUTES[0];
+    const sel = st.agentId || st.approvalId || st.sopId;
+    const themeNow = st.theme || 'system';
+    const activeBg = 'var(--brand)', activeColor = 'var(--on-brand)';
+
+    const nav = ROUTES.map(r => ({
+      k: r.k, label: r.label, glyph: r.glyph,
+      bg: r.k === st.route ? activeBg : 'transparent',
+      color: r.k === st.route ? activeColor : 'var(--text2)',
+      go: () => this.go(r.k)
+    }));
+
+    const bottomNav = [
+      { label: 'Command', k: 'command' }, { label: 'Workflows', k: 'workflows' }, { label: 'Approvals', k: 'approvals' },
+      { label: 'Agents', k: 'agents' }, { label: 'More', k: 'health' }
+    ].map(b => ({ label: b.label, color: b.k === st.route ? 'var(--brand-text)' : 'var(--text2)', go: () => this.go(b.k) }));
+
+    const roster = ROSTER.map(a => ({
+      id: a.id, name: a.name, short: a.short, domain: a.domain, hue: a.hue, purpose: a.purpose, example: a.example,
+      mode: a.mode, freshness: a.freshness, restrictions: a.restrictions,
+      open: () => this.setState({ route: 'agents', agentId: a.id, approvalId: null, sopId: null }),
+      workspace: () => this.setState({ route: 'workspaces', wsAgent: a.id }),
+      wsBg: st.wsAgent === a.id ? activeBg : 'transparent',
+      wsColor: st.wsAgent === a.id ? activeColor : 'var(--text2)'
+    }));
+
+    const approvals = APPROVALS.map(p => ({
+      id: p.id, title: p.title, tier: p.tier, requester: p.requester, deadline: p.deadline, decision: p.decision,
+      hue: p.hue, actionLabel: p.actionLabel,
+      tierColor: p.tier.indexOf('OWNER') > -1 ? 'var(--amber)' : 'var(--text2)',
+      open: () => this.setState({ route: 'approvals', approvalId: p.id, agentId: null, sopId: null, reh: 0 })
+    }));
+
+    const sops = SOPS.map(w => ({
+      id: w.id, title: w.title, domain: w.domain, hue: w.hue, rev: w.rev, steps: w.steps,
+      open: () => this.setState({ route: 'workflows', sopId: w.id, agentId: null, approvalId: null })
+    }));
+
+    const agent = ROSTER.find(a => a.id === st.agentId) || null;
+    const approval = APPROVALS.find(a => a.id === st.approvalId) || null;
+    const sopRow = SOPS.find(w => w.id === st.sopId) || null;
+    const wsAgent = ROSTER.find(a => a.id === st.wsAgent) || ROSTER[0];
+
+    const isAgentDetail = st.route === 'agents' && !!agent;
+    const isApprovalDetail = st.route === 'approvals' && !!approval;
+    const isWorkflowDetail = st.route === 'workflows' && !!sopRow;
+    const sk = st.stateKey;
+    const isLoading = sk === 'loading';
+    const blockMap = {
+      empty: { badge: 'EMPTY', title: 'Nothing to show on this route', body: 'BATCH1-2026-08-19 contains no rows for this view. The table exists; it has no members.', meta: 'NEXT ACTION: LOAD A FIXTURE BATCH THAT CONTAINS THIS ENTITY', dot: 'var(--status)', action: 'LOAD BATCH' },
+      offline: { badge: 'OFFLINE', title: 'No adapter is reachable', body: 'This build has no runtime and no network adapter. Nothing was attempted, so nothing failed.', meta: 'LAST SUCCESSFUL READ: BATCH1-2026-08-19 09:15 AFRICA/CAIRO', dot: 'var(--status)', action: 'RETRY READ' },
+      denied: { badge: 'NOT AVAILABLE', title: 'This entity is not available to you', body: 'Either it does not exist or your role cannot see it. This surface does not distinguish the two, so a deep link cannot be used to probe for entities.', meta: 'CORRELATION ID: C-4F19-0002', dot: 'var(--status)', action: null },
+      notfound: { badge: 'NOT AVAILABLE', title: 'This entity is not available to you', body: 'Either it does not exist or your role cannot see it. This surface does not distinguish the two, so a deep link cannot be used to probe for entities.', meta: 'CORRELATION ID: C-4F19-0002', dot: 'var(--status)', action: null },
+      blocked: { badge: 'BLOCKED', title: 'A human decision is required first', body: 'Approve package APR-1041 at Tier 2. Only Hadeer, the principal, can make that decision. No agent can unblock this, including the conductor.', meta: 'BLOCKING PACKAGE: APR-1041 · TIER 2 OWNER ONLY · DUE 2026-08-20 17:00', dot: 'var(--error)', action: 'APPROVE PACKAGE' },
+      dependency: { badge: 'DEPENDENCY UNHEALTHY', title: 'A required capability is missing', body: 'This route needs the run recorder to state anything about execution. It is not provisioned in this build, so the route refuses to estimate.', meta: 'MISSING: RUN_RECORDER · REQUIRED BY: SOP-CAMP-001 STEP 8', dot: 'var(--amber)', action: null },
+      error: { badge: 'ERROR', title: 'The fixture adapter refused the read', body: 'A field in BATCH1-2026-08-19 did not match schema version 3. The route shows nothing rather than a partial guess.', meta: 'CORRELATION ID: C-4F19-0117', dot: 'var(--error)', action: 'RETRY READ' }
+    };
+    const bannerMap = {
+      sample: { title: 'SAMPLE', body: 'Every value on this route comes from BATCH1-2026-08-19. None of it describes a live system.' },
+      partial: { title: 'PARTIAL', body: 'Two of six subsystems returned no rows. Missing values read unknown rather than zero.' },
+      stale: { title: 'STALE', body: 'Read at the frozen instant 2026-08-19 09:15 AFRICA/CAIRO. No refresh job exists in this build.' }
+    };
+    const block = blockMap[sk] || null;
+    const banner = bannerMap[sk] || null;
+    const showContent = !isLoading && !block;
+
+    const tv = st.traversal;
+    const edges = EDGES.map(e => ({
+      d: e.d, stroke: e.stroke, dash: e.dash, kind: e.kind, sentence: e.sentence,
+      w: tv && tv.edge === e.key ? 3 : e.w,
+      o: tv && tv.edge === e.key ? 1 : e.o
+    }));
+    const pos = tv ? NODES[tv.node] : null;
+    const packetVisible = !!tv && !st.reduced && st.route === 'organization';
+    const packetStyle = pos
+      ? 'transform: translate(' + pos[0] + 'px,' + pos[1] + 'px); transition: transform 200ms cubic-bezier(0.2,0,0,1)'
+      : 'opacity:0';
+
+    const agentNodes = ROSTER.map(a => {
+      const p = NODES[a.id];
+      return { x: p[0], y: p[1], hue: a.hue, sw: a.id === 'social' ? 2 : 1.5, short: a.short, domain: a.domain.toUpperCase(), ty: p[1] + 44, ty2: p[1] + 62 };
+    });
+
+    const rehLabels = ['REVIEW', 'CONSEQUENCE', 'CONFIRM', 'ENDED'];
+    const rehearsalSteps = rehLabels.map((l, i) => ({
+      label: l,
+      color: i === st.reh ? 'var(--on-brand)' : 'var(--text2)',
+      bg: i === st.reh ? 'var(--brand)' : 'transparent'
+    }));
+    const rehCopy = [
+      'Step 1 of 3. Read what the package asks for. Nothing is written by stepping through this rehearsal.',
+      'Step 2 of 3. The consequence of approving: four sections appear in staging and step 4 becomes startable. The live push stays behind a separate Tier 2 decision.',
+      'Step 3 of 3. Confirming the rehearsal plays the traversal on the organization graph in the draft treatment and writes rehearsal lines to the activity log. No decision is recorded.',
+      'Rehearsal ended. The activity lines above are labelled rehearsal and carry a rehearsal run id. No approval state changed.'
+    ][st.reh];
+
+    const ctxFacts = agent
+      ? [{ k: 'DOMAIN', v: agent.domain }, { k: 'STATUS', v: 'IDLE — no run rows' }, { k: 'AUTONOMY', v: agent.autonomy }, { k: 'RISK', v: agent.risk }, { k: 'LAST RUN', v: 'never' }]
+      : approval
+        ? [{ k: 'TIER', v: approval.tier }, { k: 'REQUESTER', v: approval.requester }, { k: 'DEADLINE', v: approval.deadline + ' AFRICA/CAIRO' }, { k: 'ARTIFACT', v: approval.artifact }, { k: 'DECIDER', v: 'Hadeer only' }]
+        : sopRow
+          ? [{ k: 'REVISION', v: sopRow.rev }, { k: 'HASH', v: sopRow.hash }, { k: 'STEPS', v: sopRow.steps }, { k: 'OWNER', v: sopRow.owner }]
+          : [];
+
+    const metrics = (METRICS[st.route] || METRICS.command).map(m => ({
+      label: m.label, value: m.value, note: m.note, source: m.source, captured: CAPTURED,
+      color: m.tone === 'amber' ? 'var(--amber)' : m.tone === 'green' ? 'var(--social)' : 'var(--text)'
+    }));
+
+    return {
+      themeLabel: themeNow === 'dark' ? 'LIGHT MODE' : 'DARK MODE',
+      toggleTheme: this.toggleTheme,
+      stateOptions: STATES, stateKey: sk,
+      setStateKey: e => this.setState({ stateKey: e.target.value }),
+      nav: nav, bottomNav: bottomNav, noop: () => {},
+      toggleAct: this.toggleAct, actOpen: st.actOpen,
+      actStyle: 'background:var(--nav);border-left:1px solid var(--hair);padding:18px 16px;min-width:0'
+        + (st.actOpen ? ';display:block;position:fixed;top:41px;right:0;bottom:0;width:320px;max-width:88vw;overflow:auto;z-index:44;box-shadow:-14px 0 34px rgba(0,0,0,0.34)' : ''),
+      toggleGraph: this.toggleGraph, graphOpen: st.graphOpen,
+      graphCta: st.graphOpen ? 'CLOSE GRAPH' : 'VIEW GRAPH FULL SCREEN',
+      graphStyle: 'border:1px solid var(--panel-border);border-radius:14px;background:var(--surface-glow);position:relative;overflow:hidden'
+        + (st.graphOpen ? ';display:block;position:fixed;top:41px;left:0;right:0;bottom:0;z-index:43;border-radius:0;overflow:auto;padding-top:40px' : ''),
+      roster: roster, notProvisioned: NOT_PROVISIONED,
+      freshness: [
+        { label: 'DATA VERSION', value: 'BATCH1-2026-08-19', pct: '100%' },
+        { label: 'FIXTURE COVERAGE', value: '62% OF PORTS', pct: '62%' }
+      ],
+      routeLabel: route.label, breadcrumb: route.crumb,
+      stateChip: sk === 'live' ? route.chip : (STATES.find(s => s.k === sk) || {}).label,
+      isLoading: isLoading,
+      block: !!block, blockBadge: block && block.badge, blockTitle: block && block.title,
+      blockBody: block && block.body, blockMeta: block && block.meta, blockDot: block && block.dot,
+      blockAction: block ? block.action : null,
+      banner: !!banner, bannerTitle: banner && banner.title, bannerBody: banner && banner.body,
+      showContent: showContent,
+      isCommand: st.route === 'command',
+      isOrg: st.route === 'organization',
+      isAgents: st.route === 'agents' && !isAgentDetail,
+      isAgentDetail: isAgentDetail,
+      isApprovals: st.route === 'approvals' && !isApprovalDetail,
+      isApprovalDetail: isApprovalDetail,
+      isWorkflows: st.route === 'workflows' && !isWorkflowDetail,
+      isWorkflowDetail: isWorkflowDetail,
+      isCycle: st.route === 'cycle',
+      isHealth: st.route === 'health',
+      isWorkspace: st.route === 'workspaces',
+      metrics: metrics, approvals: approvals, sops: sops, cycle: CYCLE, health: HEALTH,
+      agentCols: ['AGENT', 'DOMAIN', 'STATUS', 'RUNTIME MODE', 'ENABLED', 'LAST RUN', 'FRESHNESS'],
+      apprCols: ['PACKAGE', 'DECISION', 'TIER', 'REQUESTER', 'DEADLINE'],
+      sopCols: ['SOP ID', 'WORKFLOW', 'DOMAIN LANE', 'REVISION', 'STEPS'],
+      stepCols: ['#', 'STEP', 'OWNER', 'INPUT', 'OUTPUT', 'COMPLETION TEST'],
+      healthCols: ['SUBSYSTEM', 'RESULT', 'WHAT WAS CHECKED', 'WHEN'],
+      isTableView: st.view === 'table', isCardsView: st.view === 'cards',
+      tableBg: st.view === 'table' ? activeBg : 'transparent', tableColor: st.view === 'table' ? activeColor : 'var(--text2)',
+      cardsBg: st.view === 'cards' ? activeBg : 'transparent', cardsColor: st.view === 'cards' ? activeColor : 'var(--text2)',
+      setTable: () => this.setState({ view: 'table' }), setCards: () => this.setState({ view: 'cards' }),
+      agent: agent || {}, 
+      agentMarks: agent ? [{ label: 'STATUS', value: 'IDLE' }, { label: 'AUTONOMY', value: agent.autonomy }, { label: 'RISK', value: agent.risk }] : [],
+      agentSections: agent ? [
+        { label: 'PURPOSE', isProse: true, isList: false, text: agent.purpose + ' It holds a bounded contract and is not a daemon: enabled_by_default is false and it runs only when the conductor dispatches it.' },
+        { label: 'RESPONSIBILITIES', isList: true, isProse: false, items: agent.responsibilities },
+        { label: 'PERMITTED INPUTS', isList: true, isProse: false, items: agent.inputs },
+        { label: 'EXPECTED OUTPUTS', isList: true, isProse: false, items: agent.outputs },
+        { label: 'TOOLS', isList: true, isProse: false, items: agent.tools },
+        { label: 'APPROVAL REQUIREMENTS', isList: true, isProse: false, items: agent.approvals },
+        { label: 'PLANNED SOPS', isList: true, isProse: false, items: agent.sopList },
+        { label: 'SAMPLE ACTIVITY', isProse: true, isList: false, text: 'No sample activity is shown, because no run rows exist. An invented example here would read as history.' }
+      ] : [],
+      approval: approval ? {
+        id: approval.id, tier: approval.tier, decision: approval.decision, confirmWord: approval.confirmWord,
+        tierColor: approval.tier.indexOf('OWNER') > -1 ? 'var(--amber)' : 'var(--text2)',
+        tierBorder: approval.tier.indexOf('OWNER') > -1 ? '2px solid var(--amber)' : '1px solid var(--panel-border)'
+      } : {},
+      approvalSections: approval ? [
+        { label: 'REQUESTED ACTION', isProse: true, isList: false, text: approval.action },
+        { label: 'BUSINESS REASON', isProse: true, isList: false, text: approval.reason },
+        { label: 'TARGET SYSTEM', isProse: true, isList: false, text: approval.target },
+        { label: 'ARTIFACT REFERENCE', isProse: true, isList: false, text: approval.artifact },
+        { label: 'SUPPORTING EVIDENCE — RUN IDS', isList: true, isProse: false, items: approval.evidence },
+        { label: 'EXPECTED RESULT', isProse: true, isList: false, text: approval.expected },
+        { label: 'RISKS', isProse: true, isList: false, text: approval.risks },
+        { label: 'ESTIMATED COST', isProse: true, isList: false, text: approval.cost }
+      ] : [],
+      rehearsalOn: st.reh > 0, rehearsalSteps: rehearsalSteps, rehearsalCopy: rehCopy,
+      rehearsalCta: st.reh >= 3 ? 'REHEARSAL ENDED' : st.reh === 2 ? 'CONFIRM REHEARSAL' : 'NEXT STEP',
+      rehearsalNext: this.rehearsalNext, rehearsalReset: this.rehearsalReset,
+      sop: sopRow ? {
+        id: sopRow.id, title: sopRow.title, rev: sopRow.rev, hash: sopRow.hash, owner: sopRow.owner,
+        steps: SOP_STEPS.slice(0, sopRow.id === 'SOP-CAMP-001' ? 9 : sopRow.id === 'SOP-SOC-002' ? 6 : 7)
+          .map((s, i) => ({ n: String(i + 1).padStart(2, '0'), name: s[0], owner: s[1], input: s[2], output: s[3], test: s[4] })),
+        raci: [{ role: 'RESPONSIBLE', who: sopRow.domain + ' Agent' }, { role: 'ACCOUNTABLE', who: 'Hadeer' }, { role: 'CONSULTED', who: 'Hermes Conductor' }, { role: 'INFORMED', who: 'Shared Memory index' }],
+        tests: ['Every step output has a named artifact.', 'Every claim in the readout prints its source predicate.', 'No step writes outside staging without a Tier 2 decision.'],
+        ladder: LADDER.map((l, i) => ({
+          rung: l.rung, system: l.system, human: l.human, tier: l.tier, rollback: l.rollback,
+          mark: i === 1 ? 'CURRENT RUNG' : i === 4 ? 'PROHIBITED' : '',
+          titleColor: i === 4 ? 'var(--text2)' : 'var(--text)',
+          bg: i === 4
+            ? 'repeating-linear-gradient(45deg, var(--raised) 0 6px, var(--hover) 6px 12px)'
+            : i === 1 ? 'var(--raised)' : 'transparent'
+        }))
+      } : {},
+      wsAgent: wsAgent,
+      ctxLabel: sel ? 'SELECTED ENTITY' : 'SHARED MEMORY',
+      ctxIsHub: !sel, ctxIsEntity: !!sel,
+      ctxHue: agent ? agent.hue : approval ? approval.hue : sopRow ? sopRow.hue : 'var(--exec)',
+      ctxKind: agent ? 'SPECIALIST AGENT' : approval ? 'APPROVAL PACKAGE' : 'WORKFLOW REVISION',
+      ctxTitle: agent ? agent.name : approval ? approval.title : sopRow ? sopRow.title : '',
+      ctxFacts: ctxFacts,
+      clearSelection: () => this.setState({ agentId: null, approvalId: null, sopId: null, reh: 0 }),
+      log: st.log, hasLog: st.log.length > 0, logEmpty: st.log.length === 0,
+      edges: edges, agentNodes: agentNodes, packetVisible: packetVisible, packetStyle: packetStyle
+    };
+  }
+}
+
+</script>
+</body>
+</html>

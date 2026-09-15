@@ -29,15 +29,15 @@ const SHELL_META = {
 } as const;
 
 const NAV = [
-  { href: '/en/auth/login', label: 'Sign in / تسجيل الدخول' },
-  { href: '/', label: 'Command center' },
-  { href: '/organization/', label: 'Organization' },
-  { href: '/coordination-cycle/', label: 'Coordination cycle' },
-  { href: '/workflows/', label: 'Workflows' },
-  { href: '/agents/', label: 'Agents' },
-  { href: '/hermes-team/', label: 'Hermes team' },
-  { href: '/approvals/', label: 'Approvals' },
-  { href: '/system-health/', label: 'System health' },
+  { href: '/en/auth/login', label: 'Sign in', labelAr: 'تسجيل الدخول' },
+  { href: '/', label: 'Command center', labelAr: 'مركز القيادة' },
+  { href: '/organization/', label: 'Organization', labelAr: 'التنظيم' },
+  { href: '/coordination-cycle/', label: 'Coordination cycle', labelAr: 'دورة التنسيق' },
+  { href: '/workflows/', label: 'Workflows', labelAr: 'سير العمل' },
+  { href: '/agents/', label: 'Agents', labelAr: 'الوكلاء' },
+  { href: '/hermes-team/', label: 'Hermes team', labelAr: 'فريق هيرمس' },
+  { href: '/approvals/', label: 'Approvals', labelAr: 'الموافقات' },
+  { href: '/system-health/', label: 'System health', labelAr: 'حالة النظام' },
 ];
 
 export default function RootLayout({ children }: { children: ReactNode }): React.JSX.Element {
@@ -49,6 +49,10 @@ export default function RootLayout({ children }: { children: ReactNode }): React
           productName={TENANT_CONFIG.brand.productName}
           organizationName={TENANT_CONFIG.brand.organizationName}
           nav={NAV}
+          brandMarkSrc="/branding/istemer-logo.png"
+          brandMarkAlt="i-STEMer"
+          humanAvatarSrc="/branding/hadeer-avatar.jpeg"
+          humanAvatarAlt="Hadeer, business owner"
         >
           {children}
         </AppShell>

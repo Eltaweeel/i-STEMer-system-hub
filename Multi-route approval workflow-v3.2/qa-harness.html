@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>QA harness</title>
+<style>
+  body{margin:0;background:#111;color:#ddd;font:12px ui-monospace,monospace}
+  .cell{padding:6px 8px;border-bottom:1px solid #333}
+  iframe{border:0;background:#fff;display:block}
+</style>
+</head>
+<body>
+<div id="host"></div>
+<script>
+const q = new URLSearchParams(location.search);
+const file = q.get('f') || 'Business Agent OS v3.1 bilingual handoff (final).dc.html';
+const sizes = (q.get('w') || '1440x900,1024x768,390x844').split(',').map(s => s.split('x').map(Number));
+const host = document.getElementById('host');
+window.QA = { frames: [], file: file };
+sizes.forEach(([w, h], i) => {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  const lab = document.createElement('div');
+  lab.textContent = w + ' x ' + h;
+  const f = document.createElement('iframe');
+  f.width = w; f.height = h;
+  f.style.width = w + 'px'; f.style.height = h + 'px';
+  f.src = file;
+  cell.appendChild(lab); cell.appendChild(f);
+  host.appendChild(cell);
+  window.QA.frames.push({ w, h, el: f });
+});
+
+// --- drivers (same-origin) ---
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+window.QA.doc = i => window.QA.frames[i].el.contentDocument;
+window.QA.win = i => window.QA.frames[i].el.contentWindow;
+window.QA.ready = async () => {
+  for (const fr of window.QA.frames) {
+    for (let t = 0; t < 60; t++) {
+      const d = fr.el.contentDocument;
+      if (d && d.querySelector('[role="group"]')) break;
+      await sleep(200);
+    }
+  }
+  return true;
+};
+window.QA.group = (i, aria) => [...window.QA.doc(i).querySelectorAll('[role="group"]')]
+  .find(g => g.getAttribute('aria-label') === aria);
+window.QA.click = async (el, ms) => { el.click(); await sleep(ms || 260); };
+window.QA.overflow = i => {
+  const d = window.QA.doc(i), de = d.documentElement;
+  const vw = window.QA.frames[i].w;
+  let worst = null;
+  d.querySelectorAll('*').forEach(el => {
+    const r = el.getBoundingClientRect();
+    const over = Math.max(r.right - vw, -r.left);
+    if (over > 1 && (!worst || over > worst.over)) {
+      const cs = d.defaultView.getComputedStyle(el);
+      if (el.hasAttribute('data-skip')) return;
+    const rr = el.getBoundingClientRect();
+    if (rr.right - vw < 1 && -rr.left < 1) return;
+    if (cs.position === 'fixed' && r.width <= vw + 1) return;
+    worst = { over: Math.round(over), tag: el.tagName, attrs: el.getAttribute('data-table') || el.getAttribute('data-card') || '' };
+    }
+  });
+  return { scrollWidth: de.scrollWidth, clientWidth: de.clientWidth, docOverflow: de.scrollWidth - de.clientWidth, worst };
+};
+window.QA.hook = i => {
+  const w = window.QA.win(i);
+  if (w.__qaHooked) return w.__qaLog;
+  w.__qaHooked = true;
+  const log = w.__qaLog = [];
+  ['error', 'warn'].forEach(k => {
+    const orig = w.console[k].bind(w.console);
+    w.console[k] = (...a) => { log.push(k + ': ' + a.map(String).join(' ')); orig(...a); };
+  });
+  w.addEventListener('error', e => log.push('window.error: ' + (e.message || e.type)));
+  w.addEventListener('unhandledrejection', e => log.push('rejection: ' + String(e.reason)));
+  return log;
+};
+window.QA.badAttrs = i => {
+  const d = window.QA.doc(i), bad = [];
+  const numeric = ['x', 'y', 'cx', 'cy', 'r', 'width', 'height', 'x1', 'x2', 'y1', 'y2', 'stroke-width', 'stroke-opacity'];
+  d.querySelectorAll('svg *').forEach(el => {
+    for (const a of el.getAttributeNames()) {
+      const v = el.getAttribute(a);
+      if (v == null) continue;
+      if (v.includes('{{')) bad.push(el.tagName + '[' + a + ']=' + v);
+      else if (a === 'd' && v.trim() && !/^[Mm]/.test(v.trim())) bad.push(el.tagName + '[d]=' + v.slice(0, 20));
+      else if (numeric.includes(a) && v.trim() !== '' && isNaN(parseFloat(v)) && !v.startsWith('var(') && !v.endsWith('%')) bad.push(el.tagName + '[' + a + ']=' + v);
+      else if (numeric.includes(a) && v.trim() === '') bad.push(el.tagName + '[' + a + ']=(empty)');
+    }
+  });
+  d.querySelectorAll('*').forEach(el => {
+    if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
+    if (el.children.length === 0 && (el.textContent || '').includes('{{')) bad.push('text ' + el.tagName + ': ' + el.textContent.trim().slice(0, 30));
+  });
+  return bad;
+};
+window.QA.requests = i => {
+  const w = window.QA.win(i);
+  return w.performance.getEntriesByType('resource')
+    .filter(e => !/^https:\/\/fonts\./.test(e.name))
+    .map(e => ({ name: e.name.split('/').pop(), status: e.responseStatus === undefined ? 'n/a' : e.responseStatus, size: e.transferSize }));
+};
+window.QA.targets = i => {
+  const d = window.QA.doc(i);
+  const bad = [];
+  d.querySelectorAll('button,a[href],select,input,[role="button"]').forEach(el => {
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) return;
+    const cs = d.defaultView.getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.display === 'none') return;
+    if (el.hasAttribute('data-skip')) return;
+    if (el.type === 'checkbox') return;
+    if (r.width < 43.5 || r.height < 43.5) bad.push({ tag: el.tagName, txt: (el.textContent || '').trim().slice(0, 24), w: +r.width.toFixed(1), h: +r.height.toFixed(1) });
+  });
+  return bad;
+};
+</script>
+</body>
+</html>
