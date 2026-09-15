@@ -35,6 +35,7 @@ const NAV = [
   { href: '/coordination-cycle/', label: 'Coordination cycle' },
   { href: '/workflows/', label: 'Workflows' },
   { href: '/agents/', label: 'Agents' },
+  { href: '/hermes-team/', label: 'Hermes team' },
   { href: '/approvals/', label: 'Approvals' },
   { href: '/system-health/', label: 'System health' },
 ];

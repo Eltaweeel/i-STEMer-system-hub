@@ -12,6 +12,10 @@ import {
   type CoordinationCycle,
   type CoordinationQueries,
   type CoordinationQueryArgs,
+  type CapacityQueries,
+  type TeamQueries,
+  type CapacitySnapshot,
+  type TeamProjection,
   type OrganizationProjection,
   type OrganizationQueries,
   type OrganizationQueryArgs,
@@ -28,6 +32,8 @@ import { COORDINATION_CYCLE } from '../fixtures/coordination-cycle';
 import { ORGANIZATION_PROJECTION } from '../fixtures/organization';
 import { APPROVAL_PACKAGES } from '../fixtures/approvals';
 import { CAMPAIGN_WORKFLOW, WORKFLOW_SUMMARIES } from '../fixtures/workflows';
+import { HERMES_TEAM } from '../fixtures/hermes-team';
+import { CAPACITY_SNAPSHOT } from '../fixtures/capacity';
 import { slotForDomain } from '../tenant/tenant.config';
 
 // The FixtureAdapter satisfies all four query interfaces. It never mutates
@@ -225,7 +231,9 @@ export class FixtureAdapter
     AgentQueries,
     WorkflowQueries,
     ApprovalQueries,
-    CoordinationQueries
+    CoordinationQueries,
+    TeamQueries,
+    CapacityQueries
 {
   async getOrganization(_query: OrganizationQueryArgs): Promise<OrganizationProjection> {
     return ORGANIZATION_PROJECTION;
@@ -268,6 +276,14 @@ export class FixtureAdapter
 
   async getCoordinationCycle(_query: CoordinationQueryArgs): Promise<CoordinationCycle> {
     return COORDINATION_CYCLE;
+  }
+
+  async getTeam(): Promise<TeamProjection> {
+    return HERMES_TEAM;
+  }
+
+  async getCapacitySnapshot(): Promise<CapacitySnapshot> {
+    return CAPACITY_SNAPSHOT;
   }
 }
 

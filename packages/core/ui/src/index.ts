@@ -17,4 +17,5 @@ export * from './components/TrendAlertCard';
 export * from './components/CommandCenterView';
 export * from './components/SpecialistWorkspaceView';
 export * from './components/SystemHealthView';
+export * from './components/TeamView';
 export * from './contrast';

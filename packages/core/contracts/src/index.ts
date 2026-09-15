@@ -10,5 +10,6 @@ export * from './approval';
 export * from './revision-approval';
 export * from './workspace';
 export * from './ports';
+export * from './team';
 export * from './clock';
 export * from './schemas';

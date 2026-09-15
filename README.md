@@ -1,6 +1,6 @@
 # i-STEMer system hub
 
-Web application for the i-STEMer agent workspace. The existing command center, agents, workflows and approval previews use labeled sample data. The server/session foundation includes English/Arabic sign-in, recovery, password reset, TOTP setup/verification and protected tenant-access checks. It is not a complete business system or a running Adam/Hermes installation. See [release status](docs/WEB_RELEASE_STATUS.md).
+Web application for the i-STEMer agent workspace. The command center, agents, workflows, approvals, named Adam roster, evidence handoffs and capacity panel use labeled sample data. The server/session foundation includes English/Arabic sign-in, recovery, password reset, TOTP setup/verification and protected tenant-access checks. It is not a complete business system or a running Nous Hermes installation. See [release status](docs/WEB_RELEASE_STATUS.md).
 
 ## Local development
 
@@ -12,6 +12,8 @@ npm run dev --workspace apps/istemer-demo
 ```
 
 The application normally opens at http://localhost:3000. Sample pages require no Supabase configuration. Account routes are under `/en/auth/login/` and `/ar/auth/login/`; missing configuration is shown explicitly.
+
+The named-team and capacity fixture is at `/hermes-team/`. It shows Adam (Main Orchestrator), the initial Nour/Omar/Ziad team, planned roles, evidence handoffs, and the provider-telemetry empty state. It does not execute agents or infer quota.
 
 ## Configuration
 

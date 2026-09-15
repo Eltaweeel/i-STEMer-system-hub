@@ -3,6 +3,7 @@ import type { ApprovalPackage } from './approval';
 import type { CoordinationCycle } from './coordination';
 import type { OrganizationProjection } from './graph';
 import type { WorkflowDetail, WorkflowSummary } from './workflow';
+import type { CapacitySnapshot, TeamProjection } from './team';
 
 // Every port is async from day one. That is what prevents a rewrite when a
 // real adapter arrives. NO command port and NO event port ship in Batch 1:
@@ -53,4 +54,12 @@ export interface CoordinationQueryArgs {
 }
 export interface CoordinationQueries {
   getCoordinationCycle(query: CoordinationQueryArgs): Promise<CoordinationCycle>;
+}
+
+export interface TeamQueries {
+  getTeam(): Promise<TeamProjection>;
+}
+
+export interface CapacityQueries {
+  getCapacitySnapshot(): Promise<CapacitySnapshot>;
 }

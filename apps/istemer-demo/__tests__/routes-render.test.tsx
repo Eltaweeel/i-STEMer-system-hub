@@ -17,6 +17,7 @@ import AgentDetailPage from '../app/agents/[id]/page';
 import CommandCenterPage from '../app/page';
 import SpecialistWorkspacePage from '../app/workspaces/[agentId]/page';
 import SystemHealthPage from '../app/system-health/page';
+import HermesTeamPage from '../app/hermes-team/page';
 import { AGENT_ROUTES, WORKFLOW_ROUTES } from '../adapters/fixture-adapter';
 import { CAMPAIGN_WORKFLOW } from '../fixtures/workflows';
 
@@ -141,5 +142,16 @@ describe('every new route renders with the demo indicator', () => {
     expect(html).toContain('Agent roster');
     expect(html).toContain('Workflow fixtures');
     expect(html).toContain('PLANNED / NOT IMPLEMENTED');
+  });
+
+  it('Hermes team and capacity', async () => {
+    const page = await HermesTeamPage();
+    const html = await renderRoute(page);
+    expect(html).toContain('DEMO ENVIRONMENT');
+    expect(html).toContain('Adam (Main Orchestrator)');
+    expect(html).toContain('Nour (Content Creator)');
+    expect(html).toContain('Omar (Competitor Analyst)');
+    expect(html).toContain('TELEMETRY UNAVAILABLE');
+    expect(html).toContain('90%');
   });
 });
