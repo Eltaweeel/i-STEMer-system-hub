@@ -9,7 +9,7 @@ function formatCycleTime(iso: string): string {
   return formatFixtureTime(iso);
 }
 
-export default async function CoordinationCyclePage(): Promise<JSX.Element> {
+export default async function CoordinationCyclePage(): Promise<React.JSX.Element> {
   const adapter = new FixtureAdapter();
   const cycle = await adapter.getCoordinationCycle({});
 

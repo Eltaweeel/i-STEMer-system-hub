@@ -11,7 +11,7 @@ const SUBSYSTEMS: readonly SubsystemCheck[] = [
   { id: 'connectors', label: 'Connectors and external actions', state: 'planned', note: 'Out of scope; no network requests or external actions exist.' },
 ] as const;
 
-export default async function SystemHealthPage(): Promise<JSX.Element> {
+export default async function SystemHealthPage(): Promise<React.JSX.Element> {
   const adapter = new FixtureAdapter();
   const [organization, workflow, rosterRepresentative] = await Promise.all([
     adapter.getOrganization({}),

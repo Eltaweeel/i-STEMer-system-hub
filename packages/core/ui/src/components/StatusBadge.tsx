@@ -29,7 +29,7 @@ export interface StatusBadgeProps {
   readonly status: RuntimeStatus;
 }
 
-export function StatusBadge({ status }: StatusBadgeProps): JSX.Element {
+export function StatusBadge({ status }: StatusBadgeProps): React.JSX.Element {
   const wrap: CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',

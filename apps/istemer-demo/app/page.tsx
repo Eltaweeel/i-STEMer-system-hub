@@ -5,7 +5,7 @@ import { AGENT_ROUTES, APPROVAL_ROUTES, FixtureAdapter } from '../adapters/fixtu
 const agentSlugById = new Map(AGENT_ROUTES.map((route) => [route.id, route.slug]));
 const approvalSlugById = new Map(APPROVAL_ROUTES.map((route) => [route.id, route.slug]));
 
-export default async function IndexPage(): Promise<JSX.Element> {
+export default async function IndexPage(): Promise<React.JSX.Element> {
   const adapter = new FixtureAdapter();
   const [workflow, agents, approvals, cycle] = await Promise.all([
     adapter.getWorkflow({ id: 'workflow:campaign-end-to-end' }),

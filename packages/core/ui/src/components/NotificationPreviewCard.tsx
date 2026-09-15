@@ -66,7 +66,7 @@ export interface NotificationPreviewCardProps {
 export function NotificationPreviewCard({
   preview,
   formatTime,
-}: NotificationPreviewCardProps): JSX.Element {
+}: NotificationPreviewCardProps): React.JSX.Element {
   return (
     <div data-testid="notification-preview-card" style={cardStyle}>
       <div style={headerStyle}>

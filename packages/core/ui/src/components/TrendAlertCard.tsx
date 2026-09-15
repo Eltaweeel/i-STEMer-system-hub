@@ -5,7 +5,7 @@ export interface TrendAlertCardProps {
   readonly formatTime: (iso: string) => string;
 }
 
-export function TrendAlertCard({ alert, formatTime }: TrendAlertCardProps): JSX.Element {
+export function TrendAlertCard({ alert, formatTime }: TrendAlertCardProps): React.JSX.Element {
   return (
     <article
       aria-label="Fixture example trend alert"

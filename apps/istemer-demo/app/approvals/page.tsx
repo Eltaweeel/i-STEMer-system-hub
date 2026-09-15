@@ -2,7 +2,7 @@ import { ApprovalInboxView } from '@bagos/ui';
 import { formatFixtureTime } from '@bagos/fixtures';
 import { APPROVAL_ROUTES, FixtureAdapter } from '../../adapters/fixture-adapter';
 
-export default async function ApprovalsIndexPage(): Promise<JSX.Element> {
+export default async function ApprovalsIndexPage(): Promise<React.JSX.Element> {
   const adapter = new FixtureAdapter();
   const packages = await adapter.listApprovalPackages({});
 

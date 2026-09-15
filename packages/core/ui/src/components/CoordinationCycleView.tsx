@@ -81,7 +81,7 @@ function Briefing({
 }: {
   briefing: CoordinationBriefing;
   formatTime: (iso: string) => string;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <section aria-label={`${briefing.kind} briefing`} style={panelStyle}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
@@ -106,7 +106,7 @@ function Briefing({
   );
 }
 
-function StreamCard({ stream }: { stream: CoordinationStream }): JSX.Element {
+function StreamCard({ stream }: { stream: CoordinationStream }): React.JSX.Element {
   return (
     <article
       aria-label={`${stream.displayName} midday stream`}
@@ -140,7 +140,7 @@ function EventsList({
 }: {
   events: readonly CoordinationEvent[];
   formatTime: (iso: string) => string;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <section aria-label="Daytime events (deterministic order)" style={panelStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--space-4)' }}>
@@ -181,7 +181,7 @@ function EventsList({
   );
 }
 
-export function CoordinationCycleView({ cycle, formatTime }: CoordinationCycleViewProps): JSX.Element {
+export function CoordinationCycleView({ cycle, formatTime }: CoordinationCycleViewProps): React.JSX.Element {
   return (
     <div style={wrapStyle}>
       <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -232,7 +232,7 @@ export interface CoordinationCycleTableProps {
   readonly formatTime: (iso: string) => string;
 }
 
-export function CoordinationCycleTable({ cycle, formatTime }: CoordinationCycleTableProps): JSX.Element {
+export function CoordinationCycleTable({ cycle, formatTime }: CoordinationCycleTableProps): React.JSX.Element {
   const rows: { time: string; actor: string; item: string; kind: string }[] = [];
   rows.push({
     time: formatTime(cycle.morning.scheduledAt),

@@ -16,7 +16,7 @@ export interface SpecialistWorkspaceViewProps {
   readonly children: ReactNode;
 }
 
-export function SpecialistWorkspaceView({ title, description, domainSlot, agentDetailHref, children }: SpecialistWorkspaceViewProps): JSX.Element {
+export function SpecialistWorkspaceView({ title, description, domainSlot, agentDetailHref, children }: SpecialistWorkspaceViewProps): React.JSX.Element {
   return (
     <div data-domain-slot={String(domainSlot)} style={{ display: 'grid', gap: 'var(--space-5)' }}>
       <header style={{ padding: 'var(--space-5)', background: 'var(--domain-active-tint)', border: '1px solid var(--domain-active-edge)', borderLeft: '3px solid var(--domain-active-core)', borderRadius: 'var(--radius-panel)' }}>
@@ -30,7 +30,7 @@ export function SpecialistWorkspaceView({ title, description, domainSlot, agentD
   );
 }
 
-export function WorkflowWorkList({ title, steps }: { title: string; steps: readonly WorkflowStep[] }): JSX.Element {
+export function WorkflowWorkList({ title, steps }: { title: string; steps: readonly WorkflowStep[] }): React.JSX.Element {
   return (
     <section aria-labelledby={`work-list-${title.replaceAll(' ', '-').toLowerCase()}`} style={{ padding: 'var(--space-5)', background: 'var(--surface-panel)', border: '1px solid var(--line-subtle)', borderRadius: 'var(--radius-panel)' }}>
       <h2 id={`work-list-${title.replaceAll(' ', '-').toLowerCase()}`}>{title}</h2>

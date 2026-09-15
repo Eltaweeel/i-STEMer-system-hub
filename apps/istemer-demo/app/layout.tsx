@@ -29,6 +29,7 @@ const SHELL_META = {
 } as const;
 
 const NAV = [
+  { href: '/en/auth/login', label: 'Sign in / تسجيل الدخول' },
   { href: '/', label: 'Command center' },
   { href: '/organization/', label: 'Organization' },
   { href: '/coordination-cycle/', label: 'Coordination cycle' },
@@ -38,7 +39,7 @@ const NAV = [
   { href: '/system-health/', label: 'System health' },
 ];
 
-export default function RootLayout({ children }: { children: ReactNode }): JSX.Element {
+export default function RootLayout({ children }: { children: ReactNode }): React.JSX.Element {
   return (
     <html lang="en">
       <body>

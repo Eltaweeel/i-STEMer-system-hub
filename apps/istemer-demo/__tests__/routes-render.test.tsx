@@ -30,7 +30,7 @@ const SHELL_META = {
   generatedAt: FIXTURE_NOW,
 } as const;
 
-async function renderRoute(node: JSX.Element): Promise<string> {
+async function renderRoute(node: React.JSX.Element): Promise<string> {
   return renderToStaticMarkup(
     React.createElement(AppShell, {
       meta: SHELL_META,
@@ -73,7 +73,7 @@ describe('every new route renders with the demo indicator', () => {
   it('workflow detail', async () => {
     const slug = WORKFLOW_ROUTES.find((r) => r.id === CAMPAIGN_WORKFLOW.id)?.slug;
     if (!slug) throw new Error('missing workflow slug');
-    const page = await WorkflowDetailPage({ params: { id: slug } });
+    const page = await WorkflowDetailPage({ params: Promise.resolve({ id: slug }) });
     const html = await renderRoute(page);
     expect(html).toContain('DEMO ENVIRONMENT');
     // Every step renders NOT STARTED — never fabricated progress.
@@ -94,7 +94,7 @@ describe('every new route renders with the demo indicator', () => {
   it('agent detail (marketing)', async () => {
     const slug = AGENT_ROUTES.find((r) => r.id === 'agent:marketing')?.slug;
     if (!slug) throw new Error('missing agent slug');
-    const page = await AgentDetailPage({ params: { id: slug } });
+    const page = await AgentDetailPage({ params: Promise.resolve({ id: slug }) });
     const html = await renderRoute(page);
     expect(html).toContain('DEMO ENVIRONMENT');
     for (const s of [
@@ -115,7 +115,7 @@ describe('every new route renders with the demo indicator', () => {
 
   for (const route of AGENT_ROUTES) {
     it(`specialist workspace (${route.slug})`, async () => {
-      const page = await SpecialistWorkspacePage({ params: { agentId: route.slug } });
+      const page = await SpecialistWorkspacePage({ params: Promise.resolve({ agentId: route.slug }) });
       const html = await renderRoute(page);
       expect(html).toContain('DEMO ENVIRONMENT');
       expect(html).toContain('Specialist workspace');

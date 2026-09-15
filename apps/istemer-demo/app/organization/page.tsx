@@ -5,7 +5,7 @@ import { FixtureAdapter } from '../../adapters/fixture-adapter';
 // Route/composition code is the only layer permitted to call an adapter.
 // Presentational components below receive a resolved view model as props.
 
-export default async function OrganizationPage(): Promise<JSX.Element> {
+export default async function OrganizationPage(): Promise<React.JSX.Element> {
   const adapter = new FixtureAdapter();
   const projection = await adapter.getOrganization({});
 

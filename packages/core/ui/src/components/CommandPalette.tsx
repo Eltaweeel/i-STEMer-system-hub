@@ -11,7 +11,7 @@ export interface CommandPaletteProps {
   readonly items: readonly CommandPaletteItem[];
 }
 
-export function CommandPalette({ items }: CommandPaletteProps): JSX.Element {
+export function CommandPalette({ items }: CommandPaletteProps): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);

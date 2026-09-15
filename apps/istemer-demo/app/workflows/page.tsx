@@ -3,7 +3,7 @@ import { FixtureAdapter, WORKFLOW_ROUTES } from '../../adapters/fixture-adapter'
 
 const slugById = new Map(WORKFLOW_ROUTES.map((r) => [r.id, r.slug]));
 
-export default async function WorkflowsIndexPage(): Promise<JSX.Element> {
+export default async function WorkflowsIndexPage(): Promise<React.JSX.Element> {
   const adapter = new FixtureAdapter();
   const workflows = await adapter.listWorkflows({});
 

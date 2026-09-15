@@ -90,7 +90,7 @@ export function AppShell({
   organizationName,
   children,
   nav,
-}: AppShellProps): JSX.Element {
+}: AppShellProps): React.JSX.Element {
   return (
     <div style={shellStyle}>
       <a href="#main-content" style={skipLinkStyle}>Skip to main content</a>

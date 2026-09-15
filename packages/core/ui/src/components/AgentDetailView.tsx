@@ -56,7 +56,7 @@ const titleStyle: CSSProperties = {
   margin: 0,
 };
 
-function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }): JSX.Element {
+function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }): React.JSX.Element {
   return (
     <section aria-labelledby={id} style={sectionStyle}>
       <div style={sectionHeaderStyle}>
@@ -67,7 +67,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
   );
 }
 
-function BulletList({ items, emptyLabel }: { items: readonly string[]; emptyLabel: string }): JSX.Element {
+function BulletList({ items, emptyLabel }: { items: readonly string[]; emptyLabel: string }): React.JSX.Element {
   if (items.length === 0) {
     return <span style={{ color: 'var(--text-muted)' }}>{emptyLabel}</span>;
   }
@@ -80,7 +80,7 @@ function BulletList({ items, emptyLabel }: { items: readonly string[]; emptyLabe
   );
 }
 
-function RestrictionList({ restrictions }: { restrictions: readonly Restriction[] }): JSX.Element {
+function RestrictionList({ restrictions }: { restrictions: readonly Restriction[] }): React.JSX.Element {
   // A Restriction is content, not a control. This list uses plain <li> —
   // no <a href>, no <button>, no onClick. The type has no handler to attach
   // even if a developer wanted to.
@@ -128,7 +128,7 @@ function SampleActivityList({
 }: {
   entries: readonly SampleActivityEntry[];
   formatTime: (iso: string) => string;
-}): JSX.Element {
+}): React.JSX.Element {
   // Enforce the honesty rule at render time — even though the type requires
   // both fields, we double-check so a broken fixture cannot slip a lie in.
   const usable = entries.filter((e) => e.runRef.length > 0 && e.at.length > 0);
@@ -187,7 +187,7 @@ const DEMO_STATUS_LABEL: Record<DemoStatus['kind'], string> = {
   live: 'LIVE',
 };
 
-function DemoStatusChip({ status }: { status: DemoStatus }): JSX.Element {
+function DemoStatusChip({ status }: { status: DemoStatus }): React.JSX.Element {
   const isLive = status.kind === 'live';
   const style: CSSProperties = {
     display: 'inline-flex',
@@ -216,7 +216,7 @@ export interface AgentDetailViewProps {
   readonly formatTime: (iso: string) => string;
 }
 
-export function AgentDetailView({ agent, formatTime }: AgentDetailViewProps): JSX.Element {
+export function AgentDetailView({ agent, formatTime }: AgentDetailViewProps): React.JSX.Element {
   return (
     <div
       data-domain-slot={String(agent.domainSlot)}

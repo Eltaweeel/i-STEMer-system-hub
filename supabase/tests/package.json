@@ -1,0 +1,7 @@
+{
+  "name": "phase-1a-database-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test phase-1a.test.mjs" },
+  "devDependencies": { "@electric-sql/pglite": "0.5.8" }
+}

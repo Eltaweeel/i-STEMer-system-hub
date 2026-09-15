@@ -19,7 +19,7 @@ export interface SystemHealthViewProps {
   readonly formatTime: (iso: string) => string;
 }
 
-export function SystemHealthView({ sources, subsystems, formatTime }: SystemHealthViewProps): JSX.Element {
+export function SystemHealthView({ sources, subsystems, formatTime }: SystemHealthViewProps): React.JSX.Element {
   return (
     <div style={{ display: 'grid', gap: 'var(--space-5)' }}>
       <section aria-labelledby="fixture-health" style={{ padding: 'var(--space-5)', background: 'var(--status-draft-tint)', border: '1px solid var(--status-draft-core)', borderRadius: 'var(--radius-panel)' }}>

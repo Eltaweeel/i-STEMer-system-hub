@@ -45,7 +45,7 @@ export function ApprovalInboxView({
   packages,
   getDetailHref,
   formatTime,
-}: ApprovalInboxViewProps): JSX.Element {
+}: ApprovalInboxViewProps): React.JSX.Element {
   if (packages.length === 0) {
     return (
       <p style={{ color: 'var(--text-muted)' }}>No approval packages pending.</p>

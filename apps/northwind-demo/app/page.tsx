@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-export default function IndexPage(): JSX.Element {
+export default function IndexPage(): React.JSX.Element {
   return (
     <section>
       <h1 style={{ fontFamily: 'var(--font-mono)', letterSpacing: 'var(--tracking-display)' }}>

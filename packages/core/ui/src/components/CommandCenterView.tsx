@@ -26,11 +26,11 @@ const kickerStyle = {
   textTransform: 'uppercase',
 } as const;
 
-function EmptyState({ children }: { children: string }): JSX.Element {
+function EmptyState({ children }: { children: string }): React.JSX.Element {
   return <p style={{ margin: 0, color: 'var(--text-muted)' }}>{children}</p>;
 }
 
-function StepList({ steps }: { steps: readonly WorkflowStep[] }): JSX.Element {
+function StepList({ steps }: { steps: readonly WorkflowStep[] }): React.JSX.Element {
   if (steps.length === 0) return <EmptyState>No workflow steps are currently in progress.</EmptyState>;
   return (
     <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--space-3)' }}>
@@ -45,7 +45,7 @@ function StepList({ steps }: { steps: readonly WorkflowStep[] }): JSX.Element {
   );
 }
 
-export function CommandCenterView({ workflow, agents, approvals, cycle, formatTime, agentHref, approvalHref }: CommandCenterViewProps): JSX.Element {
+export function CommandCenterView({ workflow, agents, approvals, cycle, formatTime, agentHref, approvalHref }: CommandCenterViewProps): React.JSX.Element {
   const activeSteps = workflow.steps.filter((step) => step.state === 'in_progress');
   const notStartedCount = workflow.steps.filter((step) => step.state === 'not_started').length;
 

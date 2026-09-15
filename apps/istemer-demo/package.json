@@ -14,13 +14,16 @@
     "@bagos/fixtures": "*",
     "@bagos/organization": "*",
     "@bagos/ui": "*",
-    "next": "14.2.15",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "zod": "^3.23.8"
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "^3.23.8",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.116.0",
+    "server-only": "0.0.1"
   },
   "devDependencies": {
-    "@types/react": "^18.3.10",
-    "@types/react-dom": "^18.3.0"
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.2.7"
   }
 }

@@ -76,7 +76,7 @@ export interface RehearsalEndScreenProps {
 export function RehearsalEndScreen({
   packageTitle,
   onReset,
-}: RehearsalEndScreenProps): JSX.Element {
+}: RehearsalEndScreenProps): React.JSX.Element {
   return (
     <div style={stepPanelStyle}>
       <span style={stepKickerStyle}>Rehearsal complete</span>
@@ -109,7 +109,7 @@ export function RehearsalFlowView({
   formattedDeadline,
   onAdvance,
   onReset,
-}: RehearsalFlowViewProps): JSX.Element {
+}: RehearsalFlowViewProps): React.JSX.Element {
   if (step === 'idle') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -228,7 +228,7 @@ export interface RehearsalFlowPanelProps {
 export function RehearsalFlowPanel({
   pkg,
   formattedDeadline,
-}: RehearsalFlowPanelProps): JSX.Element {
+}: RehearsalFlowPanelProps): React.JSX.Element {
   const [step, setStep] = useState<RehearsalStep>('idle');
 
   function advance(): void {

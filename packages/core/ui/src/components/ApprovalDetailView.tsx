@@ -64,7 +64,7 @@ export interface DisabledDecisionControlsProps {
 
 export function DisabledDecisionControls({
   controls,
-}: DisabledDecisionControlsProps): JSX.Element {
+}: DisabledDecisionControlsProps): React.JSX.Element {
   return (
     <div
       role="group"
@@ -103,7 +103,7 @@ export function ApprovalDetailView({
   pkg,
   decisionControls,
   formatTime,
-}: ApprovalDetailViewProps): JSX.Element {
+}: ApprovalDetailViewProps): React.JSX.Element {
   const formattedDeadline = formatTime(pkg.deadline);
 
   return (

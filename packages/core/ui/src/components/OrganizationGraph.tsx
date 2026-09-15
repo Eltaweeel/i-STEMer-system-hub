@@ -37,7 +37,7 @@ function nodeShapeLabel(node: GraphNode): string {
   return 'NODE';
 }
 
-export function OrganizationGraph({ projection }: OrganizationGraphProps): JSX.Element {
+export function OrganizationGraph({ projection }: OrganizationGraphProps): React.JSX.Element {
   const positions = computeLayout(projection, {
     columnGap: 200,
     rankGap: 140,
@@ -161,7 +161,7 @@ export function OrganizationGraph({ projection }: OrganizationGraphProps): JSX.E
 // A separate compact list of the agents with their status badges. Kept
 // beside the graph so a reader sees the status without inferring it from
 // the SVG (colour never being load-bearing).
-export function OrganizationStatusList({ projection }: OrganizationGraphProps): JSX.Element {
+export function OrganizationStatusList({ projection }: OrganizationGraphProps): React.JSX.Element {
   const agents = projection.nodes.filter(isAgentNode);
   const conductors = projection.nodes.filter(isConductorNode);
   return (

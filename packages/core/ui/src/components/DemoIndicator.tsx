@@ -35,7 +35,7 @@ const detailStyle: CSSProperties = {
   fontSize: 'var(--text-body-size)',
 };
 
-export function DemoIndicator({ meta }: DemoIndicatorProps): JSX.Element | null {
+export function DemoIndicator({ meta }: DemoIndicatorProps): React.JSX.Element | null {
   if (meta.source !== 'fixture') return null;
   return (
     <div role="note" aria-label="Demo environment notice" style={containerStyle}>

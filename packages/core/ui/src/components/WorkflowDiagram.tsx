@@ -47,7 +47,7 @@ function stateStrokeFor(state: WorkflowStepState): string {
   return 'var(--line-default)';
 }
 
-export function WorkflowDiagram({ steps, title }: WorkflowDiagramProps): JSX.Element {
+export function WorkflowDiagram({ steps, title }: WorkflowDiagramProps): React.JSX.Element {
   const ordered = [...steps].sort((a, b) => a.order - b.order);
   const width = PAD_X * 2 + ordered.length * NODE_W + (ordered.length - 1) * GAP_X;
   const height = PAD_Y * 2 + NODE_H + 60;
@@ -228,7 +228,7 @@ const stateTagStyle = (state: WorkflowStepState): CSSProperties => ({
   textTransform: 'uppercase',
 });
 
-export function WorkflowStepList({ steps }: WorkflowStepListProps): JSX.Element {
+export function WorkflowStepList({ steps }: WorkflowStepListProps): React.JSX.Element {
   const ordered = [...steps].sort((a, b) => a.order - b.order);
   return (
     <ol

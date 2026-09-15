@@ -25,7 +25,7 @@ export interface ContentCalendarProps {
   readonly formatDate: (iso: string) => string;
 }
 
-export function ContentCalendar({ items, formatDate }: ContentCalendarProps): JSX.Element {
+export function ContentCalendar({ items, formatDate }: ContentCalendarProps): React.JSX.Element {
   if (items.length === 0) {
     return <p style={{ color: 'var(--text-muted)', margin: 0 }}>No planned content items.</p>;
   }

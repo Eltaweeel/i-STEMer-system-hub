@@ -40,9 +40,9 @@ const DECISION_CONTROLS = [
 export default async function ApprovalDetailPage({
   params,
 }: {
-  params: { id: string };
-}): Promise<JSX.Element> {
-  const internalId = approvalIdForSlug(decodeURIComponent(params.id));
+  params: Promise<{ id: string }>;
+}): Promise<React.JSX.Element> {
+  const internalId = approvalIdForSlug(decodeURIComponent((await params).id));
   if (!internalId) notFound();
   const adapter = new FixtureAdapter();
   const pkg = await adapter.getApprovalPackage({ id: internalId });

@@ -4,7 +4,7 @@ import { AGENT_ROUTES, FixtureAdapter } from '../../adapters/fixture-adapter';
 
 const slugById = new Map(AGENT_ROUTES.map((r) => [r.id, r.slug]));
 
-export default async function AgentsIndexPage(): Promise<JSX.Element> {
+export default async function AgentsIndexPage(): Promise<React.JSX.Element> {
   const adapter = new FixtureAdapter();
   const agents = await adapter.listAgents({});
 

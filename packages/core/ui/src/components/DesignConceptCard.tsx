@@ -48,7 +48,7 @@ const labelStyle: CSSProperties = {
   color: 'var(--text-muted)',
 };
 
-function OrbitPoster(): JSX.Element {
+function OrbitPoster(): React.JSX.Element {
   return (
     <>
       <rect x="0" y="0" width="400" height="500" fill="var(--surface-raised)" />
@@ -64,8 +64,8 @@ function OrbitPoster(): JSX.Element {
   );
 }
 
-function GridPoster(): JSX.Element {
-  const cells: JSX.Element[] = [];
+function GridPoster(): React.JSX.Element {
+  const cells: React.JSX.Element[] = [];
   const cols = 5;
   const rows = 6;
   const cellW = 60;
@@ -102,7 +102,7 @@ function GridPoster(): JSX.Element {
   );
 }
 
-function RibbonPoster(): JSX.Element {
+function RibbonPoster(): React.JSX.Element {
   return (
     <>
       <rect x="0" y="0" width="400" height="500" fill="var(--surface-raised)" />
@@ -133,13 +133,13 @@ function RibbonPoster(): JSX.Element {
   );
 }
 
-function VariantContent({ variant }: { variant: DesignConceptVariant }): JSX.Element {
+function VariantContent({ variant }: { variant: DesignConceptVariant }): React.JSX.Element {
   if (variant === 'orbit') return <OrbitPoster />;
   if (variant === 'grid') return <GridPoster />;
   return <RibbonPoster />;
 }
 
-export function DesignConceptCard({ concept, selected }: DesignConceptCardProps): JSX.Element {
+export function DesignConceptCard({ concept, selected }: DesignConceptCardProps): React.JSX.Element {
   const outline: CSSProperties = selected
     ? { boxShadow: '0 0 0 2px var(--focus-ring)' }
     : {};

@@ -23,7 +23,7 @@ function kindLabel(node: GraphNode): string {
   return 'department';
 }
 
-function NodeRow({ tn }: { tn: TreeNode }): JSX.Element {
+function NodeRow({ tn }: { tn: TreeNode }): React.JSX.Element {
   const isAgent = isAgentNode(tn.node);
   const wrapperProps: Record<string, string> = {};
   if (isAgent) wrapperProps['data-domain-slot'] = String(tn.node.domainSlot);
@@ -85,7 +85,7 @@ function NodeRow({ tn }: { tn: TreeNode }): JSX.Element {
   );
 }
 
-export function OrganizationTree({ projection }: OrganizationTreeProps): JSX.Element {
+export function OrganizationTree({ projection }: OrganizationTreeProps): React.JSX.Element {
   const roots = toTree(projection);
   return (
     <nav aria-label="Organization hierarchy (accessible tree)">

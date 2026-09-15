@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "peerDependencies": {
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   }
 }

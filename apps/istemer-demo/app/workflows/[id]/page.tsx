@@ -14,9 +14,9 @@ export const dynamicParams = false;
 export default async function WorkflowDetailPage({
   params,
 }: {
-  params: { id: string };
-}): Promise<JSX.Element> {
-  const internalId = workflowIdForSlug(decodeURIComponent(params.id));
+  params: Promise<{ id: string }>;
+}): Promise<React.JSX.Element> {
+  const internalId = workflowIdForSlug(decodeURIComponent((await params).id));
   if (!internalId) notFound();
   const adapter = new FixtureAdapter();
   const workflow = await adapter.getWorkflow({ id: internalId });

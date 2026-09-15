@@ -2,7 +2,7 @@ import { OrganizationGraph, OrganizationStatusList, OrganizationTree } from '@ba
 import { FixtureAdapter } from '../../adapters/fixture-adapter';
 import { formatNorthwindTime, NORTHWIND_FIXTURE_TZ } from '../../fixtures/time';
 
-export default async function OrganizationPage(): Promise<JSX.Element> {
+export default async function OrganizationPage(): Promise<React.JSX.Element> {
   const projection = await new FixtureAdapter().getOrganization({});
   const agentCount = projection.nodes.filter(({ kind }) => kind === 'agent').length;
 

@@ -9,8 +9,8 @@ export function generateStaticParams(): { id: string }[] {
 
 export const dynamicParams = false;
 
-export default async function AgentDetailPage({ params }: { params: { id: string } }): Promise<JSX.Element> {
-  const agentId = agentIdForSlug(decodeURIComponent(params.id));
+export default async function AgentDetailPage({ params }: { params: Promise<{ id: string }> }): Promise<React.JSX.Element> {
+  const agentId = agentIdForSlug(decodeURIComponent((await params).id));
   if (!agentId) notFound();
   const agent = await new FixtureAdapter().getAgent({ id: agentId });
   if (!agent) notFound();
