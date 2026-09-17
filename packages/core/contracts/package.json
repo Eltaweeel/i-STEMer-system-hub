@@ -14,6 +14,10 @@
       "types": "./dist/reel-analysis.d.ts",
       "default": "./dist/reel-analysis.js"
     },
+    "./content-calendar": {
+      "types": "./dist/content-calendar.d.ts",
+      "default": "./dist/content-calendar.js"
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
@@ -22,9 +26,10 @@
   "scripts": {
     "build:research": "tsc -p tsconfig.research.json",
     "build:reel-analysis": "tsc -p tsconfig.reel-analysis.json",
+    "build:content-calendar": "tsc -p tsconfig.content-calendar.json",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
-  "files": ["src", "dist/research-packet.js", "dist/research-packet.d.ts", "dist/reel-analysis.js", "dist/reel-analysis.d.ts"],
+  "files": ["src", "dist/research-packet.js", "dist/research-packet.d.ts", "dist/reel-analysis.js", "dist/reel-analysis.d.ts", "dist/content-calendar.js", "dist/content-calendar.d.ts"],
   "peerDependencies": {
     "zod": "^3.23.0"
   }
