@@ -101,6 +101,16 @@ export const ReelAnalysisErrorSchema = z.object({
 export type ReelAnalysisTask = z.infer<typeof ReelAnalysisTaskSchema>;
 export type ReelAnalysisArtifact = z.infer<typeof ReelAnalysisArtifactSchema>;
 
+export const ReelAnalysisRunViewSchema = z.object({
+  contractVersion: z.literal(REEL_ANALYSIS_CONTRACT_VERSION), runId: id, taskId: id,
+  status: z.enum(['queued', 'running', 'failed', 'succeeded']),
+  attempt: z.object({ id, state: z.enum(['running', 'failed', 'succeeded']),
+    retryable: z.boolean(), errorCode: ReelAnalysisErrorSchema.shape.code.nullable(),
+  }).strict().nullable(),
+  artifact: ReelAnalysisArtifactSchema.nullable(), revisionId: id.nullable(), liveEffects: z.literal(false),
+}).strict();
+export type ReelAnalysisRunView = z.infer<typeof ReelAnalysisRunViewSchema>;
+
 // Inspection claims require a trusted host in future execution code; shape checks cannot prove inspection or lease ownership.
 export function validateReelAnalysisArtifact(input: unknown, taskInput: unknown): ReelAnalysisArtifact {
   const task = ReelAnalysisTaskSchema.parse(taskInput);

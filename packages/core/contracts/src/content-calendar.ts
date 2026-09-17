@@ -84,6 +84,16 @@ export const NourErrorSchema = z.object({
 export type NourTask = z.infer<typeof NourTaskSchema>;
 export type NourArtifact = z.infer<typeof NourArtifactSchema>;
 
+export const NourRunViewSchema = z.object({
+  contractVersion: z.literal(CONTENT_CALENDAR_CONTRACT_VERSION), runId: id, taskId: id,
+  status: z.enum(['queued', 'running', 'failed', 'succeeded']),
+  attempt: z.object({ id, state: z.enum(['running', 'failed', 'succeeded']),
+    retryable: z.boolean(), errorCode: NourErrorSchema.shape.code.nullable(),
+  }).strict().nullable(),
+  artifact: NourArtifactSchema.nullable(), revisionId: id.nullable(), liveEffects: z.literal(false),
+}).strict();
+export type NourRunView = z.infer<typeof NourRunViewSchema>;
+
 // Future execution must supply trusted task/revision state; consistency checks cannot prove lineage or lease ownership.
 export function validateNourArtifact(input: unknown, taskInput: unknown): NourArtifact {
   const task = NourTaskSchema.parse(taskInput);
