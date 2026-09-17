@@ -10,6 +10,10 @@
       "types": "./dist/research-packet.d.ts",
       "default": "./dist/research-packet.js"
     },
+    "./reel-analysis": {
+      "types": "./dist/reel-analysis.d.ts",
+      "default": "./dist/reel-analysis.js"
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
@@ -17,9 +21,10 @@
   },
   "scripts": {
     "build:research": "tsc -p tsconfig.research.json",
+    "build:reel-analysis": "tsc -p tsconfig.reel-analysis.json",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
-  "files": ["src", "dist/research-packet.js", "dist/research-packet.d.ts"],
+  "files": ["src", "dist/research-packet.js", "dist/research-packet.d.ts", "dist/reel-analysis.js", "dist/reel-analysis.d.ts"],
   "peerDependencies": {
     "zod": "^3.23.0"
   }
