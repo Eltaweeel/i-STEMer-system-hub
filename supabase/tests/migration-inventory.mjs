@@ -9,4 +9,6 @@ export const migrationNames = [
   '20260916055804_adam_omar_durable_tasks.sql',
   '20260916060831_adam_omar_attempt_leases.sql',
   '20260916061530_adam_omar_research_completion.sql',
+  '20260917090000_ziad_reel_analysis_attempts.sql',
+  '20260917090100_ziad_reel_analysis_completion.sql',
 ];
