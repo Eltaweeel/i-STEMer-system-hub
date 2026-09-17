@@ -13,4 +13,6 @@ export const migrationNames = [
   '20260917090100_ziad_reel_analysis_completion.sql',
   '20260917100000_nour_content_calendar_attempts.sql',
   '20260917100100_nour_content_calendar_completion.sql',
+  '20260918070000_adam_ziad_auto_enqueue.sql',
+  '20260918070100_adam_nour_auto_enqueue.sql',
 ];

@@ -291,7 +291,10 @@ test('completion replay is digest-bound without duplicate artifacts', async () =
     await submit(); const lease = await claim(); const result = researchResult(lease);
     assert.deepEqual(await complete(lease,result), await complete(lease,result));
     await switchRole('authenticated');
-    assert.equal(await scalar('select count(*)::int from public.artifacts'), 2);
+    // 3, not 2: the brief artifact, the evidence artifact, and (since
+    // 20260918070000_adam_ziad_auto_enqueue.sql) the reel-analysis brief
+    // artifact the completion's research_outcomes insert auto-enqueues.
+    assert.equal(await scalar('select count(*)::int from public.artifacts'), 3);
     await switchRole('bagos_research_executor');
     result.artifact.evidence[0].observation = 'Changed output';
     await assert.rejects(complete(lease,result), /idempotency_conflict/);

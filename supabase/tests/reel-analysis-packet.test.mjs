@@ -210,7 +210,10 @@ test('completion replay is digest-bound without duplicate artifacts', async () =
     await submit(); const lease = await claim(); const result = reelResult(lease);
     assert.deepEqual(await complete(lease,result), await complete(lease,result));
     await switchRole('authenticated');
-    assert.equal(await scalar('select count(*)::int from public.artifacts'), 2);
+    // 3, not 2: the brief artifact, the reel-analysis artifact, and (since
+    // 20260918070100_adam_nour_auto_enqueue.sql) the content-calendar brief
+    // artifact the completion's reel_analysis_outcomes insert auto-enqueues.
+    assert.equal(await scalar('select count(*)::int from public.artifacts'), 3);
     await switchRole('postgres');
     assert.equal(await scalar("select count(*)::int from public.command_receipts where command_kind='complete_reel_analysis_attempt'"), 1);
     assert.equal(await scalar("select count(*)::int from public.audit_log where event_type='reel_analysis_attempt_completed'"), 1);
