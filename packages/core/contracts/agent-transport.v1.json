@@ -1,0 +1,9 @@
+{
+  "contract_version": "agent-transport.v1",
+  "hash_algorithm": "sha256",
+  "task_statuses": ["queued", "running", "waiting_for_approval", "completed", "failed", "retryable", "cancelled", "expired", "reconciliation_required"],
+  "error_kinds": ["envelope_incomplete", "envelope_expired", "agent_mismatch", "upstream_missing", "contract_mismatch", "invalid_status", "hash_mismatch"],
+  "required_task_fields": ["task_id", "run_id", "tenant_id", "requester_id", "requester_role", "agent_id", "allowed_scope", "input_artifact_ids", "idempotency_key", "expires_at", "contract_version"],
+  "required_result_fields": ["run_id", "agent_id", "status", "artifact_ids", "input_revision_ids", "warnings", "errors", "evidence", "live_effects", "contract_version"],
+  "staging_live_effects": false
+}

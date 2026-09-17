@@ -2,6 +2,7 @@ import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
+import { migrationNames } from './migration-inventory.mjs';
 
 // No URLs, environment credentials, sockets, persistent DB or Supabase client.
 const db = new PGlite();
@@ -41,7 +42,9 @@ async function rollbackProbe(action) {
 before(async () => {
   await db.exec(await readFile(new URL('./platform-stubs.sql', import.meta.url), 'utf8'));
   const files = (await readdir(new URL('../migrations/', import.meta.url))).filter((f) => f.endsWith('.sql')).sort();
-  assert.equal(files.length, 1, 'review test fixture before adding later migrations');
+  assert.deepEqual(files, migrationNames, 'review both baseline and full-chain fixtures before adding migrations');
+  // Keep every original baseline assertion intact on the original migration.
+  // research-packet.test.mjs separately executes the entire exact migration chain.
   migration = await readFile(new URL(`../migrations/${files[0]}`, import.meta.url), 'utf8');
   await db.exec(migration); // Executes the exact migration, no SQL rewriting.
   await db.exec('begin');

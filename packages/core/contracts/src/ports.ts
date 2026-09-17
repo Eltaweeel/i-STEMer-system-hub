@@ -4,6 +4,7 @@ import type { CoordinationCycle } from './coordination';
 import type { OrganizationProjection } from './graph';
 import type { WorkflowDetail, WorkflowSummary } from './workflow';
 import type { CapacitySnapshot, TeamProjection } from './team';
+import type { AgentResultEnvelope, AgentTaskEnvelope } from './agent-transport';
 
 // Every port is async from day one. That is what prevents a rewrite when a
 // real adapter arrives. NO command port and NO event port ship in Batch 1:
@@ -62,4 +63,12 @@ export interface TeamQueries {
 
 export interface CapacityQueries {
   getCapacitySnapshot(): Promise<CapacitySnapshot>;
+}
+
+// The system owns authorization and persistence. This port is the only core
+// boundary through which a future agent runtime adapter may receive a server-derived
+// task and return a validated result. It intentionally exposes no credentials,
+// database client, or publish/send command.
+export interface AgentTransport {
+  dispatch(task: AgentTaskEnvelope): Promise<AgentResultEnvelope>;
 }

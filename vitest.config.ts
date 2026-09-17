@@ -28,6 +28,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@bagos/contracts/research': path.resolve(root, 'packages/core/contracts/src/research-packet.ts'),
       '@bagos/contracts': path.resolve(root, 'packages/core/contracts/src/index.ts'),
       '@bagos/fixtures': path.resolve(root, 'packages/core/fixtures/src/index.ts'),
       '@bagos/organization': path.resolve(root, 'packages/core/organization/src/index.ts'),

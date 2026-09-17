@@ -6,14 +6,20 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
+    "./research": {
+      "types": "./dist/research-packet.d.ts",
+      "default": "./dist/research-packet.js"
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     }
   },
   "scripts": {
+    "build:research": "tsc -p tsconfig.research.json",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
+  "files": ["src", "dist/research-packet.js", "dist/research-packet.d.ts"],
   "peerDependencies": {
     "zod": "^3.23.0"
   }
