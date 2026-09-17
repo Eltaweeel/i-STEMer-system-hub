@@ -120,6 +120,10 @@ export async function runResearchWorkerCycle(config: ResearchWorkerConfig): Prom
   if (claimed.status === 'failed') return { outcome: 'lease_reclaimed', runId: claimed.runId, code: claimed.code };
 
   const { task, handoff } = claimed as { task: z.infer<typeof ResearchTaskSchema>; handoff: ResearchHandoff };
+  if (handoff.tenantId !== task.tenantId || handoff.taskId !== task.taskId
+    || handoff.runId !== task.runId || handoff.attemptId !== task.attemptId) {
+    return fail(config.port, task.runId, task.attemptId, 'invalid_contract');
+  }
   const controller = new AbortController();
   const snapshots: { receipt: SourceInspection; text: string }[] = [];
   for (const sourceUrl of task.brief.sources) {

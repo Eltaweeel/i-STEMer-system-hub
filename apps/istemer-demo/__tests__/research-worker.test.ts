@@ -80,6 +80,18 @@ describe('runResearchWorkerCycle', () => {
     expect(port.complete).not.toHaveBeenCalled();
   });
 
+  it.each(['tenantId', 'taskId', 'runId', 'attemptId'] as const)('fails with invalid_contract and never dispatches on mismatched handoff %s', async (field) => {
+    const handoff = { ...buildHandoff(), [field]: '00000000-0000-4000-8000-000000000099' };
+    const port = fakePort({ claim: vi.fn().mockResolvedValue({ status: 'claimed', task: buildTask(), handoff }) });
+    const observe = vi.fn();
+    const dispatch = vi.fn();
+    const result = await runResearchWorkerCycle(baseConfig({ port, observe, dispatch }));
+    expect(result).toEqual({ outcome: 'failed', runId, attemptId, code: 'invalid_contract' });
+    expect(observe).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(port.fail).toHaveBeenCalledWith(attemptId, 'invalid_contract');
+  });
+
   it('fails with uninspected_source and never dispatches when every source comes back uninspected', async () => {
     const port = fakePort({ claim: vi.fn().mockResolvedValue({ status: 'claimed', task: buildTask(), handoff: buildHandoff() }) });
     const observe = vi.fn().mockResolvedValue({ status: 'uninspected', sourceUrl, code: 'unavailable', gaps: [] });

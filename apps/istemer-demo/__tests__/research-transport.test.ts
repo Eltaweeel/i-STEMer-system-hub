@@ -108,5 +108,10 @@ describe('dispatchResearchTask', () => {
     const outcome = await dispatchResearchTask({ hostname: '127.0.0.1', port }, signed, body, 150);
     expect(outcome).toEqual({ status: 'transport_failure' });
   });
+
+  it('resolves transport_failure without connecting when the endpoint is not loopback', async () => {
+    const signed = signResearchRequest(body, freshMetadata('k', 0), key);
+    expect(await dispatchResearchTask({ hostname: 'example.org', port: 80 }, signed, body, 100)).toEqual({ status: 'transport_failure' });
+  });
 });
 

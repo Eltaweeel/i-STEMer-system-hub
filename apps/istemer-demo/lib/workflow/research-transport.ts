@@ -19,6 +19,7 @@ export interface ResearchEndpoint { readonly hostname: string; readonly port: nu
 export function dispatchResearchTask(
   endpoint: ResearchEndpoint, signed: SignedResearchRequest, body: Uint8Array, timeoutMs: number,
 ): Promise<DispatchOutcome> {
+  if (endpoint.hostname !== '127.0.0.1') return Promise.resolve({ status: 'transport_failure' });
   return new Promise((resolve) => {
     let settled = false;
     const finish = (outcome: DispatchOutcome) => { if (!settled) { settled = true; resolve(outcome); } };
