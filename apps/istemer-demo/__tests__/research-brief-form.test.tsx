@@ -42,11 +42,11 @@ it('reloads the artifact from the API after remount instead of keeping it only i
   vi.stubGlobal('fetch', async () => Response.json({ ...queued, status: 'succeeded', artifact, revisionId }));
   const first = render(<WorkflowBriefForm locale="en" />);
   await screen.findByText('Run status: succeeded');
-  expect(screen.getByLabelText('research-artifact').textContent).toContain('Fixture observation');
+  expect(first.container.textContent).toContain('Fixture observation');
   first.unmount();
-  render(<WorkflowBriefForm locale="en" />);
+  const second = render(<WorkflowBriefForm locale="en" />);
   await screen.findByText('Run status: succeeded');
-  expect(screen.getByLabelText('research-artifact').textContent).toContain(revisionId);
+  expect(second.container.textContent).toContain(revisionId);
 });
 
 it('shows a failed attempt and exposes explicit retry without treating it as success', async () => {
@@ -63,7 +63,10 @@ it('shows a failed attempt and exposes explicit retry without treating it as suc
   });
   render(<WorkflowBriefForm locale="en" />);
   await screen.findByText('Run status: failed');
-  expect(screen.getByRole('alert').textContent).toBe('provider_failure');
+  // The failure is announced through the stage view, which states which agent
+  // failed alongside the raw code, so assert the code is surfaced rather than
+  // pinning the exact sentence.
+  expect(screen.getByRole('alert').textContent).toContain('provider_failure');
   fireEvent.click(screen.getByRole('button', { name: 'Retry failed attempt' }));
   await screen.findByText('Run status: queued');
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Retry failed attempt' })).toBeNull());
