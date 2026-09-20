@@ -227,3 +227,21 @@ test('a caller with no active membership cannot read the usage summary', () => w
   await actAs(id(999), 'authenticated', 'aal2');
   await rejectsFenced(() => scalar('select private.read_usage_summary($1)', [tenant]), (error) => error.code === '42501');
 }));
+
+test('the public allowance wrapper derives the period itself and still demands owner plus AAL2', () => withTransaction(async () => {
+  await actAs(owner, 'authenticated', 'aal2');
+  const written = await scalar('select public.set_usage_allowance($1,$2,$3)', [tenant, operator, 700]);
+  assert.ok(written);
+  await switchRole('postgres');
+  // The window the wrapper wrote must be the one enforcement reads, so the two
+  // expressions cannot drift apart into an allowance nothing ever checks.
+  assert.equal(await scalar(`select count(*)::int from public.usage_allowances
+    where member_user_id=$1 and period_start = date_trunc('month', clock_timestamp())::date`, [operator]), 1);
+
+  await actAs(operator, 'authenticated', 'aal1');
+  await rejectsFenced(() => scalar('select public.set_usage_allowance($1,$2,$3)', [tenant, operator, 900]),
+    (error) => error.code === '42501');
+  await actAs(owner, 'authenticated', 'aal1');
+  await rejectsFenced(() => scalar('select public.set_usage_allowance($1,$2,$3)', [tenant, operator, 900]),
+    (error) => error.code === '42501');
+}));
