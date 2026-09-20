@@ -19,4 +19,8 @@ export const migrationNames = [
   '20260920100000_hadeer_usage_allowances.sql',
   '20260920100100_hadeer_usage_enforcement.sql',
   '20260920110000_hadeer_usage_read.sql',
+  '20260920120000_hadeer_approval_stage_destination.sql',
+  '20260920130000_hadeer_strategy_approval_auto_create.sql',
+  '20260920140000_hadeer_approval_reject_command.sql',
+  '20260920150000_hadeer_approval_revision_invalidation.sql',
 ];
