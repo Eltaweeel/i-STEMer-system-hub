@@ -18,4 +18,5 @@ export const migrationNames = [
   '20260920090000_adam_upstream_artifact_handoff.sql',
   '20260920100000_hadeer_usage_allowances.sql',
   '20260920100100_hadeer_usage_enforcement.sql',
+  '20260920110000_hadeer_usage_read.sql',
 ];

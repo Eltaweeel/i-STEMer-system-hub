@@ -188,3 +188,42 @@ test('a non-owner cannot read another member\'s allowance or usage figures', () 
   assert.equal(await scalar('select count(*)::int from public.usage_allowances where member_user_id=$1', [operator]), 1);
   assert.equal(await scalar('select count(*)::int from public.usage_records where requester_id=$1', [operator]), 1);
 }));
+
+test('the usage summary shows a member only themselves and an owner everyone', () => withTransaction(async () => {
+  await actAs(owner, 'authenticated', 'aal2');
+  await setAllowance(operator, 400);
+
+  await actAs(operator, 'authenticated', 'aal1');
+  const mine = await scalar('select private.read_usage_summary($1)', [tenant]);
+  assert.equal(mine.members.length, 1);
+  assert.equal(mine.members[0].userId, operator);
+  assert.equal(mine.members[0].limitTokens, 400);
+  assert.equal(mine.members[0].remainingTokens, 400);
+  // The upstream subscription balance is absent by construction, never a number.
+  assert.equal(mine.providerBalance, 'unavailable');
+
+  await actAs(owner, 'authenticated', 'aal2');
+  const all = await scalar('select private.read_usage_summary($1)', [tenant]);
+  assert.ok(all.members.length > 1);
+  assert.ok(all.members.some((entry) => entry.userId === operator));
+}));
+
+test('an unreported run is counted separately and never folded in as zero cost', () => withTransaction(async () => {
+  await actAs(operator, 'authenticated', 'aal1');
+  const submitted = await submit(id(240));
+  const attemptId = id(241);
+  await seedAttempt(attemptId, submitted.taskId, submitted.runId, 'succeeded');
+  await actAs(null, 'bagos_research_executor');
+  await recordUsage(attemptId, null, false);
+
+  await actAs(operator, 'authenticated', 'aal1');
+  const summary = await scalar('select private.read_usage_summary($1)', [tenant]);
+  const self = summary.members.find((entry) => entry.userId === operator);
+  assert.equal(self.consumedTokens, 0);
+  assert.equal(self.unreportedRuns, 1);
+}));
+
+test('a caller with no active membership cannot read the usage summary', () => withTransaction(async () => {
+  await actAs(id(999), 'authenticated', 'aal2');
+  await rejectsFenced(() => scalar('select private.read_usage_summary($1)', [tenant]), (error) => error.code === '42501');
+}));
