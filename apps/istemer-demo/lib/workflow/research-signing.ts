@@ -8,7 +8,12 @@ import { createHash, createHmac, randomBytes } from 'node:crypto';
 
 export const RESEARCH_TRANSPORT_VERSION = 'research-http.v1' as const;
 export const RESEARCH_TASK_PATH = '/v1/research/tasks' as const;
-const MAX_BODY_BYTES = 64 * 1024;
+// 2 MiB, derived rather than picked: the completion commands cap a stored
+// artifact at 1 MiB (octet_length(artifact::text) in the completion
+// validations), and an envelope carries the task, the handoff and one upstream
+// artifact of that size. The signer and the verifier must stay identical --
+// a mismatch here rejects every dispatch -- so all six copies move together.
+const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_WINDOW_MS = 60_000;
 const SIGNATURE_WINDOW_MS = 30_000;
 

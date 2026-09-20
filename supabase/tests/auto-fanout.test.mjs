@@ -13,6 +13,13 @@ const db = new PGlite({ extensions: { pgcrypto } });
 const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const tenant = id(1), owner = id(3), operator = id(4);
 const researchBrief = { idempotencyKey: id(20), objective: 'Compare education programs', sources: ['https://example.org/about'] };
+// Stands in for evidence Omar persisted outside this transaction, for the
+// fixtured tasks that do not run a real research completion first.
+const omarEvidence = { contractVersion: 'research.v1', taskId: id(80), runId: id(81), attemptId: id(82),
+  tenantId: tenant, producedBy: 'competitor_analyst', sourceRevisionIds: [id(83)],
+  evidence: [{ sourceUrl: researchBrief.sources[0], inspectionReceiptId: id(84), inspectedAt: '2026-01-01T00:00:00.000Z',
+    observation: 'Synthetic upstream observation', interpretation: null, confidence: 'low', gaps: [] }],
+  gaps: [], liveEffects: false };
 
 const scalar = async (sql, params = []) => Object.values((await db.query(sql, params)).rows[0])[0];
 async function transactionAs(subject, action, role = 'authenticated', aal = 'aal1') {
@@ -50,7 +57,8 @@ const completeResearch = (lease, result = researchResult(lease)) =>
 async function claimReel() { await switchRole('bagos_reel_analyst_executor'); return scalar('select private.claim_reel_analysis_task()'); }
 // The auto-enqueued brief always carries an empty suppliedModalities (no real
 // media exists yet), so this is the only artifact shape SQL will accept from
-// it: every requested modality reported honestly as unavailable.
+// it: every requested modality reported honestly as unavailable. It is a
+// successful artifact, which is what lets the chain keep moving to Nour.
 function unavailableReelResult(lease) {
   const binding = { contractVersion: 'reel-analysis.v1', tenantId: lease.task.tenantId, taskId: lease.task.taskId,
     runId: lease.task.runId, attemptId: lease.task.attemptId, liveEffects: false, sourceRevisionId: lease.task.brief.sourceRevisionId };
@@ -62,13 +70,21 @@ const completeReel = (lease, result) =>
 
 async function claimCalendar() { await switchRole('bagos_content_calendar_executor'); return scalar('select private.claim_content_calendar_task()'); }
 
-// A directly-fixtured reel-analysis task with real supplied media. The
-// auto-enqueued task from research completion can never itself complete
-// successfully (its suppliedModalities is intentionally empty until the
-// not-yet-built media-attachment step exists), so this is how the suite
-// reaches a real reel_analysis_outcomes row and exercises the second,
-// Ziad -> Nour trigger with genuine completion SQL.
+// A directly-fixtured reel-analysis task with real supplied media, for the
+// cases that need a Ziad completion carrying actual findings. sourceRevisionId
+// must name a real research_revision_bodies row: the claim command reads that
+// body and refuses the lease without it.
+async function seedResearchEvidence(revisionId) {
+  await switchRole('bagos_research_command');
+  if (await scalar('select count(*)::int from public.research_revision_bodies where tenant_id=$1 and revision_id=$2', [tenant, revisionId]) > 0) return;
+  const campaign = await scalar("insert into public.campaigns(tenant_id,title,owner_membership_id) values ($1,'Omar fixture',$2) returning id", [tenant, id(11)]);
+  const artifact = await scalar("insert into public.artifacts(tenant_id,campaign_id,type) values ($1,$2,'research_evidence') returning id", [tenant, campaign]);
+  await db.query(`insert into public.artifact_revisions(id,tenant_id,artifact_id,revision,content_digest,producer_reference,provenance,qa)
+    values ($1,$2,$3,1,$4,'competitor_analyst','{"schema_version":1}','{"schema_version":1}')`, [revisionId, tenant, artifact, 'a'.repeat(64)]);
+  await db.query('insert into public.research_revision_bodies(tenant_id,revision_id,body) values ($1,$2,$3)', [tenant, revisionId, omarEvidence]);
+}
 async function fixtureReelTask(sourceRevisionId) {
+  await seedResearchEvidence(sourceRevisionId);
   await switchRole('bagos_reel_analysis_command');
   const campaign = await scalar("insert into public.campaigns(tenant_id,title,owner_membership_id) values ($1,'Reel fixture',$2) returning id", [tenant, id(11)]);
   const objective = await scalar("insert into public.objectives(tenant_id,campaign_id,content,revision) values ($1,$2,'Analyze',1) returning id", [tenant, campaign]);
@@ -137,18 +153,21 @@ test('completing research auto-enqueues a claimable reel-analysis task with the 
   });
 });
 
-test('the auto-enqueued reel-analysis task fails closed with uninspected_modality because no real media exists yet', async () => {
+test('the auto-enqueued reel-analysis task completes with an explicit unavailable-media artifact instead of dead-ending', async () => {
   await transactionAs(operator, async () => {
     await submitResearch(); const lease = await claimResearch();
     await switchRole('bagos_research_executor'); await completeResearch(lease);
     const reelLease = await claimReel();
     await switchRole('bagos_reel_analyst_executor');
-    await db.exec('savepoint before_failed_completion');
-    await assert.rejects(completeReel(reelLease, unavailableReelResult(reelLease)), /uninspected_modality/);
-    await db.exec('rollback to savepoint before_failed_completion');
+    const result = unavailableReelResult(reelLease);
+    const completed = await completeReel(reelLease, result);
+    assert.equal(completed.status, 'succeeded');
     await switchRole('authenticated');
-    assert.equal(await scalar('select count(*)::int from public.reel_analysis_outcomes'), 0);
-    assert.equal(await scalar('select count(*)::int from public.content_calendar_tasks'), 0);
+    assert.deepEqual(await scalar('select body from public.reel_analysis_revision_bodies where revision_id=$1', [completed.revisionId]), result.artifact);
+    assert.equal(await scalar('select count(*)::int from public.reel_analysis_outcomes'), 1);
+    // The honest limitation is on the record, not invented analysis.
+    assert.deepEqual(await scalar('select body->>\'inspectedModalities\' from public.reel_analysis_revision_bodies where revision_id=$1', [completed.revisionId]), '[]');
+    assert.equal(await scalar('select jsonb_array_length(body->\'unavailableModalities\') from public.reel_analysis_revision_bodies where revision_id=$1', [completed.revisionId]), 3);
   });
 });
 
@@ -170,31 +189,32 @@ test('completing a reel-analysis attempt auto-enqueues a claimable content-calen
   });
 });
 
-// The full pipeline, wired end to end with real SQL calls at every hop. The
-// exact task the first trigger creates can never itself be completed (its
-// suppliedModalities is deliberately empty until media attachment exists),
-// so the second hop is exercised through a directly-fixtured reel-analysis
-// completion rather than through that same instance -- both triggers still
-// fire for real, in the same transaction as the completion that drives them.
-test('the full chain fires both triggers: research completion reaches a claimable reel-analysis task, and a reel-analysis completion reaches a claimable content-calendar task', async () => {
+// The full pipeline, wired end to end with real SQL calls at every hop and no
+// fixtured shortcut: one human research brief, both triggers firing inside the
+// completions that drive them, and every upstream artifact body travelling
+// with the lease that consumes it.
+test('the full chain runs from one research brief to a claimable content-calendar task carrying both upstream artifacts', async () => {
   await transactionAs(operator, async () => {
     await submitResearch(); const researchLease = await claimResearch();
     await switchRole('bagos_research_executor');
     const researchCompleted = await completeResearch(researchLease);
+
     const reelLease = await claimReel();
     assert.equal(reelLease.task.brief.sourceRevisionId, researchCompleted.revisionId);
+    assert.deepEqual(reelLease.sourceArtifact, researchResult(researchLease).artifact);
     await switchRole('bagos_reel_analyst_executor');
-    await db.exec('savepoint before_uninspected_completion');
-    await assert.rejects(completeReel(reelLease, unavailableReelResult(reelLease)), /uninspected_modality/);
-    await db.exec('rollback to savepoint before_uninspected_completion');
+    const reelResult = unavailableReelResult(reelLease);
+    const reelCompleted = await completeReel(reelLease, reelResult);
+    assert.equal(reelCompleted.status, 'succeeded');
 
-    await fixtureReelTask(researchCompleted.revisionId);
-    const secondReelLease = await claimReel();
-    const reelCompleted = await completeReel(secondReelLease, fixtureReelResult(secondReelLease));
     const calendarLease = await claimCalendar();
     assert.equal(calendarLease.status, 'claimed');
+    assert.equal(calendarLease.task.requesterId, operator);
     assert.equal(calendarLease.task.brief.sourceRevisionId, reelCompleted.revisionId);
     assert.deepEqual(calendarLease.handoff.inputRevisionIds, [researchCompleted.revisionId, reelCompleted.revisionId]);
+    assert.deepEqual(calendarLease.sourceArtifact, reelResult.artifact);
+    await switchRole('authenticated');
+    assert.equal(await scalar('select count(*)::int from public.content_calendar_tasks'), 1);
   });
 });
 

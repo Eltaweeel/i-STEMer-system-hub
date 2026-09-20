@@ -1,7 +1,7 @@
 import 'server-only';
 import { z } from 'zod';
-import { ReelAnalysisTaskSchema, ReelAnalysisHandoffSchema, validateReelAnalysisArtifact,
-  type ReelAnalysisArtifact } from '@bagos/contracts';
+import { ReelAnalysisTaskSchema, ReelAnalysisHandoffSchema, ResearchArtifactSchema, REEL_ANALYSIS_CONTRACT_VERSION, validateReelAnalysisArtifact,
+  type ReelAnalysisArtifact, type ReelAnalysisTask } from '@bagos/contracts';
 import { freshMetadata, signReelAnalysisRequest,
   type ReelAnalysisEndpoint, type DispatchOutcome, type SignedReelAnalysisRequest } from './reel-analysis-transport';
 
@@ -26,7 +26,11 @@ export type ReelAnalysisDispatcher = (
 ) => Promise<DispatchOutcome>;
 
 const claimResultSchema = z.union([
-  z.object({ status: z.literal('claimed'), task: ReelAnalysisTaskSchema, handoff: ReelAnalysisHandoffSchema }).strict(),
+  // sourceArtifact is Omar's evidence, read server-side by the claim command
+  // from the revision the brief names. Ziad is handed the content itself
+  // rather than an identifier it has no database access to resolve.
+  z.object({ status: z.literal('claimed'), task: ReelAnalysisTaskSchema, handoff: ReelAnalysisHandoffSchema,
+    sourceArtifact: ResearchArtifactSchema }).strict(),
   z.object({ status: z.literal('failed'), runId: z.string().uuid(), code: z.string() }).strict(),
   z.null(),
 ]);
@@ -72,16 +76,26 @@ export async function runReelAnalysisWorkerCycle(config: ReelAnalysisWorkerConfi
   if (Date.parse(task.expiresAt) <= config.now()) {
     return { outcome: 'lease_expired', runId: task.runId, attemptId: task.attemptId };
   }
-  if (task.brief.suppliedModalities.length === 0) {
-    return fail(config.port, task.runId, task.attemptId, 'uninspected_modality');
-  }
+  // Nothing was supplied, so there is nothing an agent could honestly inspect.
+  // The contract already models this exact outcome -- every requested modality
+  // reported unavailable, no findings -- so the result is built here and the
+  // attempt completes normally. Dispatching would spend a model call to
+  // produce a reply the host can derive with certainty, and failing instead
+  // would strand the rest of the chain behind an attempt that never produced
+  // an artifact.
   if (handoff.tenantId !== task.tenantId || handoff.taskId !== task.taskId
     || handoff.runId !== task.runId || handoff.attemptId !== task.attemptId
     || !handoff.inputRevisionIds.includes(task.brief.sourceRevisionId)) {
     return fail(config.port, task.runId, task.attemptId, 'invalid_contract');
   }
+  // Checked after the binding above: an envelope whose handoff does not bind to
+  // its task is rejected outright rather than completed, however little media
+  // it carried.
+  if (task.brief.suppliedModalities.length === 0) {
+    return completeUnavailableMedia(config, task);
+  }
 
-  const body = new TextEncoder().encode(JSON.stringify({ task, handoff }));
+  const body = new TextEncoder().encode(JSON.stringify({ task, handoff, sourceArtifact: claimed.sourceArtifact }));
   const signed = signReelAnalysisRequest(body, freshMetadata(config.keyId, config.now()), config.signingKey);
   const remaining = Date.parse(task.expiresAt) - config.now();
   if (remaining <= 0) return { outcome: 'lease_expired', runId: task.runId, attemptId: task.attemptId };
@@ -101,6 +115,35 @@ export async function runReelAnalysisWorkerCycle(config: ReelAnalysisWorkerConfi
   } catch {
     // Shape and evidence failures share the terminal invalid-contract path;
     // the validator does not expose a structured failure discriminator.
+    return fail(config.port, task.runId, task.attemptId, 'invalid_contract');
+  }
+  try {
+    await config.port.complete(task.attemptId, artifact);
+  } catch {
+    return { outcome: 'command_failed', runId: task.runId, attemptId: task.attemptId, stage: 'complete' };
+  }
+  return { outcome: 'succeeded', runId: task.runId, attemptId: task.attemptId };
+}
+
+/** The deterministic counterpart to a dispatched analysis: it reports exactly
+ * what the host knows -- no modality was supplied, so none was inspected and
+ * every requested one is unavailable. Built and validated through the same
+ * contract path a dispatched artifact takes, so the completion command applies
+ * identical checks to it. */
+async function completeUnavailableMedia(
+  config: ReelAnalysisWorkerConfig, task: ReelAnalysisTask,
+): Promise<WorkerCycleResult> {
+  const binding = { contractVersion: REEL_ANALYSIS_CONTRACT_VERSION, tenantId: task.tenantId,
+    taskId: task.taskId, runId: task.runId, attemptId: task.attemptId, liveEffects: false as const };
+  const sourceRevisionId = task.brief.sourceRevisionId;
+  const candidate = { ...binding, producedBy: 'reel_analyst' as const, sourceRevisionId,
+    inspectedModalities: [], findings: [],
+    unavailableModalities: task.brief.requestedModalities.map((modality) => ({ ...binding, sourceRevisionId, modality,
+      reason: 'No media was supplied for this task, so this modality was never inspected.' })) };
+  let artifact: ReelAnalysisArtifact;
+  try {
+    artifact = validateReelAnalysisArtifact(candidate, task);
+  } catch {
     return fail(config.port, task.runId, task.attemptId, 'invalid_contract');
   }
   try {

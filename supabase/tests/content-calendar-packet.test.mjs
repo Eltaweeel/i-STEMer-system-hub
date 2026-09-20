@@ -34,7 +34,15 @@ async function switchRole(role) {
 // The enqueue command is outside this boundary. Seed an immutable host brief
 // and a stand-in for Ziad's completed revision under the command owner so
 // every test exercises real lease/completion SQL, including lineage recovery.
-async function submit(build = defaultBrief, provenance = { schema_version: 1, source_revision_ids: [omarRevisionId] }) {
+// The analysis Nour plans from. The claim command reads this body server-side
+// and hands it to the worker, so Ziad's revision needs a real stored body and
+// not just a provenance pointer.
+const ziadAnalysis = (binding) => ({ ...binding, producedBy: 'reel_analyst', sourceRevisionId: omarRevisionId,
+  inspectedModalities: ['transcript'],
+  findings: [{ ...binding, sourceRevisionId: omarRevisionId, modality: 'transcript',
+    observation: 'Synthetic upstream transcript observation', interpretation: null, confidence: 'low', gaps: [] }],
+  unavailableModalities: [] });
+async function submit(build = defaultBrief, provenance = { schema_version: 1, source_revision_ids: [omarRevisionId] }, seedUpstream = true) {
   await switchRole('bagos_content_calendar_command');
   const campaign = await scalar("insert into public.campaigns(tenant_id,title,owner_membership_id) values ($1,'Calendar fixture',$2) returning id", [tenant,id(11)]);
   const objective = await scalar("insert into public.objectives(tenant_id,campaign_id,content,revision) values ($1,$2,'Draft calendar',1) returning id", [tenant,campaign]);
@@ -44,6 +52,14 @@ async function submit(build = defaultBrief, provenance = { schema_version: 1, so
   const ziadRevisionId = await scalar(`insert into public.artifact_revisions(tenant_id,artifact_id,revision,content_digest,producer_reference,provenance,qa)
     values ($1,$2,1,$3,'reel_analyst',$4,'{"schema_version":1}') returning id`,
     [tenant,ziadArtifact,'a'.repeat(64), JSON.stringify(provenance)]);
+  // Only Ziad's command owner may write this row; Nour's new grant is select-only.
+  const upstream = ziadAnalysis({ contractVersion: 'reel-analysis.v1', tenantId: tenant, taskId: id(80),
+    runId: id(81), attemptId: id(82), liveEffects: false });
+  if (seedUpstream) {
+    await switchRole('bagos_reel_analysis_command');
+    await db.query('insert into public.reel_analysis_revision_bodies(tenant_id,revision_id,body) values ($1,$2,$3)', [tenant,ziadRevisionId,upstream]);
+    await switchRole('bagos_content_calendar_command');
+  }
   const brief = build(ziadRevisionId);
   const artifact = await scalar("insert into public.artifacts(tenant_id,run_id,type) values ($1,$2,'content_calendar_brief') returning id", [tenant,runId]);
   const briefRevisionId = await scalar(`insert into public.artifact_revisions(tenant_id,artifact_id,revision,content_digest,producer_reference,provenance,qa)
@@ -52,7 +68,7 @@ async function submit(build = defaultBrief, provenance = { schema_version: 1, so
   const taskId = await scalar(`insert into public.content_calendar_tasks(tenant_id,requester_id,run_id,brief_revision_id,idempotency_key,input_digest)
     values ($1,$2,$3,$4,$5,$6) returning id`, [tenant,operator,runId,briefRevisionId,brief.idempotencyKey,'a'.repeat(64)]);
   await switchRole('authenticated');
-  return { taskId, runId, briefRevisionId, ziadRevisionId, brief };
+  return { taskId, runId, briefRevisionId, ziadRevisionId, brief, upstream };
 }
 async function claim() {
   await switchRole('bagos_content_calendar_executor');
@@ -112,6 +128,53 @@ test('claim fails hard when Ziad revision carries no recoverable lineage', async
     await switchRole('bagos_content_calendar_executor');
     await assert.rejects(scalar('select private.claim_content_calendar_task()'), /missing_lineage/);
   });
+});
+test('claim carries Ziad analysis body, read server-side from the revision the brief names', async () => {
+  await transactionAs(operator, async () => {
+    const submitted = await submit();
+    const lease = await claim();
+    assert.deepEqual(lease.sourceArtifact, submitted.upstream);
+    // The executor role deliberately has no grant on Ziad's bodies: only the
+    // security-definer claim command may read them. Verify the stored row from
+    // a role that can, rather than widening the executor's reach.
+    await switchRole('postgres');
+    assert.deepEqual(lease.sourceArtifact,
+      await scalar('select body from public.reel_analysis_revision_bodies where tenant_id=$1 and revision_id=$2', [tenant,submitted.ziadRevisionId]));
+  });
+});
+test('claim fails closed when the upstream analysis body is missing, leaving no attempt behind', async () => {
+  await transactionAs(operator, async () => {
+    const submitted = await submit(defaultBrief, { schema_version: 1, source_revision_ids: [omarRevisionId] }, false);
+    await switchRole('bagos_content_calendar_executor');
+    // The raise aborts the surrounding transaction, so fence it: the point of
+    // the test is that no attempt survives, which cannot be read afterwards
+    // from an aborted block.
+    await db.exec('savepoint before_missing_source');
+    await assert.rejects(scalar('select private.claim_content_calendar_task()'), /missing_source_artifact/);
+    await db.exec('rollback to savepoint before_missing_source');
+    await switchRole('authenticated');
+    assert.equal(await scalar('select count(*)::int from public.content_calendar_attempts'), 0);
+    assert.equal(await scalar('select state from public.agent_runs where id=$1', [submitted.runId]), 'queued');
+  });
+});
+test('the upstream analysis grant is select-only and reaches nothing else in Ziad schema', async () => {
+  assert.equal(await scalar("select has_table_privilege('bagos_content_calendar_command','public.reel_analysis_revision_bodies','SELECT')"), true);
+  for (const privilege of ['INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) {
+    assert.equal(await scalar("select has_table_privilege('bagos_content_calendar_command','public.reel_analysis_revision_bodies',$1)", [privilege]), false);
+  }
+  // reel_analysis_tasks is the one other cross-domain read Nour already had,
+  // for requester/run lineage during fan-out; nothing else in Ziad's opens.
+  for (const table of ['public.reel_analysis_outcomes','public.reel_analysis_attempts','private.reel_analysis_brand_binding']) {
+    for (const privilege of ['SELECT','INSERT','UPDATE','DELETE']) {
+      assert.equal(await scalar("select has_table_privilege('bagos_content_calendar_command',$1,$2)", [table,privilege]), false);
+    }
+  }
+  for (const role of ['bagos_content_calendar_executor','anon','authenticated','service_role']) {
+    assert.equal(await scalar("select has_table_privilege($1,'public.reel_analysis_revision_bodies','INSERT')", [role]), false);
+  }
+  assert.equal(await scalar("select has_table_privilege('bagos_content_calendar_executor','public.reel_analysis_revision_bodies','SELECT')"), false);
+  assert.equal(await scalar(`select count(*)::int from pg_policies where schemaname='public' and tablename='reel_analysis_revision_bodies'
+    and 'bagos_content_calendar_command' = any(roles) and cmd <> 'SELECT'`), 0);
 });
 test('provider failure is durable and retry is explicit, idempotent and attempt-bound', async () => {
   await transactionAs(operator, async () => {

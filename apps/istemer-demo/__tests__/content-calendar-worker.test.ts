@@ -26,8 +26,20 @@ function artifact(): NourArtifact {
       platform: platforms[dayIndex % platforms.length]!, format: formats[dayIndex % formats.length]!,
       conceptTitle: `Concept for day ${dayIndex}` })) };
 }
+// Ziad's analysis, as the claim command now reads it out of the revision the
+// brief names and hands to the worker.
+function upstreamArtifact() {
+  const upstream = { contractVersion: 'reel-analysis.v1' as const, tenantId: id(1), taskId: id(90),
+    runId: id(91), attemptId: id(92), liveEffects: false as const };
+  return { ...upstream, producedBy: 'reel_analyst' as const, sourceRevisionId: omarRevisionId,
+    inspectedModalities: ['transcript' as const],
+    findings: [{ ...upstream, sourceRevisionId: omarRevisionId, modality: 'transcript' as const,
+      observation: 'Upstream observation', interpretation: null, confidence: 'low' as const, gaps: [] }],
+    unavailableModalities: [] };
+}
 function claimed(claimedTask = task()) {
-  return { status: 'claimed', task: claimedTask, handoff: { ...binding, fromAgentId: 'orchestrator',
+  return { status: 'claimed', task: claimedTask, sourceArtifact: upstreamArtifact(),
+    handoff: { ...binding, fromAgentId: 'orchestrator',
     toAgentId: 'content_creator', inputRevisionIds: [omarRevisionId, sourceRevisionId] } };
 }
 function config(claim: unknown = claimed()) {
@@ -71,7 +83,7 @@ describe('runContentCalendarWorkerCycle', () => {
     expect(await runContentCalendarWorkerCycle(options)).toEqual({ outcome: 'succeeded', runId, attemptId });
     const [endpoint, signed, body, timeout] = options.dispatch.mock.calls[0]!;
     expect(endpoint).toEqual(options.endpoint);
-    expect(JSON.parse(Buffer.from(body).toString('utf8'))).toEqual({ task: task(), handoff: claimed().handoff });
+    expect(JSON.parse(Buffer.from(body).toString('utf8'))).toEqual({ task: task(), handoff: claimed().handoff, sourceArtifact: upstreamArtifact() });
     expect(signed.signature).toBe(signContentCalendarRequest(body, signed, key).signature);
     expect(timeout).toBe(20000);
     expect(options.port.complete).toHaveBeenCalledWith(attemptId, artifact());

@@ -11,6 +11,14 @@ const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const tenant = id(1), otherTenant = id(2), owner = id(3), operator = id(4), outsider = id(5);
 const brief = { idempotencyKey: id(20), objective: 'Analyze supplied transcript', sourceRevisionId: id(91),
   requestedModalities: ['transcript','audio'], suppliedModalities: ['transcript'] };
+// Stands in for the evidence Omar durably persisted at brief.sourceRevisionId.
+// The claim command now reads this body and hands it to the worker, so the
+// revision the brief names has to be a real row, not a bare identifier.
+const omarEvidence = { contractVersion: 'research.v1', taskId: id(80), runId: id(81), attemptId: id(82),
+  tenantId: tenant, producedBy: 'competitor_analyst', sourceRevisionIds: [id(83)],
+  evidence: [{ sourceUrl: 'https://example.org/about', inspectionReceiptId: id(84), inspectedAt: '2026-01-01T00:00:00.000Z',
+    observation: 'Synthetic upstream observation', interpretation: null, confidence: 'low', gaps: [] }],
+  gaps: [], liveEffects: false };
 const scalar = async (sql, params = []) => Object.values((await db.query(sql, params)).rows[0])[0];
 async function transactionAs(subject, action, role = 'authenticated', aal = 'aal1') {
   await db.exec('begin');
@@ -74,6 +82,15 @@ before(async () => {
   for (const trigger of triggers) await db.exec(`alter table public.memberships enable trigger "${trigger.tgname}"`);
   await db.exec("update public.tenants set status='active'");
   await db.query('insert into private.reel_analysis_brand_binding(tenant_id) values ($1)', [tenant]);
+  // Seeded under Omar's command owner, the only role permitted to write these
+  // rows: Ziad's new grant is select-only and must never be able to forge one.
+  await db.exec('set session authorization bagos_research_command');
+  const omarCampaign = await scalar("insert into public.campaigns(tenant_id,title,owner_membership_id) values ($1,'Omar fixture',$2) returning id", [tenant,id(11)]);
+  const omarArtifact = await scalar("insert into public.artifacts(tenant_id,campaign_id,type) values ($1,$2,'research_evidence') returning id", [tenant,omarCampaign]);
+  await db.query(`insert into public.artifact_revisions(id,tenant_id,artifact_id,revision,content_digest,producer_reference,provenance,qa)
+    values ($1,$2,$3,1,$4,'competitor_analyst','{"schema_version":1}','{"schema_version":1}')`, [brief.sourceRevisionId,tenant,omarArtifact,'a'.repeat(64)]);
+  await db.query('insert into public.research_revision_bodies(tenant_id,revision_id,body) values ($1,$2,$3)', [tenant,brief.sourceRevisionId,omarEvidence]);
+  await db.exec('set session authorization postgres');
   await db.exec('commit');
 });
 after(async () => db.close());
@@ -94,6 +111,54 @@ test('worker claims once and returns attempt-bound task and handoff', async () =
     assert.equal(Date.parse(lease.task.expiresAt) - Date.parse(lease.task.issuedAt), 300000);
     assert.equal(await claim(), null);
   });
+});
+test('claim carries Omar evidence body, read server-side from the revision the brief names', async () => {
+  await transactionAs(operator, async () => {
+    await submit();
+    const lease = await claim();
+    assert.deepEqual(lease.sourceArtifact, omarEvidence);
+    // The executor role deliberately has no grant on Omar's bodies: only the
+    // security-definer claim command may read them. Verify the stored row from
+    // a role that can, rather than widening the executor's reach.
+    await switchRole('postgres');
+    assert.deepEqual(lease.sourceArtifact,
+      await scalar('select body from public.research_revision_bodies where tenant_id=$1 and revision_id=$2', [tenant,brief.sourceRevisionId]));
+  });
+});
+test('claim fails closed when the upstream evidence body is missing, leaving no attempt behind', async () => {
+  await transactionAs(operator, async () => {
+    await submit({ ...brief, idempotencyKey: id(22), sourceRevisionId: id(92) });
+    await switchRole('bagos_reel_analyst_executor');
+    // The raise aborts the surrounding transaction, so fence it: the point of
+    // the test is that no attempt survives, which cannot be read afterwards
+    // from an aborted block.
+    await db.exec('savepoint before_missing_source');
+    await assert.rejects(scalar('select private.claim_reel_analysis_task()'), /missing_source_artifact/);
+    await db.exec('rollback to savepoint before_missing_source');
+    await switchRole('authenticated');
+    assert.equal(await scalar('select count(*)::int from public.reel_analysis_attempts'), 0);
+    assert.equal(await scalar("select state from public.agent_runs where mode='reel_analysis'"), 'queued');
+  });
+});
+test('the upstream evidence grant is select-only and reaches nothing else in Omar schema', async () => {
+  assert.equal(await scalar("select has_table_privilege('bagos_reel_analysis_command','public.research_revision_bodies','SELECT')"), true);
+  for (const privilege of ['INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) {
+    assert.equal(await scalar("select has_table_privilege('bagos_reel_analysis_command','public.research_revision_bodies',$1)", [privilege]), false);
+  }
+  // agent_tasks is the one other cross-domain read Ziad already had, for
+  // requester/run lineage during fan-out; nothing else in Omar's schema opens.
+  for (const table of ['public.research_outcomes','public.research_attempts','private.research_brand_binding']) {
+    for (const privilege of ['SELECT','INSERT','UPDATE','DELETE']) {
+      assert.equal(await scalar("select has_table_privilege('bagos_reel_analysis_command',$1,$2)", [table,privilege]), false);
+    }
+  }
+  // The executor login that actually calls the command still sees no table.
+  for (const role of ['bagos_reel_analyst_executor','anon','authenticated','service_role']) {
+    assert.equal(await scalar("select has_table_privilege($1,'public.research_revision_bodies','INSERT')", [role]), false);
+  }
+  assert.equal(await scalar("select has_table_privilege('bagos_reel_analyst_executor','public.research_revision_bodies','SELECT')"), false);
+  assert.equal(await scalar(`select count(*)::int from pg_policies where schemaname='public' and tablename='research_revision_bodies'
+    and 'bagos_reel_analysis_command' = any(roles) and cmd <> 'SELECT'`), 0);
 });
 test('provider failure is durable and retry is explicit, idempotent and attempt-bound', async () => {
   await transactionAs(operator, async () => {
@@ -210,10 +275,12 @@ test('completion replay is digest-bound without duplicate artifacts', async () =
     await submit(); const lease = await claim(); const result = reelResult(lease);
     assert.deepEqual(await complete(lease,result), await complete(lease,result));
     await switchRole('authenticated');
-    // 3, not 2: the brief artifact, the reel-analysis artifact, and (since
+    // 4: the seeded Omar evidence artifact this suite now needs so the brief's
+    // sourceRevisionId names a real row, the reel-analysis brief artifact, the
+    // reel-analysis output artifact, and (since
     // 20260918070100_adam_nour_auto_enqueue.sql) the content-calendar brief
     // artifact the completion's reel_analysis_outcomes insert auto-enqueues.
-    assert.equal(await scalar('select count(*)::int from public.artifacts'), 3);
+    assert.equal(await scalar('select count(*)::int from public.artifacts'), 4);
     await switchRole('postgres');
     assert.equal(await scalar("select count(*)::int from public.command_receipts where command_kind='complete_reel_analysis_attempt'"), 1);
     assert.equal(await scalar("select count(*)::int from public.audit_log where event_type='reel_analysis_attempt_completed'"), 1);
@@ -277,8 +344,10 @@ test('late completion audit failure preserves running state and creates no parti
     await db.exec('rollback to savepoint before_completion');
     await switchRole('authenticated');
     assert.equal(await scalar('select count(*)::int from public.reel_analysis_outcomes'), 0);
-    assert.equal(await scalar('select count(*)::int from public.artifacts'), 1);
-    assert.equal(await scalar('select count(*)::int from public.artifact_revisions'), 1);
+    // 2 apiece: the seeded Omar evidence artifact/revision plus this test's own
+    // brief; the rolled-back completion contributes nothing.
+    assert.equal(await scalar('select count(*)::int from public.artifacts'), 2);
+    assert.equal(await scalar('select count(*)::int from public.artifact_revisions'), 2);
     assert.equal(await scalar('select count(*)::int from public.reel_analysis_revision_bodies'), 1);
     assert.equal(await scalar('select state from public.reel_analysis_attempts'), 'running');
     assert.equal(await scalar('select state from public.agent_runs'), 'running');
@@ -368,13 +437,35 @@ test('retry requires the bound tenant and remains terminal for invalid-contract 
   });
 });
 
-test('SQL refuses completion without supplied modalities even if all gaps are explicit', async () => {
+// An honest "nothing was inspectable" result is a real artifact, not a failed
+// attempt, and it is the only shape a no-media brief can ever produce: the
+// modality rules below still refuse every alternative.
+test('SQL accepts an honest unavailable-media completion when nothing was supplied', async () => {
   await transactionAs(operator, async () => {
     await submit({...brief,suppliedModalities:[]}); const lease = await claim();
     const result = reelResult(lease); result.artifact.inspectedModalities = []; result.artifact.findings = [];
     result.artifact.unavailableModalities.push({...result.artifact.unavailableModalities[0],modality:'transcript'});
-    await assert.rejects(complete(lease,result), /uninspected_modality/);
+    const completed = await complete(lease,result);
+    assert.equal(completed.status, 'succeeded');
+    await switchRole('postgres');
+    assert.deepEqual(await scalar('select body from public.reel_analysis_revision_bodies where revision_id=$1', [completed.revisionId]), result.artifact);
   });
+});
+test('a no-media brief still cannot claim an inspection, carry a finding, or drop a requested modality', async () => {
+  for (const mutate of [
+    (result, honest) => { result.artifact.inspectedModalities = ['transcript']; result.artifact.unavailableModalities = [honest.unavailableModalities[0]]; },
+    (result, honest) => { result.artifact.findings = honest.findings; },
+    (result) => { result.artifact.unavailableModalities.pop(); },
+  ]) {
+    await transactionAs(operator, async () => {
+      await submit({...brief,suppliedModalities:[]}); const lease = await claim();
+      const honest = reelResult(lease).artifact;
+      const result = reelResult(lease); result.artifact.inspectedModalities = []; result.artifact.findings = [];
+      result.artifact.unavailableModalities.push({...result.artifact.unavailableModalities[0],modality:'transcript'});
+      mutate(result, honest);
+      await assert.rejects(complete(lease,result), /uninspected_modality|invalid_contract/);
+    });
+  }
 });
 
 test('completion permits honest unavailable modalities without fabricated findings', async () => {
@@ -438,7 +529,11 @@ test('receipt persistence failure rolls back the completion audit and every outp
     assert.equal(await scalar("select count(*)::int from public.audit_log where event_type='reel_analysis_attempt_completed'"), 0);
     assert.equal(await scalar('select count(*)::int from public.command_receipts'), 0);
     assert.equal(await scalar('select count(*)::int from public.reel_analysis_outcomes'), 0);
-    for (const table of ['artifacts','artifact_revisions','reel_analysis_revision_bodies']) assert.equal(await scalar(`select count(*)::int from public.${table}`), 1);
+    // artifacts/artifact_revisions are 2 because this suite seeds Omar's
+    // evidence revision so the brief's sourceRevisionId names a real row; only
+    // the reel-analysis brief body belongs to this run.
+    for (const table of ['artifacts','artifact_revisions']) assert.equal(await scalar(`select count(*)::int from public.${table}`), 2);
+    assert.equal(await scalar('select count(*)::int from public.reel_analysis_revision_bodies'), 1);
     assert.equal(await scalar('select state from public.reel_analysis_attempts'), 'running');
     assert.equal(await scalar('select state from public.agent_runs'), 'running');
   });

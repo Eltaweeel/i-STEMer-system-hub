@@ -15,4 +15,5 @@ export const migrationNames = [
   '20260917100100_nour_content_calendar_completion.sql',
   '20260918070000_adam_ziad_auto_enqueue.sql',
   '20260918070100_adam_nour_auto_enqueue.sql',
+  '20260920090000_adam_upstream_artifact_handoff.sql',
 ];

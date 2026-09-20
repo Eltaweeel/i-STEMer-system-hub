@@ -23,8 +23,19 @@ function artifact(): ReelAnalysisArtifact {
       interpretation: null, confidence: 'medium', gaps: [] }],
     unavailableModalities: [{ ...binding, sourceRevisionId, modality: 'audio', reason: 'Audio was not supplied.' }] };
 }
+// Omar's evidence, as the claim command now reads it out of the revision the
+// brief names and hands to the worker.
+function upstreamArtifact() {
+  return { contractVersion: 'research.v1' as const, tenantId: id(1), taskId: id(80), runId: id(81),
+    attemptId: id(82), producedBy: 'competitor_analyst' as const, sourceRevisionIds: [id(83)],
+    evidence: [{ sourceUrl: 'https://example.org/pricing', inspectionReceiptId: id(84),
+      inspectedAt: new Date(NOW).toISOString(), observation: 'Upstream observation',
+      interpretation: null, confidence: 'low' as const, gaps: [] }],
+    gaps: [], liveEffects: false as const };
+}
 function claimed(claimedTask = task()) {
-  return { status: 'claimed', task: claimedTask, handoff: { ...binding, fromAgentId: 'orchestrator',
+  return { status: 'claimed', task: claimedTask, sourceArtifact: upstreamArtifact(),
+    handoff: { ...binding, fromAgentId: 'orchestrator',
     toAgentId: 'reel_analyst', inputRevisionIds: [sourceRevisionId] } };
 }
 function config(claim: unknown = claimed()) {
@@ -46,12 +57,20 @@ describe('runReelAnalysisWorkerCycle', () => {
     expect(options.port.complete).not.toHaveBeenCalled();
   });
 
-  it('fails empty supplied modalities without dispatching', async () => {
+  it('completes empty supplied modalities honestly without dispatching or spending a model call', async () => {
     const empty = task(); empty.brief.suppliedModalities = [];
     const options = config(claimed(empty));
-    expect(await runReelAnalysisWorkerCycle(options)).toEqual({ outcome: 'failed', runId, attemptId, code: 'uninspected_modality' });
-    expect(options.port.fail).toHaveBeenCalledWith(attemptId, 'uninspected_modality');
+    expect(await runReelAnalysisWorkerCycle(options)).toEqual({ outcome: 'succeeded', runId, attemptId });
     expect(options.dispatch).not.toHaveBeenCalled();
+    expect(options.port.fail).not.toHaveBeenCalled();
+    const [, artifact] = options.port.complete.mock.calls[0]!;
+    expect(artifact.inspectedModalities).toEqual([]);
+    expect(artifact.findings).toEqual([]);
+    // Every requested modality is accounted for as explicitly not inspected,
+    // which is what stops the honest path from reading as a real analysis.
+    expect(artifact.unavailableModalities.map((entry: { modality: string }) => entry.modality))
+      .toEqual(empty.brief.requestedModalities);
+    for (const entry of artifact.unavailableModalities) expect(entry.reason).toMatch(/no media was supplied/i);
   });
 
   it.each([false, true])('reports pre-dispatch expiry without fail, even with empty modalities: %s', async (empty) => {
@@ -76,7 +95,7 @@ describe('runReelAnalysisWorkerCycle', () => {
     expect(await runReelAnalysisWorkerCycle(options)).toEqual({ outcome: 'succeeded', runId, attemptId });
     const [endpoint, signed, body, timeout] = options.dispatch.mock.calls[0]!;
     expect(endpoint).toEqual(options.endpoint);
-    expect(JSON.parse(Buffer.from(body).toString('utf8'))).toEqual({ task: task(), handoff: claimed().handoff });
+    expect(JSON.parse(Buffer.from(body).toString('utf8'))).toEqual({ task: task(), handoff: claimed().handoff, sourceArtifact: upstreamArtifact() });
     expect(signed.signature).toBe(signReelAnalysisRequest(body, signed, key).signature);
     expect(timeout).toBe(20000);
     expect(options.port.complete).toHaveBeenCalledWith(attemptId, artifact());

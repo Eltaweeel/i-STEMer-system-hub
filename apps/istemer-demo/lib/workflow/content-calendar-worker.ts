@@ -1,6 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
-import { NourTaskSchema, NourHandoffSchema, validateNourArtifact,
+import { NourTaskSchema, NourHandoffSchema, ReelAnalysisArtifactSchema, validateNourArtifact,
   type NourArtifact } from '@bagos/contracts';
 import { freshMetadata, signContentCalendarRequest,
   type ContentCalendarEndpoint, type DispatchOutcome, type SignedContentCalendarRequest } from './content-calendar-transport';
@@ -26,7 +26,11 @@ export type ContentCalendarDispatcher = (
 ) => Promise<DispatchOutcome>;
 
 const claimResultSchema = z.union([
-  z.object({ status: z.literal('claimed'), task: NourTaskSchema, handoff: NourHandoffSchema }).strict(),
+  // sourceArtifact is Ziad's analysis, read server-side by the claim command
+  // from the revision the brief names. Nour is handed the content itself
+  // rather than an identifier it has no database access to resolve.
+  z.object({ status: z.literal('claimed'), task: NourTaskSchema, handoff: NourHandoffSchema,
+    sourceArtifact: ReelAnalysisArtifactSchema }).strict(),
   z.object({ status: z.literal('failed'), runId: z.string().uuid(), code: z.string() }).strict(),
   z.null(),
 ]);
@@ -78,7 +82,7 @@ export async function runContentCalendarWorkerCycle(config: ContentCalendarWorke
     return fail(config.port, task.runId, task.attemptId, 'invalid_contract');
   }
 
-  const body = new TextEncoder().encode(JSON.stringify({ task, handoff }));
+  const body = new TextEncoder().encode(JSON.stringify({ task, handoff, sourceArtifact: claimed.sourceArtifact }));
   const signed = signContentCalendarRequest(body, freshMetadata(config.keyId, config.now()), config.signingKey);
   const remaining = Date.parse(task.expiresAt) - config.now();
   if (remaining <= 0) return { outcome: 'lease_expired', runId: task.runId, attemptId: task.attemptId };

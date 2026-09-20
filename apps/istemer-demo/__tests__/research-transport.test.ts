@@ -25,7 +25,10 @@ describe('signResearchRequest', () => {
   it('rejects an empty or oversized body', () => {
     const metadata = freshMetadata('k', 0);
     expect(() => signingInput(new Uint8Array(0), metadata)).toThrow();
-    expect(() => signingInput(new Uint8Array(64 * 1024 + 1), metadata)).toThrow();
+    // One byte past the 2 MiB envelope ceiling, which exists so a 1 MiB
+    // upstream artifact still fits alongside the task and handoff.
+    expect(() => signingInput(new Uint8Array(2 * 1024 * 1024 + 1), metadata)).toThrow();
+    expect(() => signingInput(new Uint8Array(2 * 1024 * 1024), metadata)).not.toThrow();
   });
 
   it('freshMetadata produces a nonce matching the verifier-required 64-hex-char format', () => {
