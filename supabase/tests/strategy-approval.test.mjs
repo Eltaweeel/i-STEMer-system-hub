@@ -298,3 +298,33 @@ test('the auto-create and invalidation triggers cannot be invoked directly, and 
     }
   }
 });
+
+test('any active member can read pending approvals but only an owner may decide', async () => {
+  await transactionAs(operator, async () => {
+    const completed = await submitClaimComplete();
+    await switchRole('authenticated');
+    const digest = await scalar('select content_digest from public.artifact_revisions where id=$1', [completed.revisionId]);
+
+    await actAs(operator, 'aal1');
+    const asOperator = await scalar('select private.read_tenant_approvals($1)', [tenant]);
+    assert.equal(asOperator.canDecide, false);
+    assert.equal(asOperator.approvals.length, 1);
+    assert.equal(asOperator.approvals[0].artifactRevisionId, completed.revisionId);
+    // The digest travels with the row so a decision binds to the exact revision
+    // the caller was shown, rather than to whatever is current when they act.
+    assert.equal(asOperator.approvals[0].contentDigest, digest);
+    assert.equal(asOperator.approvals[0].stage, 'strategy');
+
+    await actAs(owner, 'aal2');
+    assert.equal((await scalar('select private.read_tenant_approvals($1)', [tenant])).canDecide, true);
+  });
+});
+
+test('a caller with no active membership cannot read approvals', async () => {
+  await transactionAs(operator, async () => {
+    await actAs(id(998), 'aal2');
+    await db.exec('savepoint before_denied_read');
+    await assert.rejects(scalar('select private.read_tenant_approvals($1)', [tenant]), (error) => error.code === '42501');
+    await db.exec('rollback to savepoint before_denied_read');
+  });
+});

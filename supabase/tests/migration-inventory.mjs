@@ -23,4 +23,5 @@ export const migrationNames = [
   '20260920130000_hadeer_strategy_approval_auto_create.sql',
   '20260920140000_hadeer_approval_reject_command.sql',
   '20260920150000_hadeer_approval_revision_invalidation.sql',
+  '20260920160000_hadeer_approval_read_and_wrappers.sql',
 ];
