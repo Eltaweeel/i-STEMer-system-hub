@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { refusalText } from '../../../../lib/workflow/refusal-text';
 
 /** Prepares the exact package the second approval decides on. The caption is
  * never sent from here: the command copies it from the stored calendar entry,
@@ -40,12 +41,15 @@ export function PrepareFinishedPost({ ar, tenantId, calendarRevisionId, dayIndex
       const response = await fetch(`/api/finished-post/${encodeURIComponent(tenantId)}`, { method: 'POST',
         headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.code ?? payload.error ?? 'package_failed');
+      // Named reason before SQLSTATE -- see refusal-text. Preparing a post
+      // before the calendar is approved is the most common refusal of all, and
+      // it must not read as "55000".
+      if (!response.ok) throw new Error(refusalText(ar, payload, 'package_failed'));
       setStatus(ar
         ? 'أُنشئت الحزمة وتنتظر موافقة المالك في قائمة الموافقات.'
         : 'Package created and now awaiting owner approval in the approvals list.');
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'package_failed');
+      setStatus(error instanceof Error ? error.message : refusalText(ar, null, 'package_failed'));
     } finally { setBusy(false); }
   };
 

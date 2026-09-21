@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { TenantApprovalsSchema, type ApprovalRow, type TenantApprovals } from '../../../../lib/workflow/approvals-types';
+import { refusalText } from '../../../../lib/workflow/refusal-text';
 
 function statusText(ar: boolean, status: ApprovalRow['status']): string {
   if (status === 'pending') return ar ? 'بانتظار القرار' : 'awaiting decision';
@@ -51,10 +52,13 @@ export function ApprovalsPanel({ ar, tenantId }: { ar: boolean; tenantId: string
       const response = await fetch('/api/approvals', { method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ tenantId, approvalId: row.approvalId, contentDigest: row.contentDigest, decision, reason }) });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.code ?? body.error ?? 'decision_failed');
+      // The named reason first, never the SQLSTATE: several refusals share
+      // 55000, so the bare code cannot tell an owner whether the calendar lost
+      // its approval or whether someone else already decided this.
+      if (!response.ok) throw new Error(refusalText(ar, body, 'decision_failed'));
       await load();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'decision_failed');
+      setStatus(error instanceof Error ? error.message : refusalText(ar, null, 'decision_failed'));
     } finally { setBusy(false); }
   };
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { UsageSummarySchema, type UsageSummary } from '../../../../lib/workflow/usage-types';
+import { refusalText } from '../../../../lib/workflow/refusal-text';
 
 export function UsageAllowancePanel({ ar, tenantId }: { ar: boolean; tenantId: string }) {
   const [summary, setSummary] = useState<UsageSummary | null>(null);
@@ -34,10 +35,11 @@ export function UsageAllowancePanel({ ar, tenantId }: { ar: boolean; tenantId: s
       const response = await fetch(`/api/usage/${encodeURIComponent(tenantId)}/allowance`, { method: 'POST',
         headers: { 'content-type': 'application/json' }, body: JSON.stringify({ memberUserId, limitTokens }) });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.code ?? body.error ?? 'allowance_failed');
+      // Named reason before SQLSTATE -- see refusal-text.
+      if (!response.ok) throw new Error(refusalText(ar, body, 'allowance_failed'));
       await load();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'allowance_failed');
+      setStatus(error instanceof Error ? error.message : refusalText(ar, null, 'allowance_failed'));
     } finally { setBusy(false); }
   };
 

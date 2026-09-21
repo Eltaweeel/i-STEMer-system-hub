@@ -110,14 +110,65 @@ it('offers no decision on a row a newer revision has invalidated', async () => {
   expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
 });
 
-it('surfaces a refused decision by name rather than reporting success', async () => {
+it('explains a refused decision instead of showing the shared SQLSTATE', async () => {
+  // Faithful to what the route actually returns: `code` is the Postgres
+  // SQLSTATE and is present on EVERY error body. An earlier fixture omitted it
+  // and so proved nothing -- the panel read `code` before `error`, and the
+  // named reason it was supposed to surface was dead code.
   vi.stubGlobal('fetch', async (_url: string, options?: RequestInit) => {
-    if (options?.method === 'POST') return Response.json({ error: 'strategy_not_approved' }, { status: 409 });
+    if (options?.method === 'POST') {
+      return Response.json({ error: 'strategy_not_approved', code: '55000' }, { status: 409 });
+    }
     return Response.json(payload([row]));
   });
   render(<ApprovalsPanel ar={false} tenantId={tenantId} />);
   fireEvent.click(await screen.findByRole('button', { name: 'Approve' }));
-  await screen.findByText('strategy_not_approved');
+  const shown = await screen.findByRole('alert');
+  expect(shown.textContent).toMatch(/no longer carry a valid approval/i);
+  // The five digits say nothing: a lost calendar approval and an item someone
+  // else already decided both raise 55000.
+  expect(shown.textContent).not.toMatch(/55000/);
+});
+
+it('distinguishes two refusals that share one SQLSTATE', async () => {
+  vi.stubGlobal('fetch', async (_url: string, options?: RequestInit) => {
+    if (options?.method === 'POST') {
+      return Response.json({ error: 'approval_is_not_pending', code: '55000' }, { status: 409 });
+    }
+    return Response.json(payload([row]));
+  });
+  render(<ApprovalsPanel ar={false} tenantId={tenantId} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Approve' }));
+  const shown = await screen.findByRole('alert');
+  expect(shown.textContent).toMatch(/already recorded/i);
+});
+
+it('shows an unrecognised refusal as it arrived rather than flattening it', async () => {
+  // A refusal nobody anticipated is still something the reader should be able
+  // to report accurately, so it is never swallowed into a generic failure.
+  vi.stubGlobal('fetch', async (_url: string, options?: RequestInit) => {
+    if (options?.method === 'POST') return Response.json({ error: 'some_new_reason', code: '23514' }, { status: 409 });
+    return Response.json(payload([row]));
+  });
+  render(<ApprovalsPanel ar={false} tenantId={tenantId} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Approve' }));
+  const shown = await screen.findByRole('alert');
+  expect(shown.textContent).toContain('some_new_reason');
+  expect(shown.textContent).toContain('23514');
+});
+
+it('explains a refused decision in Arabic too', async () => {
+  vi.stubGlobal('fetch', async (_url: string, options?: RequestInit) => {
+    if (options?.method === 'POST') {
+      return Response.json({ error: 'strategy_not_approved', code: '55000' }, { status: 409 });
+    }
+    return Response.json(payload([row]));
+  });
+  render(<ApprovalsPanel ar tenantId={tenantId} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'موافقة' }));
+  const shown = await screen.findByRole('alert');
+  expect(shown.textContent).toMatch(/لم تعد الاستراتيجية والتقويم يحملان موافقة سارية/);
+  expect(shown.textContent).not.toMatch(/55000/);
 });
 
 it('states the undecidable case in Arabic too, with the controls equally absent', async () => {

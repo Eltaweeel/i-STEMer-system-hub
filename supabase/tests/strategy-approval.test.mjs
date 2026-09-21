@@ -574,3 +574,58 @@ test('packaging one calendar never disturbs a pending decision belonging to a di
     assert.equal(await scalar('select status from public.approvals where id=$1', [secondPackage.approvalId]), 'pending');
   });
 });
+
+// `select ... into member_role` leaves NULL when the caller has no membership
+// row, and `NULL <> 'owner'` is NULL, which plpgsql's IF treats as false. So a
+// guard written as `if member_role <> 'owner'` refuses a member holding the
+// wrong role -- 'operator' <> 'owner' is plainly true -- while falling straight
+// through for someone with no row at all. The tests above only ever exercised
+// the first case, which is why this stood.
+test('a caller with no membership row cannot decide, so a null role never reads as ownership', async () => {
+  await transactionAs(operator, async () => {
+    const completed = await submitClaimComplete();
+    await switchRole('authenticated');
+    const approvalId = await scalar('select id from public.approvals where artifact_revision_id=$1', [completed.revisionId]);
+    const digest = await scalar('select content_digest from public.artifact_revisions where id=$1', [completed.revisionId]);
+
+    // A stranger to this tenant, holding a perfectly valid AAL2 session of
+    // their own. Nothing about the approval id or digest is secret.
+    await actAs(id(998), 'aal2');
+    await db.exec('savepoint before_stranger');
+    await assert.rejects(scalar('select private.approve_agent_revision($1,$2,$3)', [tenant, approvalId, digest]),
+      (error) => error.code === '42501');
+    await db.exec('rollback to savepoint before_stranger');
+    await assert.rejects(scalar("select private.reject_agent_revision($1,$2,$3,'not mine to reject')", [tenant, approvalId, digest]),
+      (error) => error.code === '42501');
+    await db.exec('rollback to savepoint before_stranger');
+
+    // The decision must still be open, and no audit row may claim otherwise.
+    await switchRole('postgres');
+    assert.equal(await scalar('select status from public.approvals where id=$1', [approvalId]), 'pending');
+    assert.equal(await scalar(
+      "select count(*)::int from public.audit_log where actor_reference=$1", [id(998)]), 0);
+  });
+});
+
+// The same NULL-blind shape sits one line earlier: a JWT with no `aal` claim at
+// all makes `(auth.jwt()->>'aal') <> 'aal2'` null rather than true.
+test('an owner whose session carries no assurance claim is refused rather than waved through', async () => {
+  await transactionAs(operator, async () => {
+    const completed = await submitClaimComplete();
+    await switchRole('authenticated');
+    const approvalId = await scalar('select id from public.approvals where artifact_revision_id=$1', [completed.revisionId]);
+    const digest = await scalar('select content_digest from public.artifact_revisions where id=$1', [completed.revisionId]);
+
+    await switchRole('postgres');
+    await db.query("select set_config('request.jwt.claim.sub',$1,true), set_config('request.jwt.claims',$2,true)",
+      [owner, JSON.stringify({ sub: owner, is_anonymous: false })]);
+    await switchRole('authenticated');
+    await db.exec('savepoint before_claimless');
+    await assert.rejects(scalar('select private.approve_agent_revision($1,$2,$3)', [tenant, approvalId, digest]),
+      (error) => error.code === '42501');
+    await db.exec('rollback to savepoint before_claimless');
+
+    await switchRole('postgres');
+    assert.equal(await scalar('select status from public.approvals where id=$1', [approvalId]), 'pending');
+  });
+});
