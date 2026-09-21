@@ -12,6 +12,12 @@ function statusText(ar: boolean, status: ApprovalRow['status']): string {
   return ar ? 'أُلغي بسبب مراجعة أحدث' : 'invalidated by a newer revision';
 }
 
+/** A finished post with no detail cannot be judged: its caption and asset
+ * state are the entire basis of the decision. */
+function undecidable(row: ApprovalRow): boolean {
+  return row.stage === 'finished_post' && !row.finishedPost;
+}
+
 function stageText(ar: boolean, stage: ApprovalRow['stage']): string {
   if (stage === 'strategy') return ar ? 'الاستراتيجية والتقويم' : 'strategy and calendar';
   return ar ? 'المنشور النهائي' : 'finished post';
@@ -76,14 +82,22 @@ export function ApprovalsPanel({ ar, tenantId }: { ar: boolean; tenantId: string
                 : (ar ? 'الأصل: عنصر نائب فقط — لم يُنتَج أي تصميم نهائي.' : 'Asset: placeholder only — no finished graphic has been produced.')}
             </p>
           </>}
-          {row.status === 'pending' && (data.canDecide
-            ? <>
-              <button type="button" disabled={busy} onClick={() => void decide(row, 'approve')}>{ar ? 'موافقة' : 'Approve'}</button>
-              <button type="button" disabled={busy} onClick={() => void decide(row, 'reject')}>{ar ? 'رفض' : 'Reject'}</button>
-            </>
-            // Stated, not merely hidden: a viewer who cannot decide should know
-            // the work is waiting on someone who can, not think it is stuck.
-            : <p role="status">{ar ? 'القرار لمالك المؤسسة فقط.' : 'Only the organization owner can decide this.'}</p>)}
+          {/* A finished post whose detail did not arrive is not decidable: the
+              caption and asset state are the whole basis of this decision, and
+              offering the controls without them is the blind approval this
+              stage exists to prevent. */}
+          {row.status === 'pending' && (undecidable(row)
+            ? <p role="alert">{ar
+              ? 'تفاصيل المنشور غير متاحة، فلا يمكن اتخاذ القرار الآن.'
+              : 'This post could not be shown in full, so it cannot be decided yet.'}</p>
+            : data.canDecide
+              ? <>
+                <button type="button" disabled={busy} onClick={() => void decide(row, 'approve')}>{ar ? 'موافقة' : 'Approve'}</button>
+                <button type="button" disabled={busy} onClick={() => void decide(row, 'reject')}>{ar ? 'رفض' : 'Reject'}</button>
+              </>
+              // Stated, not merely hidden: a viewer who cannot decide should know
+              // the work is waiting on someone who can, not think it is stuck.
+              : <p role="status">{ar ? 'القرار لمالك المؤسسة فقط.' : 'Only the organization owner can decide this.'}</p>)}
         </li>)}
       </ul>}
     <p role="status">{ar

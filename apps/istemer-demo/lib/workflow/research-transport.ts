@@ -45,8 +45,13 @@ export function dispatchResearchTask(
             // Read from the body rather than assumed: a responder that reports
             // nothing must yield null, not a fabricated zero, and anything that
             // is not a finite non-negative number is treated as unreported.
+            // Bounded to what `usage_records.reported_tokens` (integer) can
+            // actually hold. A fractional or oversized figure would be rejected
+            // by the database, and recordUsage swallows that failure, so the
+            // allowance would quietly under-count rather than fail loudly.
             const raw = (parsed as { reportedTokens?: unknown }).reportedTokens;
-            const reportedTokens = typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? raw : null;
+            const reportedTokens = typeof raw === 'number' && Number.isSafeInteger(raw)
+              && raw >= 0 && raw <= 2_147_483_647 ? raw : null;
             finish({ status: 'ok', artifact: (parsed as { artifact: unknown }).artifact, reportedTokens });
           } else if (parsed && typeof parsed === 'object' && 'error' in parsed) {
             finish({ status: 'error', error: (parsed as { error: unknown }).error });

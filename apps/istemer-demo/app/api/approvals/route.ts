@@ -34,6 +34,14 @@ export async function POST(request: Request) {
       wanted_tenant: input.tenantId, approval_id: input.approvalId, expected_digest: input.contentDigest,
       reason: (input.reason as string).trim(),
     });
-  if (response.error) return NextResponse.json({ error: 'decision_failed', code: response.error.code }, { status: 409 });
+  if (response.error) {
+    // Several distinct refusals share SQLSTATE 55000, so the bare code cannot
+    // tell an owner whether the calendar behind this post lost its approval or
+    // whether someone else already decided it.
+    const message = String(response.error.message ?? '');
+    const reason = ['strategy_not_approved', 'approval is not pending', 'approval digest mismatch']
+      .find((candidate) => message.includes(candidate)) ?? 'decision_failed';
+    return NextResponse.json({ error: reason.replace(/ /g, '_'), code: response.error.code }, { status: 409 });
+  }
   return NextResponse.json({ approval: response.data, decision, externalPublication: false });
 }

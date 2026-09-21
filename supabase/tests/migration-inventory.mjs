@@ -29,4 +29,5 @@ export const migrationNames = [
   '20260921090000_hadeer_finished_post_package.sql',
   '20260921100000_hadeer_approval_binding_repairs.sql',
   '20260921110000_hadeer_approval_gate_hardening.sql',
+  '20260921120000_hadeer_supersede_scope_repair.sql',
 ];

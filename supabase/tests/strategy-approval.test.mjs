@@ -506,13 +506,27 @@ test('a finished post cannot be approved once the calendar approval behind it wa
   });
 });
 
-test('superseding a pending package is audited, and supersedes across calendar revisions', async () => {
+test('superseding a pending package is audited, and reaches packages from an earlier revision of the same calendar', async () => {
   await transactionAs(operator, async () => {
     const completed = await submitClaimComplete();
     await actAs(owner, 'aal2');
     await approveStrategy(completed.revisionId);
     const first = await createPackage(completed.revisionId, 5, ASSET_PLACEHOLDER);
-    const second = await createPackage(completed.revisionId, 5, ASSET_SUPPLIED);
+    // A second revision of the same calendar, approved in its own right: a
+    // package built from it must still retire the pending decision from v1.
+    await switchRole('bagos_content_calendar_command');
+    const artifactId = await scalar('select artifact_id from public.artifact_revisions where id=$1', [completed.revisionId]);
+    const nextRevision = await scalar(`insert into public.artifact_revisions(tenant_id,artifact_id,revision,content_digest,producer_reference,provenance,qa)
+      values ($1,$2,2,$3,'content_creator','{"schema_version":1}','{"schema_version":1}') returning id`, [tenant, artifactId, 'c'.repeat(64)]);
+    await db.query('insert into public.content_calendar_revision_bodies(tenant_id,revision_id,body) values ($1,$2,$3)',
+      [tenant, nextRevision, await scalar('select body from public.content_calendar_revision_bodies where revision_id=$1', [completed.revisionId])]);
+    await switchRole('bagos_approval_command');
+    await db.query(`insert into public.approvals(tenant_id,artifact_revision_id,action_snapshot,action_digest,action_revision,tier,confirmation_required,stage,destination)
+      values ($1,$2,'{"schema_version":1}',$3,1,1,true,'strategy','{"schema_version":1}')`, [tenant, nextRevision, 'c'.repeat(64)]);
+    await actAs(owner, 'aal2');
+    await scalar('select private.approve_agent_revision($1,$2,$3)',
+      [tenant, await scalar("select id from public.approvals where artifact_revision_id=$1 and stage='strategy'", [nextRevision]), 'c'.repeat(64)]);
+    const second = await createPackage(nextRevision, 5, ASSET_SUPPLIED);
     await switchRole('postgres');
     assert.equal(await scalar('select status from public.approvals where id=$1', [first.approvalId]), 'invalidated');
     // The trail has to explain the decision that vanished, not only show the
@@ -529,13 +543,34 @@ test('a rejection reason is bounded by the bytes its payload must hold, not by c
     await actAs(owner, 'aal2');
     const approvalId = await scalar("select id from public.approvals where artifact_revision_id=$1 and stage='strategy'", [completed.revisionId]);
     const digest = await scalar('select content_digest from public.artifact_revisions where id=$1', [completed.revisionId]);
-    // Multi-byte text that is well under any character cap but over the byte
-    // bound used to overflow the stored payload and fail opaquely.
+    // Arabic costs two bytes a character, so 4500 characters exceed the 8000
+    // byte bound the stored payload has room for while 1200 sit comfortably
+    // inside it. Counting characters would have accepted both and then failed
+    // opaquely on the domain.
     await db.exec('savepoint before_long_reason');
-    await assert.rejects(scalar('select private.reject_agent_revision($1,$2,$3,$4)', [tenant, approvalId, digest, 'ن'.repeat(1200)]),
+    await assert.rejects(scalar('select private.reject_agent_revision($1,$2,$3,$4)', [tenant, approvalId, digest, 'ن'.repeat(4500)]),
       (error) => error.code === '22023');
     await db.exec('rollback to savepoint before_long_reason');
-    const accepted = await scalar('select private.reject_agent_revision($1,$2,$3,$4)', [tenant, approvalId, digest, 'ن'.repeat(400)]);
+    const accepted = await scalar('select private.reject_agent_revision($1,$2,$3,$4)', [tenant, approvalId, digest, 'ن'.repeat(1200)]);
     assert.equal(accepted.status, 'rejected');
+  });
+});
+
+test('packaging one calendar never disturbs a pending decision belonging to a different calendar', async () => {
+  await transactionAs(operator, async () => {
+    const first = await submitClaimComplete(id(300));
+    const second = await submitClaimComplete(id(301));
+    await actAs(owner, 'aal2');
+    await approveStrategy(first.revisionId);
+    await approveStrategy(second.revisionId);
+
+    const firstPackage = await createPackage(first.revisionId, 6, ASSET_PLACEHOLDER);
+    // Same day, unrelated calendar. Scoping the supersede to tenant + day
+    // would retire this one for no reason the owner could see.
+    const secondPackage = await createPackage(second.revisionId, 6, ASSET_SUPPLIED);
+
+    await switchRole('postgres');
+    assert.equal(await scalar('select status from public.approvals where id=$1', [firstPackage.approvalId]), 'pending');
+    assert.equal(await scalar('select status from public.approvals where id=$1', [secondPackage.approvalId]), 'pending');
   });
 });
