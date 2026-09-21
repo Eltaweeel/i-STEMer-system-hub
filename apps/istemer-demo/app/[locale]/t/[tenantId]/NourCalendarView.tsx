@@ -14,7 +14,19 @@ export function NourCalendarView({ ar, run }: { ar: boolean; run: NourRunView })
           <ol>
             {[...run.artifact.entries].sort((a, b) => a.dayIndex - b.dayIndex).map((entry) => (
               <li key={entry.dayIndex}>
-                {ar ? `اليوم ${entry.dayIndex + 1}:` : `Day ${entry.dayIndex + 1}:`} {entry.platform} — {entry.format} — {entry.conceptTitle}
+                <p>{ar ? `اليوم ${entry.dayIndex + 1}:` : `Day ${entry.dayIndex + 1}:`} {entry.platform} — {entry.format} — {entry.conceptTitle}</p>
+                <p>{ar ? 'الهدف:' : 'Objective:'} {entry.objective}</p>
+                <p>{ar ? 'الافتتاحية:' : 'Hook:'} {entry.hook}</p>
+                <p>{ar ? 'النص:' : 'Caption:'} {entry.caption}</p>
+                <p>{ar ? 'الدعوة لاتخاذ إجراء:' : 'Call to action:'} {entry.callToAction}</p>
+                {/* Worded as an outstanding requirement, never as an attachment:
+                    no media exists anywhere in this system yet, and a line that
+                    read as a delivered asset would misstate that. */}
+                <p>{ar ? 'المطلوب إنتاجه (لم يُرفق بعد):' : 'Asset still required (not attached):'} {entry.assetRequirement}</p>
+                {entry.evidenceRefs.length > 0 && <>
+                  <p>{ar ? 'مراجع الأدلة:' : 'Evidence references:'}</p>
+                  <ul>{entry.evidenceRefs.map((reference, index) => <li key={`${entry.dayIndex}-${index}`}>{reference}</li>)}</ul>
+                </>}
               </li>
             ))}
           </ol>

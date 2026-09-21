@@ -10,7 +10,8 @@ const task = { ...binding, requesterId: id(5), agentId: 'content_creator', allow
   issuedAt: '2026-09-17T00:00:00Z', expiresAt: '2026-09-17T00:10:00Z',
   brief: { ...lineage, idempotencyKey: id(6), objective: 'Draft a seven-day calendar from reel analysis',
     requestedPlatforms: ['instagram'] } };
-const entry = { ...lineage, dayIndex: 0, platform: 'instagram', format: 'reel', conceptTitle: 'Learning through experiments' };
+const entry = { ...lineage, dayIndex: 0, platform: 'instagram', format: 'reel', conceptTitle: 'Learning through experiments',
+  objective: 'Explain the programme value', hook: 'A question that opens the reel', caption: 'Full caption text for this day', callToAction: 'Book a trial session', assetRequirement: 'Reel footage still to be produced', evidenceRefs: [] };
 const artifact = { ...lineage, producedBy: 'content_creator',
   entries: Array.from({ length: 7 }, (_, dayIndex) => ({ ...entry, dayIndex })) };
 const handoff = { ...binding, fromAgentId: 'orchestrator', toAgentId: 'content_creator', inputRevisionIds: [id(8)] };

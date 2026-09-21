@@ -36,6 +36,7 @@ function artifactFixture() {
   const entries = Array.from({ length: 7 }, (_, dayIndex) => ({
     contractVersion: 'content-calendar.v1', tenantId, taskId, runId, attemptId, liveEffects: false,
     sourceRevisionId, dayIndex, platform: 'instagram' as const, format: 'post' as const, conceptTitle: `Day ${dayIndex} concept`,
+    objective: 'Explain the programme value', hook: 'A question that opens the reel', caption: 'Full caption text for this day', callToAction: 'Book a trial session', assetRequirement: 'Reel footage still to be produced', evidenceRefs: [],
   }));
   return { contractVersion: 'content-calendar.v1', tenantId, taskId, runId, attemptId, liveEffects: false,
     producedBy: 'content_creator', sourceRevisionId, entries };

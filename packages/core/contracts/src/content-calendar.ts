@@ -54,6 +54,21 @@ export const CalendarEntrySchema = z.object({
   platform: PlatformSchema,
   format: CalendarFormatSchema,
   conceptTitle: boundedText,
+  objective: boundedText,
+  hook: boundedText,
+  // The post body itself, not a summary of one: the finished-post package is
+  // assembled from this text, so anything shorter than the real caption would
+  // have to be rewritten by hand before it could be approved.
+  caption: boundedText,
+  callToAction: boundedText,
+  // What the post still needs, never what it has. No media exists anywhere in
+  // this system yet, so a field that could read as an attached asset would
+  // misrepresent the state of the work.
+  assetRequirement: boundedText,
+  // May be empty: an entry can legitimately rest on the upstream analysis as a
+  // whole rather than on a specific numbered finding. Capped so a model cannot
+  // pad it into an unbounded list.
+  evidenceRefs: z.array(boundedText).max(12),
 }).strict();
 
 export const NourArtifactSchema = z.object({

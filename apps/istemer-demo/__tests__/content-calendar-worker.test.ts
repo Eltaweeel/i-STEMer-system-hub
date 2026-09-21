@@ -24,7 +24,8 @@ function artifact(): NourArtifact {
   return { ...binding, producedBy: 'content_creator', sourceRevisionId,
     entries: Array.from({ length: 7 }, (_, dayIndex) => ({ ...binding, sourceRevisionId, dayIndex,
       platform: platforms[dayIndex % platforms.length]!, format: formats[dayIndex % formats.length]!,
-      conceptTitle: `Concept for day ${dayIndex}` })) };
+      conceptTitle: `Concept for day ${dayIndex}`,
+      objective: 'Explain the programme value', hook: 'A question that opens the reel', caption: 'Full caption text for this day', callToAction: 'Book a trial session', assetRequirement: 'Reel footage still to be produced', evidenceRefs: [] })) };
 }
 // Ziad's analysis, as the claim command now reads it out of the revision the
 // brief names and hands to the worker.

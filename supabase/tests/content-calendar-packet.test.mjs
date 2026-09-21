@@ -261,7 +261,8 @@ function calendarResult(lease, platforms = ['instagram', 'facebook']) {
   const formats = ['post', 'reel', 'story', 'carousel'];
   const entries = Array.from({ length: 7 }, (_, dayIndex) => ({ ...binding, dayIndex,
     platform: platforms[dayIndex % platforms.length], format: formats[dayIndex % formats.length],
-    conceptTitle: `Concept for day ${dayIndex}` }));
+    conceptTitle: `Concept for day ${dayIndex}`,
+    objective: 'Explain the programme value', hook: 'A question that opens the post', caption: 'Full caption text for this day', callToAction: 'Book a trial session', assetRequirement: 'Visual still to be produced', evidenceRefs: [] }));
   return { artifact: { ...binding, producedBy: 'content_creator', entries } };
 }
 const complete = (lease, result = calendarResult(lease)) => scalar('select private.complete_content_calendar_attempt($1,$2::jsonb)',
