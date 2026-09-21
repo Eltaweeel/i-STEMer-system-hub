@@ -365,3 +365,24 @@ test('browsers and service role cannot complete and stored output is immutable',
     await assert.rejects(db.exec("update public.research_outcomes set inspection_receipts='[]'::jsonb"), (error) => error.code === '23514');
   });
 });
+
+// `select state into current_state ... where id = wanted_run` leaves NULL when
+// no such run exists, and `NULL <> 'failed'` is NULL, which plpgsql's IF treats
+// as false. The guard was therefore skipped for a run id that matches nothing:
+// the UPDATE touched no row, but an audit entry was still written and the
+// caller was told the run had been queued.
+test('retrying a run that does not exist is refused, and writes no audit entry claiming otherwise', async () => {
+  await transactionAs(operator, async () => {
+    const missingRun = id(9001);
+    // The raised exception aborts the transaction, so the audit check below
+    // needs a savepoint to roll back to.
+    await db.exec('savepoint before_missing_retry');
+    await assert.rejects(scalar('select private.retry_agent_workflow($1,$2)', [tenant, missingRun]),
+      (error) => ['42501', '55000', '23503'].includes(error.code));
+    await db.exec('rollback to savepoint before_missing_retry');
+    // The audit trail is the record Hadeer is asked to trust. An entry for a
+    // run that never existed is worse than a refusal.
+    assert.equal(await scalar(
+      "select count(*)::int from public.audit_log where target_reference = $1", [missingRun]), 0);
+  });
+});
