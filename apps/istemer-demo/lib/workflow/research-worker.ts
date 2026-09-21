@@ -33,6 +33,11 @@ export interface ResearchCommandPort {
   claim(): Promise<unknown>;
   fail(attemptId: string, code: FailureCode): Promise<unknown>;
   complete(attemptId: string, artifact: ResearchArtifact, receipts: readonly SourceInspection[]): Promise<unknown>;
+  /** Records what this attempt consumed. reportedTokens is null when the
+   * provider returned no figure, which is the normal case while inference is a
+   * double -- and it must stay distinguishable from a measured zero, because an
+   * allowance computed from silent zeroes would read as "nothing was spent". */
+  recordUsage(attemptId: string, reportedTokens: number | null): Promise<unknown>;
 }
 
 /** Mirrors packages/core/research-worker/src/public-source.ts's SourceGapCode.
@@ -184,7 +189,17 @@ export async function runResearchWorkerCycle(config: ResearchWorkerConfig): Prom
   } catch {
     return { outcome: 'command_failed', runId: task.runId, attemptId: task.attemptId, stage: 'complete' };
   }
+  // Metering is recorded after the artifact is durable and deliberately cannot
+  // undo it: losing a usage row is a reporting gap, while failing an attempt
+  // that genuinely produced evidence would be a far worse lie. The gap is
+  // visible either way, because an unrecorded attempt is not counted as zero.
+  await recordUsage(config, task.attemptId, outcome.reportedTokens ?? null);
   return { outcome: 'succeeded', runId: task.runId, attemptId: task.attemptId };
+}
+
+async function recordUsage(config: ResearchWorkerConfig, attemptId: string, reportedTokens: number | null) {
+  try { await config.port.recordUsage(attemptId, reportedTokens); }
+  catch { /* Reporting only; the artifact is already durable and stays so. */ }
 }
 
 async function fail(port: ResearchCommandPort, runId: string, attemptId: string, code: FailureCode): Promise<WorkerCycleResult> {

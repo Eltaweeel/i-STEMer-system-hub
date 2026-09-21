@@ -64,6 +64,18 @@ export function ApprovalsPanel({ ar, tenantId }: { ar: boolean; tenantId: string
           <p>{ar ? 'المرحلة:' : 'Stage:'} {stageText(ar, row.stage)}</p>
           <p role={row.status === 'invalidated' ? 'alert' : 'status'}>{ar ? 'الحالة:' : 'Status:'} {statusText(ar, row.status)}</p>
           <p>{ar ? 'مراجعة القطعة:' : 'Artifact revision:'} {row.artifactRevisionId} (v{row.revision})</p>
+          {row.finishedPost && <>
+            <p>{ar ? 'اليوم:' : 'Day:'} {row.finishedPost.dayIndex + 1} — {row.finishedPost.platform} — {row.finishedPost.accountLabel}</p>
+            <p>{ar ? 'النص:' : 'Caption:'} {row.finishedPost.caption}</p>
+            {/* The asset state is stated outright, and a placeholder is called
+                one. Approving without knowing which of the two you have is the
+                single mistake this stage exists to prevent. */}
+            <p role={row.finishedPost.assetKind === 'placeholder' ? 'alert' : 'status'}>
+              {row.finishedPost.assetKind === 'supplied'
+                ? (ar ? 'الأصل: مرفق ومُنتَج.' : 'Asset: supplied and produced.')
+                : (ar ? 'الأصل: عنصر نائب فقط — لم يُنتَج أي تصميم نهائي.' : 'Asset: placeholder only — no finished graphic has been produced.')}
+            </p>
+          </>}
           {row.status === 'pending' && (data.canDecide
             ? <>
               <button type="button" disabled={busy} onClick={() => void decide(row, 'approve')}>{ar ? 'موافقة' : 'Approve'}</button>

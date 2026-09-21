@@ -15,7 +15,8 @@ const { readTenantApprovals } = await import('../lib/workflow/approvals-read');
 function payload(row: Record<string, unknown> = {}, top: Record<string, unknown> = {}) {
   return { schemaVersion: 1, tenantId, viewerRole: 'owner', canDecide: true, ...top,
     approvals: [{ approvalId, stage: 'strategy', status: 'pending', artifactRevisionId: revisionId,
-      contentDigest: 'a'.repeat(64), revision: 1, createdAt: '2026-09-20T00:00:00.000Z', ...row }] };
+      contentDigest: 'a'.repeat(64), revision: 1, createdAt: '2026-09-20T00:00:00.000Z',
+      finishedPost: null, ...row }] };
 }
 
 beforeEach(() => { boundary.data = payload(); boundary.error = null; });
@@ -40,6 +41,20 @@ describe('readTenantApprovals', () => {
       boundary.data = payload({ status });
       expect((await readTenantApprovals(tenantId)).approvals[0]!.status).toBe(status);
     }
+  });
+
+  it('carries the finished-post asset kind so a placeholder cannot read as a produced graphic', async () => {
+    boundary.data = payload({ stage: 'finished_post', finishedPost: { dayIndex: 3, caption: 'Caption for day 3',
+      assetKind: 'placeholder', platform: 'instagram', accountLabel: 'i_stemers (staging)' } });
+    const row = (await readTenantApprovals(tenantId)).approvals[0]!;
+    expect(row.finishedPost?.assetKind).toBe('placeholder');
+    expect(row.finishedPost?.caption).toBe('Caption for day 3');
+  });
+
+  it('rejects an asset kind outside the two the contract allows', async () => {
+    boundary.data = payload({ stage: 'finished_post', finishedPost: { dayIndex: 0, caption: 'x',
+      assetKind: 'probably_fine', platform: 'instagram', accountLabel: 'y' } });
+    await expect(readTenantApprovals(tenantId)).rejects.toMatchObject({ code: 'invalid_contract' });
   });
 
   it('rejects a status outside the contract rather than rendering it', async () => {

@@ -27,4 +27,5 @@ export const migrationNames = [
   '20260920170000_hadeer_allowance_write_wrapper.sql',
   '20260921080000_nour_calendar_entry_fields.sql',
   '20260921090000_hadeer_finished_post_package.sql',
+  '20260921100000_hadeer_approval_binding_repairs.sql',
 ];

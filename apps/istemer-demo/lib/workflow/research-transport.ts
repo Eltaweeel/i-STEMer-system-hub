@@ -8,7 +8,10 @@ export { RESEARCH_TRANSPORT_VERSION, RESEARCH_TASK_PATH, signingInput, signResea
 const MAX_RESPONSE_BYTES = 1024 * 1024;
 
 export type DispatchOutcome =
-  | { status: 'ok'; artifact: unknown }
+  // reportedTokens is absent whenever the responder gave no usage figure, which
+  // is every response while inference is a double. Absent is not zero, and the
+  // metering path keeps the two apart all the way into the database.
+  | { status: 'ok'; artifact: unknown; reportedTokens?: number | null }
   | { status: 'error'; error: unknown }
   | { status: 'transport_failure' };
 

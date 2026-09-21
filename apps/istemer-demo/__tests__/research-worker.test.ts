@@ -46,7 +46,7 @@ function fakePort(overrides: Partial<ResearchCommandPort> = {}): ResearchCommand
   return {
     claim: vi.fn().mockResolvedValue(null),
     fail: vi.fn().mockResolvedValue({ status: 'failed' }),
-    complete: vi.fn().mockResolvedValue({ status: 'succeeded' }),
+    complete: vi.fn().mockResolvedValue({ status: 'succeeded' }), recordUsage: vi.fn().mockResolvedValue({}),
     ...overrides,
   };
 }
@@ -224,5 +224,42 @@ describe('runResearchWorkerCycle', () => {
     const dispatch = vi.fn().mockResolvedValue({ status: 'ok', artifact: buildArtifact() });
     const result = await runResearchWorkerCycle(baseConfig({ port, dispatch }));
     expect(result).toEqual({ outcome: 'command_failed', runId, attemptId, stage: 'complete' });
+  });
+});
+
+describe('usage metering', () => {
+  it('records an unreported figure as unreported rather than as a measured zero', async () => {
+    const port = fakePort({ claim: vi.fn().mockResolvedValue({ status: 'claimed', task: buildTask(), handoff: buildHandoff() }) });
+    // The double returns no usage, which is every response until a real
+    // provider is wired. Recording that as 0 would make an allowance read as
+    // "nothing was spent" on work that certainly cost something.
+    const result = await runResearchWorkerCycle(baseConfig({ port }));
+    expect(result).toEqual({ outcome: 'succeeded', runId, attemptId });
+    expect(port.recordUsage).toHaveBeenCalledWith(attemptId, null);
+  });
+
+  it('passes a reported figure through unchanged when the responder gives one', async () => {
+    const port = fakePort({ claim: vi.fn().mockResolvedValue({ status: 'claimed', task: buildTask(), handoff: buildHandoff() }) });
+    const dispatch = vi.fn().mockResolvedValue({ status: 'ok', artifact: buildArtifact(), reportedTokens: 1234 });
+    await runResearchWorkerCycle(baseConfig({ port, dispatch }));
+    expect(port.recordUsage).toHaveBeenCalledWith(attemptId, 1234);
+  });
+
+  it('keeps a completed artifact durable even when metering itself fails', async () => {
+    const port = fakePort({
+      claim: vi.fn().mockResolvedValue({ status: 'claimed', task: buildTask(), handoff: buildHandoff() }),
+      recordUsage: vi.fn().mockRejectedValue(new Error('metering unavailable')),
+    });
+    // Losing a usage row is a reporting gap; failing an attempt that genuinely
+    // produced evidence would be the worse lie.
+    expect(await runResearchWorkerCycle(baseConfig({ port }))).toEqual({ outcome: 'succeeded', runId, attemptId });
+    expect(port.complete).toHaveBeenCalled();
+  });
+
+  it('records nothing for an attempt that failed instead of completing', async () => {
+    const port = fakePort({ claim: vi.fn().mockResolvedValue({ status: 'claimed', task: buildTask(), handoff: buildHandoff() }) });
+    const dispatch = vi.fn().mockResolvedValue({ status: 'transport_failure' });
+    await runResearchWorkerCycle(baseConfig({ port, dispatch }));
+    expect(port.recordUsage).not.toHaveBeenCalled();
   });
 });

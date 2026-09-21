@@ -334,6 +334,13 @@ test('a caller with no active membership cannot read approvals', async () => {
 const ASSET_SUPPLIED = { kind: 'supplied', reference: 'drive://approved/day-2.png', description: 'Classroom photo' };
 const ASSET_PLACEHOLDER = { kind: 'placeholder', reason: 'No graphic has been produced yet.' };
 const DESTINATION = { platform: 'instagram', accountLabel: 'i_stemers (staging, not connected)' };
+// The second stage only exists once the first one passed, so every package
+// test has to clear the strategy gate the way a real operator would.
+async function approveStrategy(revisionId) {
+  const approvalId = await scalar("select id from public.approvals where artifact_revision_id=$1 and stage='strategy'", [revisionId]);
+  const digest = await scalar('select content_digest from public.artifact_revisions where id=$1', [revisionId]);
+  return scalar('select private.approve_agent_revision($1,$2,$3)', [tenant, approvalId, digest]);
+}
 const createPackage = (revisionId, dayIndex, asset = ASSET_PLACEHOLDER, destination = DESTINATION) =>
   scalar('select public.create_finished_post_package($1,$2,$3,$4,$5)', [tenant, revisionId, dayIndex, asset, destination]);
 
@@ -341,6 +348,7 @@ test('a finished-post package copies the caption from the approved calendar entr
   await transactionAs(operator, async () => {
     const completed = await submitClaimComplete();
     await actAs(owner, 'aal2');
+    await approveStrategy(completed.revisionId);
     const created = await createPackage(completed.revisionId, 2, ASSET_SUPPLIED);
     assert.equal(created.assetKind, 'supplied');
 
@@ -366,6 +374,7 @@ test('a placeholder asset is recorded as a placeholder and can never masquerade 
   await transactionAs(operator, async () => {
     const completed = await submitClaimComplete();
     await actAs(owner, 'aal2');
+    await approveStrategy(completed.revisionId);
     const created = await createPackage(completed.revisionId, 0, ASSET_PLACEHOLDER);
     assert.equal(created.assetKind, 'placeholder');
     await switchRole('postgres');
@@ -379,6 +388,7 @@ test('a malformed asset, destination or day index is refused before anything is 
   await transactionAs(operator, async () => {
     const completed = await submitClaimComplete();
     await actAs(owner, 'aal2');
+    await approveStrategy(completed.revisionId);
     for (const [label, call] of [
       // A shape that claims to be supplied while omitting the reference is the
       // exact forgery the discriminated union exists to make impossible.
@@ -408,5 +418,62 @@ test('a non-member cannot create a finished-post package, and the command is not
     for (const role of ['anon', 'service_role']) {
       assert.equal(await scalar("select has_function_privilege($1,'public.create_finished_post_package(uuid,uuid,integer,jsonb,jsonb)','EXECUTE')", [role]), false);
     }
+  });
+});
+
+test('a decision cannot be recorded without a digest, so a null can never stand in for the binding', async () => {
+  await transactionAs(operator, async () => {
+    const completed = await submitClaimComplete();
+    await actAs(owner, 'aal2');
+    const approvalId = await scalar("select id from public.approvals where artifact_revision_id=$1 and stage='strategy'", [completed.revisionId]);
+    // `content_digest <> null` is null, not false, so a null digest used to slip
+    // past the guard entirely and record a decision bound to nothing.
+    for (const call of [
+      () => scalar('select private.approve_agent_revision($1,$2,$3)', [tenant, approvalId, null]),
+      () => scalar("select private.reject_agent_revision($1,$2,$3,'no reason to trust this')", [tenant, approvalId, null]),
+    ]) {
+      await db.exec('savepoint before_null_digest');
+      await assert.rejects(call(), (error) => error.code === '22023');
+      await db.exec('rollback to savepoint before_null_digest');
+    }
+    await switchRole('postgres');
+    assert.equal(await scalar('select status from public.approvals where id=$1', [approvalId]), 'pending');
+  });
+});
+
+test('a calendar that was never approved, or was rejected, cannot be packaged for the second decision', async () => {
+  await transactionAs(operator, async () => {
+    const pending = await submitClaimComplete();
+    await actAs(owner, 'aal2');
+    // Still pending: the first gate has not been passed at all.
+    await db.exec('savepoint before_pending_package');
+    await assert.rejects(createPackage(pending.revisionId, 0), /strategy_not_approved/);
+    await db.exec('rollback to savepoint before_pending_package');
+
+    const approvalId = await scalar("select id from public.approvals where artifact_revision_id=$1 and stage='strategy'", [pending.revisionId]);
+    const digest = await scalar('select content_digest from public.artifact_revisions where id=$1', [pending.revisionId]);
+    await scalar("select private.reject_agent_revision($1,$2,$3,'Wrong tone for the brand')", [tenant, approvalId, digest]);
+    // Rejected is emphatically not approved; packaging it would let the second
+    // decision launder a calendar the owner turned down.
+    await db.exec('savepoint before_rejected_package');
+    await assert.rejects(createPackage(pending.revisionId, 0), /strategy_not_approved/);
+    await db.exec('rollback to savepoint before_rejected_package');
+    await switchRole('postgres');
+    assert.equal(await scalar("select count(*)::int from public.approvals where stage='finished_post'"), 0);
+  });
+});
+
+test('re-packaging the same day supersedes the earlier pending decision instead of racing it', async () => {
+  await transactionAs(operator, async () => {
+    const completed = await submitClaimComplete();
+    await actAs(owner, 'aal2');
+    await approveStrategy(completed.revisionId);
+    const first = await createPackage(completed.revisionId, 1, ASSET_PLACEHOLDER);
+    const second = await createPackage(completed.revisionId, 1, ASSET_SUPPLIED);
+    await switchRole('postgres');
+    // An owner must never be choosing between two live packages for one day.
+    assert.equal(await scalar('select status from public.approvals where id=$1', [first.approvalId]), 'invalidated');
+    assert.equal(await scalar('select status from public.approvals where id=$1', [second.approvalId]), 'pending');
+    assert.equal(await scalar("select count(*)::int from public.approvals where stage='finished_post' and status='pending'"), 1);
   });
 });

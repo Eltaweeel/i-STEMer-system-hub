@@ -63,7 +63,12 @@ async function downstreamStage(client: SupabaseClient, tenantId: string, request
     .eq('tenant_id', tenantId).eq('mode', mode).eq('input_snapshot->>source_task_id', sourceTaskId).maybeSingle();
   if (run.error) throw new ResearchRequestError('persistence_failure', 503, true);
   if (!run.data) return null;
-  const candidate = runRow.parse(run.data);
+  // safeParse, not parse: a run state this view does not model is a contract
+  // problem, and reporting it as a persistence failure would send the reader
+  // looking for an outage that is not there.
+  const parsed = runRow.safeParse(run.data);
+  if (!parsed.success) throw new ResearchRequestError('invalid_contract', 503);
+  const candidate = parsed.data;
   // The trigger always copies the original requester onto the new task row
   // (see research_task.requester_id / reel_task.requester_id in the fan-out
   // migrations), so this must match whenever the run was truly reached

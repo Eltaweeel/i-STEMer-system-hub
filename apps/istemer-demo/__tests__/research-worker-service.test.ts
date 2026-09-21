@@ -5,7 +5,7 @@ import type { ResearchCommandPort } from '../lib/workflow/research-worker';
 
 function fakeConfig(claim: ResearchCommandPort['claim']) {
   return {
-    port: { claim, fail: vi.fn(), complete: vi.fn() },
+    port: { claim, fail: vi.fn(), complete: vi.fn(), recordUsage: vi.fn() },
     observe: vi.fn(),
     dispatch: vi.fn(),
     endpoint: { hostname: '127.0.0.1', port: 4100 },

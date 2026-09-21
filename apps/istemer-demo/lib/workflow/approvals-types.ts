@@ -16,6 +16,16 @@ export const ApprovalRowSchema = z.object({
   contentDigest: z.string(),
   revision: z.number().int().positive(),
   createdAt: z.string(),
+  // Present only for a finished post. assetKind is carried verbatim so the
+  // screen can distinguish a produced graphic from a stated placeholder --
+  // the distinction that decides whether this is safe to approve.
+  finishedPost: z.object({
+    dayIndex: z.number().int().min(0).max(6),
+    caption: z.string(),
+    assetKind: z.enum(['supplied', 'placeholder']),
+    platform: z.string(),
+    accountLabel: z.string(),
+  }).strict().nullable(),
 }).strict();
 
 export const TenantApprovalsSchema = z.object({

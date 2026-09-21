@@ -17,9 +17,14 @@ export function PrepareFinishedPost({ ar, tenantId, calendarRevisionId, dayIndex
     if (!accountLabel) return;
     // Asked outright rather than defaulted: a package whose asset state was
     // assumed is exactly the ambiguity the second approval must not inherit.
-    const reference = window.prompt(ar
+    // Cancel and empty must not collapse into one another: dismissing the
+    // dialog abandons the whole action, while an empty answer genuinely means
+    // no asset exists yet.
+    const referenceAnswer = window.prompt(ar
       ? 'مرجع الأصل المرفوع، أو اتركه فارغًا إذا لم يُنتج بعد:'
-      : 'Reference for a supplied asset, or leave empty if none has been produced yet:')?.trim() ?? '';
+      : 'Reference for a supplied asset, or leave empty if none has been produced yet:');
+    if (referenceAnswer === null) return;
+    const reference = referenceAnswer.trim();
     let body: Record<string, unknown> = { calendarRevisionId, dayIndex, platform, accountLabel };
     if (reference === '') {
       const reason = window.prompt(ar ? 'سبب عدم توفر الأصل:' : 'Why no asset is available yet:')?.trim();
