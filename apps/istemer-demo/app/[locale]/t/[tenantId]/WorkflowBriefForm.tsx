@@ -10,7 +10,7 @@ import { NourCalendarView } from './NourCalendarView';
 import { OmarEvidenceView } from './OmarEvidenceView';
 import { ZiadAnalysisView } from './ZiadAnalysisView';
 
-export function WorkflowBriefForm({ locale }: { locale: 'en' | 'ar' }) {
+export function WorkflowBriefForm({ locale, tenantId }: { locale: 'en' | 'ar'; tenantId: string }) {
   const ar = locale === 'ar';
   const [objective, setObjective] = useState('Find education competitors and content opportunities for i-STEMer.');
   const [sources, setSources] = useState('https://istemer.org/about-us/');
@@ -105,7 +105,7 @@ export function WorkflowBriefForm({ locale }: { locale: 'en' | 'ar' }) {
         ? <ZiadAnalysisView ar={ar} run={reelRun} />
         : <p role="status">{ar ? 'زياد: لم يبدأ بعد' : 'Ziad: not started'}</p>}
       {nourRun
-        ? <NourCalendarView ar={ar} run={nourRun} />
+        ? <NourCalendarView ar={ar} run={nourRun} tenantId={tenantId} />
         : <p role="status">{ar ? 'نور: لم يبدأ بعد' : 'Nour: not started'}</p>}
       <ChainLineageView ar={ar} research={run} reelAnalysis={reelRun} contentCalendar={nourRun} />
     </div>}

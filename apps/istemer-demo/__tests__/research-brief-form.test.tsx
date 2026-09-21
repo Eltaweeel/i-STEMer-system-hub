@@ -22,7 +22,7 @@ it('reuses the submission key after a lost response and shows queued rather than
     if (requests.length === 1) throw new TypeError('Network response lost');
     return Response.json({ accepted: { runId }, liveEffects: false }, { status: 202 });
   });
-  render(<WorkflowBriefForm locale="en" />);
+  render(<WorkflowBriefForm locale="en" tenantId="00000000-0000-4000-8000-000000000001" />);
   fireEvent.click(screen.getByRole('button', { name: 'Submit brief' }));
   await screen.findByText('Network response lost');
   fireEvent.click(screen.getByRole('button', { name: 'Submit brief' }));
@@ -40,11 +40,11 @@ it('reloads the artifact from the API after remount instead of keeping it only i
     evidence: [{ sourceUrl: 'https://example.org', inspectionReceiptId: revisionId, inspectedAt: '2026-09-16T12:00:00Z',
       observation: 'Fixture observation', interpretation: null, confidence: 'low', gaps: ['No live inspection in this test'] }] };
   vi.stubGlobal('fetch', async () => Response.json({ ...queued, status: 'succeeded', artifact, revisionId }));
-  const first = render(<WorkflowBriefForm locale="en" />);
+  const first = render(<WorkflowBriefForm locale="en" tenantId="00000000-0000-4000-8000-000000000001" />);
   await screen.findByText('Run status: succeeded');
   expect(first.container.textContent).toContain('Fixture observation');
   first.unmount();
-  const second = render(<WorkflowBriefForm locale="en" />);
+  const second = render(<WorkflowBriefForm locale="en" tenantId="00000000-0000-4000-8000-000000000001" />);
   await screen.findByText('Run status: succeeded');
   expect(second.container.textContent).toContain(revisionId);
 });
@@ -61,7 +61,7 @@ it('shows a failed attempt and exposes explicit retry without treating it as suc
       id: attemptId, state: 'failed', retryable: true, errorCode: 'provider_failure',
     } });
   });
-  render(<WorkflowBriefForm locale="en" />);
+  render(<WorkflowBriefForm locale="en" tenantId="00000000-0000-4000-8000-000000000001" />);
   await screen.findByText('Run status: failed');
   // The failure is announced through the stage view, which states which agent
   // failed alongside the raw code, so assert the code is surfaced rather than
