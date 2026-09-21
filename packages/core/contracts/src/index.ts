@@ -17,3 +17,4 @@ export * from './agent-transport';
 export * from './research-packet';
 export * from './reel-analysis';
 export * from './content-calendar';
+export * from './finished-post';

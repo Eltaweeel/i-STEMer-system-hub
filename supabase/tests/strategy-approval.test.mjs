@@ -330,3 +330,83 @@ test('a caller with no active membership cannot read approvals', async () => {
     await db.exec('rollback to savepoint before_denied_read');
   });
 });
+
+const ASSET_SUPPLIED = { kind: 'supplied', reference: 'drive://approved/day-2.png', description: 'Classroom photo' };
+const ASSET_PLACEHOLDER = { kind: 'placeholder', reason: 'No graphic has been produced yet.' };
+const DESTINATION = { platform: 'instagram', accountLabel: 'i_stemers (staging, not connected)' };
+const createPackage = (revisionId, dayIndex, asset = ASSET_PLACEHOLDER, destination = DESTINATION) =>
+  scalar('select public.create_finished_post_package($1,$2,$3,$4,$5)', [tenant, revisionId, dayIndex, asset, destination]);
+
+test('a finished-post package copies the caption from the approved calendar entry and raises a second-stage approval', async () => {
+  await transactionAs(operator, async () => {
+    const completed = await submitClaimComplete();
+    await actAs(owner, 'aal2');
+    const created = await createPackage(completed.revisionId, 2, ASSET_SUPPLIED);
+    assert.equal(created.assetKind, 'supplied');
+
+    await switchRole('postgres');
+    const stored = await scalar('select body from public.finished_post_revision_bodies where revision_id=$1', [created.revisionId]);
+    const entry = await scalar(`select e from public.content_calendar_revision_bodies b,
+      jsonb_array_elements(b.body->'entries') e where b.revision_id=$1 and (e->>'dayIndex')::int = 2`, [completed.revisionId]);
+    // The caption is copied server-side, so the second decision provably covers
+    // the same text the first one did rather than anything typed afterwards.
+    assert.equal(stored.caption, entry.caption);
+    assert.equal(stored.sourceRevisionId, completed.revisionId);
+    assert.equal(stored.liveEffects, false);
+
+    const approval = await scalar('select row_to_json(a) from public.approvals a where id=$1', [created.approvalId]);
+    assert.equal(approval.stage, 'finished_post');
+    assert.equal(approval.status, 'pending');
+    assert.equal(approval.artifact_revision_id, created.revisionId);
+    assert.equal(approval.action_digest, created.contentDigest);
+  });
+});
+
+test('a placeholder asset is recorded as a placeholder and can never masquerade as a supplied one', async () => {
+  await transactionAs(operator, async () => {
+    const completed = await submitClaimComplete();
+    await actAs(owner, 'aal2');
+    const created = await createPackage(completed.revisionId, 0, ASSET_PLACEHOLDER);
+    assert.equal(created.assetKind, 'placeholder');
+    await switchRole('postgres');
+    const stored = await scalar('select body from public.finished_post_revision_bodies where revision_id=$1', [created.revisionId]);
+    assert.equal(stored.asset.kind, 'placeholder');
+    assert.equal(stored.asset.reference, undefined);
+  });
+});
+
+test('a malformed asset, destination or day index is refused before anything is written', async () => {
+  await transactionAs(operator, async () => {
+    const completed = await submitClaimComplete();
+    await actAs(owner, 'aal2');
+    for (const [label, call] of [
+      // A shape that claims to be supplied while omitting the reference is the
+      // exact forgery the discriminated union exists to make impossible.
+      ['supplied without a reference', () => createPackage(completed.revisionId, 0, { kind: 'supplied', description: 'x' })],
+      ['unknown asset kind', () => createPackage(completed.revisionId, 0, { kind: 'probably_fine', reference: 'x', description: 'y' })],
+      ['placeholder carrying a reference', () => createPackage(completed.revisionId, 0, { kind: 'placeholder', reason: 'x', reference: 'y' })],
+      ['unsupported platform', () => createPackage(completed.revisionId, 0, ASSET_PLACEHOLDER, { platform: 'tiktok', accountLabel: 'x' })],
+      ['day index out of range', () => createPackage(completed.revisionId, 9)],
+    ]) {
+      await db.exec('savepoint before_bad_package');
+      await assert.rejects(call(), (error) => error.code === '22023', label);
+      await db.exec('rollback to savepoint before_bad_package');
+    }
+    await switchRole('postgres');
+    assert.equal(await scalar('select count(*)::int from public.finished_post_revision_bodies'), 0);
+    assert.equal(await scalar("select count(*)::int from public.approvals where stage='finished_post'"), 0);
+  });
+});
+
+test('a non-member cannot create a finished-post package, and the command is not callable by anon or service_role', async () => {
+  await transactionAs(operator, async () => {
+    const completed = await submitClaimComplete();
+    await actAs(id(997), 'aal2');
+    await db.exec('savepoint before_denied_package');
+    await assert.rejects(createPackage(completed.revisionId, 0), (error) => error.code === '42501');
+    await db.exec('rollback to savepoint before_denied_package');
+    for (const role of ['anon', 'service_role']) {
+      assert.equal(await scalar("select has_function_privilege($1,'public.create_finished_post_package(uuid,uuid,integer,jsonb,jsonb)','EXECUTE')", [role]), false);
+    }
+  });
+});
