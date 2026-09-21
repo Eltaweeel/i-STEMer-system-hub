@@ -65,7 +65,23 @@ describe('dispatchResearchTask', () => {
     });
     const signed = signResearchRequest(body, freshMetadata('k', 0), key);
     const outcome = await dispatchResearchTask({ hostname: '127.0.0.1', port }, signed, body, 2000);
-    expect(outcome).toEqual({ status: 'ok', artifact: { marker: 'value' } });
+    // A responder that reports no usage yields null, never a fabricated zero.
+    expect(outcome).toEqual({ status: 'ok', artifact: { marker: 'value' }, reportedTokens: null });
+  });
+
+  it.each([
+    ['a reported figure', 4321, 4321],
+    ['a zero the responder actually measured', 0, 0],
+    ['a non-numeric figure', 'lots', null],
+    ['a negative figure', -5, null],
+  ])('reads usage from the response body: %s', async (_name, sent, expected) => {
+    server.on('request', (_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ artifact: { marker: 'value' }, reportedTokens: sent }));
+    });
+    const signed = signResearchRequest(body, freshMetadata('k', 0), key);
+    const outcome = await dispatchResearchTask({ hostname: '127.0.0.1', port }, signed, body, 2000);
+    expect(outcome).toEqual({ status: 'ok', artifact: { marker: 'value' }, reportedTokens: expected });
   });
 
   it('resolves error with the parsed error field on a non-200 error envelope', async () => {

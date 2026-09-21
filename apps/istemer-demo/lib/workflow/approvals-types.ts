@@ -25,7 +25,10 @@ export const ApprovalRowSchema = z.object({
     assetKind: z.enum(['supplied', 'placeholder']),
     platform: z.string(),
     accountLabel: z.string(),
-  }).strict().nullable(),
+    // Optional, not merely nullable: an app deployed ahead of its migration (or
+    // rolled back behind one) would otherwise fail the whole list, hiding
+    // unrelated strategy decisions over a field they never carry.
+  }).strict().nullable().optional(),
 }).strict();
 
 export const TenantApprovalsSchema = z.object({

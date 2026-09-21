@@ -41,6 +41,14 @@ export async function POST(request: Request, context: { params: Promise<{ tenant
     wanted_tenant: tenantId, calendar_revision: input.calendarRevisionId, day_index: input.dayIndex,
     asset, destination: { platform: input.platform, accountLabel: input.accountLabel.trim() },
   });
-  if (response.error) return NextResponse.json({ error: 'package_failed', code: response.error.code }, { status: 409 });
+  if (response.error) {
+    // The command signals several distinct refusals through one SQLSTATE, so
+    // returning the bare code shows the operator "55000" on the most common
+    // path of all: preparing a post before the calendar has been approved.
+    const message = String(response.error.message ?? '');
+    const reason = ['strategy_not_approved', 'strategy_approval_missing', 'missing_calendar_entry', 'missing_calendar']
+      .find((candidate) => message.includes(candidate)) ?? 'package_failed';
+    return NextResponse.json({ error: reason, code: response.error.code }, { status: 409 });
+  }
   return NextResponse.json({ package: response.data, externalPublication: false });
 }

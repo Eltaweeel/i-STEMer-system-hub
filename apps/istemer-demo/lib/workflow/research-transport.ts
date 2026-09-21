@@ -42,7 +42,12 @@ export function dispatchResearchTask(
         try {
           const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
           if (response.statusCode === 200 && parsed && typeof parsed === 'object' && 'artifact' in parsed) {
-            finish({ status: 'ok', artifact: (parsed as { artifact: unknown }).artifact });
+            // Read from the body rather than assumed: a responder that reports
+            // nothing must yield null, not a fabricated zero, and anything that
+            // is not a finite non-negative number is treated as unreported.
+            const raw = (parsed as { reportedTokens?: unknown }).reportedTokens;
+            const reportedTokens = typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? raw : null;
+            finish({ status: 'ok', artifact: (parsed as { artifact: unknown }).artifact, reportedTokens });
           } else if (parsed && typeof parsed === 'object' && 'error' in parsed) {
             finish({ status: 'error', error: (parsed as { error: unknown }).error });
           } else finish({ status: 'transport_failure' });

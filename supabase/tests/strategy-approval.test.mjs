@@ -477,3 +477,65 @@ test('re-packaging the same day supersedes the earlier pending decision instead 
     assert.equal(await scalar("select count(*)::int from public.approvals where stage='finished_post' and status='pending'"), 1);
   });
 });
+
+test('a finished post cannot be approved once the calendar approval behind it was invalidated', async () => {
+  await transactionAs(operator, async () => {
+    const completed = await submitClaimComplete();
+    await actAs(owner, 'aal2');
+    await approveStrategy(completed.revisionId);
+    const created = await createPackage(completed.revisionId, 4, ASSET_SUPPLIED);
+
+    // A newer calendar revision retires the strategy decision. The package is
+    // its own artifact, so nothing retires its approval -- which is exactly why
+    // the gate has to be re-checked when the decision is recorded, not only
+    // when the package was built.
+    await switchRole('bagos_content_calendar_command');
+    const artifactId = await scalar('select artifact_id from public.artifact_revisions where id=$1', [completed.revisionId]);
+    await db.query(`insert into public.artifact_revisions(tenant_id,artifact_id,revision,content_digest,producer_reference,provenance,qa)
+      values ($1,$2,2,$3,'content_creator','{"schema_version":1}','{"schema_version":1}')`, [tenant, artifactId, 'b'.repeat(64)]);
+    await switchRole('postgres');
+    assert.equal(await scalar("select status from public.approvals where artifact_revision_id=$1 and stage='strategy'", [completed.revisionId]), 'invalidated');
+
+    await actAs(owner, 'aal2');
+    await db.exec('savepoint before_stale_gate');
+    await assert.rejects(scalar('select private.approve_agent_revision($1,$2,$3)', [tenant, created.approvalId, created.contentDigest]),
+      /strategy_not_approved/);
+    await db.exec('rollback to savepoint before_stale_gate');
+    await switchRole('postgres');
+    assert.equal(await scalar('select status from public.approvals where id=$1', [created.approvalId]), 'pending');
+  });
+});
+
+test('superseding a pending package is audited, and supersedes across calendar revisions', async () => {
+  await transactionAs(operator, async () => {
+    const completed = await submitClaimComplete();
+    await actAs(owner, 'aal2');
+    await approveStrategy(completed.revisionId);
+    const first = await createPackage(completed.revisionId, 5, ASSET_PLACEHOLDER);
+    const second = await createPackage(completed.revisionId, 5, ASSET_SUPPLIED);
+    await switchRole('postgres');
+    assert.equal(await scalar('select status from public.approvals where id=$1', [first.approvalId]), 'invalidated');
+    // The trail has to explain the decision that vanished, not only show the
+    // package that replaced it.
+    assert.equal(await scalar(`select count(*)::int from public.audit_log
+      where event_type='agent_artifact_approval_invalidated' and target_reference=$1`, [first.revisionId]), 1);
+    assert.equal(await scalar('select status from public.approvals where id=$1', [second.approvalId]), 'pending');
+  });
+});
+
+test('a rejection reason is bounded by the bytes its payload must hold, not by characters', async () => {
+  await transactionAs(operator, async () => {
+    const completed = await submitClaimComplete();
+    await actAs(owner, 'aal2');
+    const approvalId = await scalar("select id from public.approvals where artifact_revision_id=$1 and stage='strategy'", [completed.revisionId]);
+    const digest = await scalar('select content_digest from public.artifact_revisions where id=$1', [completed.revisionId]);
+    // Multi-byte text that is well under any character cap but over the byte
+    // bound used to overflow the stored payload and fail opaquely.
+    await db.exec('savepoint before_long_reason');
+    await assert.rejects(scalar('select private.reject_agent_revision($1,$2,$3,$4)', [tenant, approvalId, digest, 'ن'.repeat(1200)]),
+      (error) => error.code === '22023');
+    await db.exec('rollback to savepoint before_long_reason');
+    const accepted = await scalar('select private.reject_agent_revision($1,$2,$3,$4)', [tenant, approvalId, digest, 'ن'.repeat(400)]);
+    assert.equal(accepted.status, 'rejected');
+  });
+});
