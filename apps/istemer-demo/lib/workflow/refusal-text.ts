@@ -10,8 +10,12 @@
 const MESSAGES: Record<string, { ar: string; en: string }> = {
   // The gate the second approval exists to enforce: the calendar behind this
   // post no longer carries an approval, so the post cannot be decided on.
+  // Both languages must name the same action. An earlier draft said 'راجع'
+  // (review) in Arabic where the English said 'approve' -- the Arabic-reading
+  // owner was told to go look at the calendar's status, the English-reading one
+  // was told what to click. The sibling message below already used 'اعتمد'.
   strategy_not_approved: {
-    ar: 'لم تعد الاستراتيجية والتقويم يحملان موافقة سارية، فلا يمكن اعتماد هذا المنشور. راجع موافقة التقويم أولًا.',
+    ar: 'لم تعد الاستراتيجية والتقويم يحملان موافقة سارية، فلا يمكن اعتماد هذا المنشور. اعتمد التقويم أولًا.',
     en: 'The strategy and calendar behind this post no longer carry a valid approval, so it cannot be decided. Approve the calendar first.',
   },
   strategy_approval_missing: {
@@ -91,7 +95,15 @@ export function refusalText(ar: boolean, body: unknown, fallback: string): strin
   const named = typeof payload.error === 'string' && payload.error !== '' ? payload.error : null;
   const code = typeof payload.code === 'string' && payload.code !== '' ? payload.code : null;
   const key = named ?? fallback;
-  const known = MESSAGES[key];
+  // Object.hasOwn, not a truthiness test on the lookup: MESSAGES inherits from
+  // Object.prototype, so `MESSAGES['constructor']` (or 'toString', '__proto__',
+  // 'valueOf', 'hasOwnProperty') resolves to an inherited function rather than
+  // undefined. That value is truthy, reading .ar off it gives undefined, and
+  // this function would return undefined despite its type -- leaving the reader
+  // a blank line where a refusal should be, which is worse than the SQLSTATE
+  // this whole vocabulary exists to replace. The routes emit a fixed allow-list
+  // today, but the parameter is `unknown` because the body is not trusted.
+  const known = Object.hasOwn(MESSAGES, key) ? MESSAGES[key] : undefined;
   if (known) return ar ? known.ar : known.en;
   return code ? `${key} (${code})` : key;
 }
