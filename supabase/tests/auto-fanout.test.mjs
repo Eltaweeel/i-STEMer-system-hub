@@ -327,3 +327,77 @@ test('trigger functions cannot be invoked directly and browsers cannot forge fan
   const nourOwner = (await db.query("select pg_get_userbyid(proowner) as owner, prosecdef from pg_proc where oid='private.enqueue_content_calendar_after_reel_analysis()'::regprocedure")).rows[0];
   assert.equal(nourOwner.owner, 'bagos_content_calendar_command'); assert.equal(nourOwner.prosecdef, true);
 });
+
+// The whole product narrative as one transaction: a brief becomes evidence,
+// evidence becomes an analysis, the analysis becomes a calendar, the calendar
+// raises a strategy decision, and an approved day becomes an exact package the
+// owner decides on separately. Each stage is asserted here, so a regression in
+// any single command surfaces as this test failing rather than as a demo that
+// stops halfway.
+function calendarArtifact(lease) {
+  const b = lease.task;
+  const binding = { contractVersion: 'content-calendar.v1', tenantId: b.tenantId, taskId: b.taskId,
+    runId: b.runId, attemptId: b.attemptId, liveEffects: false };
+  const source = b.brief.sourceRevisionId;
+  return { ...binding, producedBy: 'content_creator', sourceRevisionId: source,
+    entries: Array.from({ length: 7 }, (_, dayIndex) => ({ ...binding, sourceRevisionId: source, dayIndex,
+      platform: 'instagram', format: 'post', conceptTitle: `Concept ${dayIndex}`,
+      objective: 'Explain the programme value', hook: 'A question that opens the post',
+      caption: `Caption for day ${dayIndex}`, callToAction: 'Book a trial session',
+      assetRequirement: 'Visual still to be produced', evidenceRefs: [] })) };
+}
+
+test('the whole narrative runs: brief to evidence to analysis to calendar to both approvals', async () => {
+  await transactionAs(operator, async () => {
+    await submitResearch();
+    const researchLease = await claimResearch();
+    await switchRole('bagos_research_executor');
+    const researchCompleted = await completeResearch(researchLease);
+
+    const reelLease = await claimReel();
+    await switchRole('bagos_reel_analyst_executor');
+    const reelCompleted = await completeReel(reelLease, unavailableReelResult(reelLease));
+
+    const calendarLease = await claimCalendar();
+    const calendar = calendarArtifact(calendarLease);
+    await switchRole('bagos_content_calendar_executor');
+    const calendarCompleted = await scalar('select private.complete_content_calendar_attempt($1,$2::jsonb)',
+      [calendarLease.task.attemptId, calendar]);
+    assert.equal(calendarCompleted.status, 'succeeded');
+
+    // Completing Nour raises the strategy decision by itself; nobody asks for it.
+    await switchRole('postgres');
+    const strategy = await scalar(`select row_to_json(a) from public.approvals a
+      where a.artifact_revision_id=$1 and a.stage='strategy'`, [calendarCompleted.revisionId]);
+    assert.equal(strategy.status, 'pending');
+
+    await db.query("select set_config('request.jwt.claim.sub',$1,true), set_config('request.jwt.claims',$2,true)",
+      [owner, JSON.stringify({ sub: owner, aal: 'aal2', is_anonymous: false })]);
+    await switchRole('authenticated');
+    const strategyDigest = await scalar('select content_digest from public.artifact_revisions where id=$1', [calendarCompleted.revisionId]);
+    await scalar('select public.approve_agent_revision($1,$2,$3)', [tenant, strategy.id, strategyDigest]);
+
+    // Only now can a finished post exist, and its caption is copied from the
+    // calendar the owner just approved rather than supplied by the caller.
+    const pkg = await scalar('select public.create_finished_post_package($1,$2,$3,$4,$5)',
+      [tenant, calendarCompleted.revisionId, 3,
+        { kind: 'placeholder', reason: 'No graphic has been produced yet.' },
+        { platform: 'instagram', accountLabel: 'i_stemers (staging, not connected)' }]);
+    assert.equal(pkg.assetKind, 'placeholder');
+    await scalar('select public.approve_agent_revision($1,$2,$3)', [tenant, pkg.approvalId, pkg.contentDigest]);
+
+    await switchRole('postgres');
+    const stored = await scalar('select body from public.finished_post_revision_bodies where revision_id=$1', [pkg.revisionId]);
+    assert.equal(stored.caption, 'Caption for day 3');
+    assert.equal(stored.liveEffects, false);
+
+    const decided = await db.query(`select stage, status from public.approvals order by stage`);
+    assert.deepEqual(decided.rows, [{ stage: 'finished_post', status: 'approved' }, { stage: 'strategy', status: 'approved' }]);
+    // Both upstream stages really ran, and nothing published.
+    assert.equal(await scalar('select count(*)::int from public.research_outcomes'), 1);
+    assert.equal(await scalar('select count(*)::int from public.reel_analysis_outcomes'), 1);
+    assert.equal(await scalar('select count(*)::int from public.content_calendar_outcomes'), 1);
+    assert.ok(await scalar("select count(*)::int from public.audit_log where event_type='finished_post_package_created'") > 0);
+    assert.ok(researchCompleted.revisionId && reelCompleted.revisionId);
+  });
+});
