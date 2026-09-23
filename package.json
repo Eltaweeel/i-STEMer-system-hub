@@ -7,6 +7,11 @@
     "apps/*"
   ],
   "scripts": {
+    "prepare": "npm run build:contracts",
+    "build:contracts": "npm run build:research --workspace @bagos/contracts && npm run build:reel-analysis --workspace @bagos/contracts && npm run build:content-calendar --workspace @bagos/contracts",
+    "pretypecheck": "npm run build:contracts",
+    "pretest": "npm run build:contracts",
+    "prebuild": "npm run build:contracts",
     "lint": "eslint . && depcruise --config .dependency-cruiser.cjs packages apps && node scripts/check-primitive-tokens.mjs && node scripts/check-domain-hardcode.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
