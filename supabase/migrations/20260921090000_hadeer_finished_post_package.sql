@@ -141,7 +141,11 @@ begin
 end;
 $$;
 
+-- postgres must be able to SET ROLE to the command owner during ALTER FUNCTION.
+-- Keep the membership temporary; the runtime must not inherit this command role.
+grant bagos_approval_command to postgres;
 alter function private.create_finished_post_package(uuid,uuid,integer,jsonb,jsonb) owner to bagos_approval_command;
+revoke bagos_approval_command from postgres;
 revoke all on function private.create_finished_post_package(uuid,uuid,integer,jsonb,jsonb)
   from public, anon, service_role, bagos_content_calendar_command, bagos_content_calendar_executor;
 grant execute on function private.create_finished_post_package(uuid,uuid,integer,jsonb,jsonb) to authenticated;
