@@ -74,6 +74,11 @@ class StagingVerificationTests(unittest.TestCase):
                 info.size = len(data)
                 archive.addfile(info, io.BytesIO(data))
             for name in (
+                "./",
+                "apps",
+                "apps/istemer-demo",
+                "apps/istemer-demo/.next",
+                "apps/istemer-demo/.next/standalone",
                 "apps/istemer-demo/.next/standalone/apps/istemer-demo/.next/static",
                 "apps/istemer-demo/.next/standalone/apps/istemer-demo/public",
             ):
@@ -101,6 +106,36 @@ class StagingVerificationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 receiver.safe_extract(payload, release, "d" * 40)
             self.assertFalse((Path(temporary) / "outside").exists())
+
+    def test_receiver_rejects_unexpected_paths(self) -> None:
+        payload = io.BytesIO()
+        with tarfile.open(fileobj=payload, mode="w:gz") as archive:
+            info = tarfile.TarInfo("apps/unexpected.txt")
+            data = b"unexpected"
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
+        payload.seek(0)
+        with tempfile.TemporaryDirectory() as temporary:
+            release = Path(temporary) / "release"
+            release.mkdir()
+            with self.assertRaisesRegex(ValueError, "unexpected path"):
+                receiver.safe_extract(payload, release, "e" * 40)
+            self.assertFalse((release / "apps").exists())
+
+    def test_receiver_rejects_a_file_instead_of_an_allowed_parent_directory(self) -> None:
+        payload = io.BytesIO()
+        with tarfile.open(fileobj=payload, mode="w:gz") as archive:
+            info = tarfile.TarInfo("apps")
+            data = b"not a directory"
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
+        payload.seek(0)
+        with tempfile.TemporaryDirectory() as temporary:
+            release = Path(temporary) / "release"
+            release.mkdir()
+            with self.assertRaisesRegex(ValueError, "must be a directory"):
+                receiver.safe_extract(payload, release, "f" * 40)
+            self.assertFalse((release / "apps").exists())
 
 
 if __name__ == "__main__":

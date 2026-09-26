@@ -21,6 +21,15 @@ MAX_COMPRESSED_BYTES = 300 * 1024 * 1024
 MAX_EXPANDED_BYTES = 512 * 1024 * 1024
 MAX_FILE_BYTES = 128 * 1024 * 1024
 MAX_MEMBERS = 100_000
+STANDALONE_ROOT = "apps/istemer-demo/.next/standalone"
+ALLOWED_PARENT_DIRECTORIES = frozenset(
+    {
+        "apps",
+        "apps/istemer-demo",
+        "apps/istemer-demo/.next",
+        STANDALONE_ROOT,
+    }
+)
 
 
 class BoundedReader:
@@ -62,9 +71,12 @@ def normalize_member_name(name: str) -> str:
     if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
         raise ValueError(f"archive path is not safe: {name!r}")
     normalized = path.as_posix()
-    if normalized != "release-manifest.json" and not normalized.startswith(
-        "apps/istemer-demo/.next/standalone/"
-    ) and normalized != "apps/istemer-demo/.next/standalone":
+    allowed = (
+        normalized in ALLOWED_PARENT_DIRECTORIES
+        or normalized == "release-manifest.json"
+        or normalized.startswith(f"{STANDALONE_ROOT}/")
+    )
+    if not allowed:
         raise ValueError(f"archive contains an unexpected path: {normalized}")
     if any(part == ".env" or part.startswith(".env.") for part in path.parts):
         raise ValueError("environment files are not allowed in a staging artifact")
@@ -91,6 +103,8 @@ def safe_extract(stream, destination: Path, expected_sha: str) -> None:
             seen.add(name)
             if member.issym() or member.islnk() or not (member.isdir() or member.isfile()):
                 raise ValueError(f"archive contains an unsupported entry type: {name}")
+            if name in ALLOWED_PARENT_DIRECTORIES and not member.isdir():
+                raise ValueError(f"archive parent path must be a directory: {name}")
             if member.size < 0 or member.size > MAX_FILE_BYTES:
                 raise ValueError(f"archive file is too large: {name}")
             expanded += member.size

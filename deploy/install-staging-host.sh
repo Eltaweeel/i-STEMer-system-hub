@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+upgrade=false
+if [[ $# -gt 1 || ( $# -eq 1 && "$1" != "--upgrade" ) ]]; then
+  printf 'Usage: %s [--upgrade]\n' "$0" >&2
+  exit 2
+fi
+if [[ $# -eq 1 ]]; then
+  upgrade=true
+fi
+
 if [[ $EUID -ne 0 ]]; then
   printf 'Run this installer as root on the staging VPS.\n' >&2
   exit 1
@@ -30,7 +39,7 @@ verify="$libexec/istemer-staging-verify.py"
 sudoers=/etc/sudoers.d/istemer-staging-deploy
 expected_sudoers='istemerdeploy ALL=(root) NOPASSWD: /usr/local/sbin/istemer-staging-activate *'
 
-# Never replace an existing host helper or sudoers policy unless it is byte-identical.
+# Replacing host helpers requires an explicit, reviewed --upgrade invocation.
 for pair in \
   "$script_dir/istemer-staging-activate.sh:$activate" \
   "$script_dir/istemer-staging-receive.py:$receive" \
@@ -38,7 +47,11 @@ for pair in \
   source_file="${pair%%:*}"
   target_file="${pair#*:}"
   if [[ -e "$target_file" || -L "$target_file" ]]; then
-    if [[ -L "$target_file" || ! -f "$target_file" ]] || ! cmp -s "$source_file" "$target_file"; then
+    if [[ -L "$target_file" || ! -f "$target_file" ]]; then
+      printf 'Refusing to replace a non-regular helper: %s\n' "$target_file" >&2
+      exit 1
+    fi
+    if ! cmp -s "$source_file" "$target_file" && [[ "$upgrade" != true ]]; then
       printf 'Refusing to overwrite an existing, non-identical helper: %s\n' "$target_file" >&2
       exit 1
     fi
