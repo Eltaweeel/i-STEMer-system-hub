@@ -1,0 +1,83 @@
+name: Deploy i-STEMer staging
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: istemer-staging
+  cancel-in-progress: false
+
+env:
+  STAGING_HOST: 77.237.232.170
+  STAGING_USER: istemerdeploy
+  STAGING_URL: https://istemer-staging.eltaweel.site
+
+jobs:
+  build-test-deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out the pushed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build production applications
+        run: npm run build
+
+      - name: Package the i-STEMer standalone release
+        run: bash deploy/package-staging.sh "$GITHUB_SHA" "$RUNNER_TEMP/istemer-staging-$GITHUB_SHA.tar.gz"
+
+      - name: Deploy through the restricted VPS receiver
+        env:
+          STAGING_SSH_KEY: ${{ secrets.ISTEMER_STAGING_SSH_KEY }}
+          STAGING_KNOWN_HOSTS: ${{ secrets.ISTEMER_STAGING_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$STAGING_SSH_KEY"
+          test -n "$STAGING_KNOWN_HOSTS"
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$STAGING_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$STAGING_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+          trap 'rm -f "$HOME/.ssh/id_ed25519"' EXIT
+          ssh \
+            -F /dev/null \
+            -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o PasswordAuthentication=no \
+            -o KbdInteractiveAuthentication=no \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=4 \
+            "$STAGING_USER@$STAGING_HOST" "deploy $GITHUB_SHA" \
+            < "$RUNNER_TEMP/istemer-staging-$GITHUB_SHA.tar.gz"
+
+      - name: Verify the public staging routes
+        run: python3 deploy/verify-staging.py --base-url "$STAGING_URL" --timeout 15

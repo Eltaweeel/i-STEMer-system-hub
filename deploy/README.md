@@ -2,6 +2,17 @@
 
 Deploy the reviewed GitHub commit, not an uncommitted working directory. This packet does not install Nous Hermes or start agents. The website's sample workflow pages remain sample data; account configuration does not make them live.
 
+## Automated staging deployment
+
+The GitHub Actions workflow at `.github/workflows/staging-deploy.yml` runs on every push to `main` and on manual dispatch from `main`. It runs lint, typecheck, the test suite, and the production build before packaging and deploying the i-STEMer standalone app. The deploy step uses a dedicated SSH key with a forced command and a pinned VPS host key; it does not expose a shell or copy secrets into the release. Configure these repository Actions secrets:
+
+- `ISTEMER_STAGING_SSH_KEY`: the private key paired with the restricted key entry on the VPS.
+- `ISTEMER_STAGING_KNOWN_HOSTS`: the verified `77.237.232.170 ssh-ed25519 ...` known-hosts line.
+
+On the VPS, install the reviewed helpers once as root with `bash deploy/install-staging-host.sh`. Add the public deployment key to `/srv/istemer-deploy/.ssh/authorized_keys` with `restrict,command="/usr/local/sbin/istemer-staging-receive"`. Never put the private key in the repository. The receiver accepts only `deploy <full-commit-sha>`, validates and safely extracts the standalone artifact, then invokes the root-owned activation helper. The helper switches `/srv/istemer-staging/active-release`, reloads and restarts `istemer-staging.service`, checks `/`, `/coordination-cycle/`, and `/agents/`, and restores the previous release if a check fails. Old releases are retained for rollback; the private `/etc/istemer-staging.env` file is not modified.
+
+The staging web service currently runs from `Eltaweeel/i-STEMer-system-hub`. `Eltaweeel/i-STEMer-agents-hub` is a separate source repository: it has no staging service or start script and is not imported by the deployed UI. Its pushes therefore do not trigger website deployment. Do not couple it to this workflow until a reviewed runtime integration and deployment target exist.
+
 ## Full-checkout deployment
 
 Use a dedicated service user and Node 22 or newer, npm 10 or newer. Keep secrets outside Git. In a fresh release checkout, supply the public Supabase URL/publishable key at build time and APP_ORIGIN at runtime through the host's private configuration mechanism.
