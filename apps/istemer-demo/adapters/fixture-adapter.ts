@@ -20,7 +20,6 @@ import {
   type OrganizationQueries,
   type OrganizationQueryArgs,
   type Restriction,
-  type SampleActivityEntry,
   type WorkflowDetail,
   type WorkflowGetQuery,
   type WorkflowListQuery,
@@ -50,180 +49,140 @@ function toRestrictions(labels: readonly string[]): readonly Restriction[] {
   );
 }
 
-const MARKETING_ACTIVITY: readonly SampleActivityEntry[] = [
-  {
-    id: 'act:mk-1',
-    runRef: 'run:mk-2026-08-18-0001',
-    at: offsetMinutes(-1440 + 195),
-    summary: 'Assembled a campaign brief draft from the approved objective.',
-    state: 'awaiting_review',
-  },
-  {
-    id: 'act:mk-2',
-    runRef: 'run:mk-2026-08-18-0002',
-    at: offsetMinutes(-1440 + 360),
-    summary: 'Drafted three copy variants for the reviewer.',
-    state: 'complete',
-  },
-  {
-    id: 'act:mk-3',
-    runRef: 'run:mk-2026-08-18-0003',
-    at: offsetMinutes(-1440 + 480),
-    summary: 'Refused a request to send an outbound email — outside allowed outputs.',
-    state: 'refused',
-  },
-] as const;
 
-const SOCIAL_ACTIVITY: readonly SampleActivityEntry[] = [
-  {
-    id: 'act:sm-1',
-    runRef: 'run:sm-2026-08-18-0011',
-    at: offsetMinutes(-1440 + 240),
-    summary: 'Drafted channel-specific posts from an approved brief.',
-    state: 'awaiting_review',
-  },
-  {
-    id: 'act:sm-2',
-    runRef: 'run:sm-2026-08-18-0012',
-    at: offsetMinutes(-1440 + 420),
-    summary: 'Refused to schedule a publish — schedule_publish is prohibited.',
-    state: 'refused',
-  },
-] as const;
+type AgentProfileContent = Pick<
+  AgentDetail,
+  | 'purpose'
+  | 'responsibilities'
+  | 'allowedInputs'
+  | 'allowedOutputs'
+  | 'allowedTools'
+  | 'prohibitedActions'
+  | 'approvalPolicy'
+  | 'sopRefs'
+  | 'sampleActivity'
+>;
 
-const DESIGNER_ACTIVITY: readonly SampleActivityEntry[] = [
-  {
-    id: 'act:dz-1',
-    runRef: 'run:dz-2026-08-18-0021',
-    at: offsetMinutes(-1440 + 300),
-    summary: 'Prepared a set of three concept compositions for a decision point.',
-    state: 'awaiting_review',
-  },
-  {
-    id: 'act:dz-2',
-    runRef: 'run:dz-2026-08-18-0022',
-    at: offsetMinutes(-1440 + 540),
-    summary: 'Produced an alt-text draft alongside the primary visual.',
-    state: 'complete',
-  },
-] as const;
+const COMMON_PROHIBITED_ACTIONS = toRestrictions([
+  'publish',
+  'send_customer_message',
+  'spend',
+  'change_price',
+  'make_business_commitment',
+  'change_permissions',
+  'deploy',
+  'alter_credentials',
+]);
 
-const AGENT_DETAILS: readonly AgentDetail[] = [
-  {
-    meta: {
-      source: 'fixture',
-      isSample: true,
-      isPartial: true,
-      stale: false,
-      dataVersion: FIXTURE_DATA_VERSION,
-      capturedAt: FIXTURE_NOW,
-      generatedAt: FIXTURE_NOW,
-    },
-    id: 'agent:marketing',
-    displayName: 'Marketing',
-    domainSlot: slotForDomain('marketing'),
-    purpose: 'Draft campaign concepts and briefs against approved product objectives.',
+const DEFAULT_APPROVAL_POLICY: AgentDetail['approvalPolicy'] = {
+  default: 'tier_0_internal',
+  externalPublishOrSend: 'persisted_exact_revision',
+  spendOrFinanceMutation: 'owner_only',
+  permissionsOrDeletion: 'owner_only',
+};
+
+const AGENT_PROFILE_CONTENT: Readonly<Record<string, AgentProfileContent>> = {
+  'agent:adam': {
+    purpose: 'Coordinate bounded specialist work, assemble evidence, and route owner approvals.',
     responsibilities: [
-      'Assemble campaign briefs from approved objectives and audience notes.',
-      'Draft outbound copy variants for later human review.',
-      'Never publish; never spend; never bind commitments.',
+      'Assign Omar, Ziad, and Nour bounded work and assemble their versioned evidence.',
+      'Route required decisions to Hadeer and enforce approval boundaries.',
     ],
-    allowedInputs: ['approved_brief', 'audience_notes', 'style_guide'],
-    allowedOutputs: ['draft_campaign_brief', 'copy_variants'],
-    allowedTools: ['copy_workspace_read_write', 'style_guide_lookup'],
-    prohibitedActions: toRestrictions([
-      'send_external_message',
-      'commit_spend',
-      'grant_permissions',
-    ]),
-    approvalPolicy: {
-      default: 'tier_0_internal',
-      externalPublishOrSend: 'persisted_exact_revision',
-      spendOrFinanceMutation: 'owner_only',
-      permissionsOrDeletion: 'owner_only',
-    },
-    sopRefs: ['campaign-brief-cycle'],
-    sampleActivity: MARKETING_ACTIVITY,
-    status: 'idle',
-    freshness: { capturedAt: offsetMinutes(-42), isStale: false },
-    demoStatus: { kind: 'wired_no_runtime', note: 'Fixture only in Batch 1.' },
+    allowedInputs: ['authorized_requester', 'business_brief', 'deadline', 'budget'],
+    allowedOutputs: ['bounded_task_plan', 'task_status', 'combined_review_package'],
+    allowedTools: ['clarify', 'memory', 'session_search', 'todo'],
+    prohibitedActions: COMMON_PROHIBITED_ACTIONS,
+    approvalPolicy: DEFAULT_APPROVAL_POLICY,
+    sopRefs: ['adam-bounded-orchestration'],
+    sampleActivity: [],
   },
-  {
-    meta: {
-      source: 'fixture',
-      isSample: true,
-      isPartial: true,
-      stale: false,
-      dataVersion: FIXTURE_DATA_VERSION,
-      capturedAt: FIXTURE_NOW,
-      generatedAt: FIXTURE_NOW,
-    },
-    id: 'agent:social-media',
-    displayName: 'Social Media',
-    domainSlot: slotForDomain('social'),
-    purpose:
-      'Prepare social posts and threads from approved briefs; never publishes without review.',
+  'agent:nour': {
+    purpose: 'Create an original one-week Instagram/Facebook calendar from approved objectives and evidence.',
     responsibilities: [
-      'Translate approved briefs into channel-appropriate posts.',
-      'Attach preview and predicted-reach notes for reviewer context.',
+      'Own the one-week content calendar using Omar and Ziad evidence.',
+      'Draft original content and list required assets; do not publish.',
     ],
-    allowedInputs: ['approved_brief', 'channel_style'],
-    allowedOutputs: ['draft_post', 'draft_thread'],
-    allowedTools: ['copy_workspace_read_write'],
-    prohibitedActions: toRestrictions([
-      'send_external_message',
-      'schedule_publish',
-    ]),
-    approvalPolicy: {
-      default: 'tier_0_internal',
-      externalPublishOrSend: 'persisted_exact_revision',
-      spendOrFinanceMutation: 'owner_only',
-      permissionsOrDeletion: 'owner_only',
-    },
-    sopRefs: ['social-post-cycle'],
-    sampleActivity: SOCIAL_ACTIVITY,
-    status: 'idle',
-    freshness: { capturedAt: offsetMinutes(-90), isStale: false },
-    demoStatus: { kind: 'wired_no_runtime', note: 'Fixture only in Batch 1.' },
+    allowedInputs: ['approved_objectives', 'omar_findings', 'ziad_findings', 'production_constraints'],
+    allowedOutputs: ['one_week_content_calendar', 'content_drafts', 'asset_requirements'],
+    allowedTools: [],
+    prohibitedActions: COMMON_PROHIBITED_ACTIONS,
+    approvalPolicy: DEFAULT_APPROVAL_POLICY,
+    sopRefs: ['one-week-content-calendar'],
+    sampleActivity: [],
   },
-  {
-    meta: {
-      source: 'fixture',
-      isSample: true,
-      isPartial: true,
-      stale: false,
-      dataVersion: FIXTURE_DATA_VERSION,
-      capturedAt: FIXTURE_NOW,
-      generatedAt: FIXTURE_NOW,
-    },
-    id: 'agent:designer',
-    displayName: 'Designer',
-    domainSlot: slotForDomain('creative'),
-    purpose: 'Produce visual artefacts to approved specs for human review before publication.',
+  'agent:omar': {
+    purpose: 'Research permitted competitors and produce timestamped evidence with explicit gaps.',
     responsibilities: [
-      'Compose visual drafts against the brief and brand style.',
-      'Provide an alt-text draft with every asset.',
+      'Research the approved competitor and source set for the authorized question.',
+      'Separate observed metrics from inference and record source dates and gaps.',
     ],
-    allowedInputs: ['approved_brief', 'brand_style'],
-    allowedOutputs: ['draft_asset', 'alt_text_draft'],
-    allowedTools: ['asset_workspace_read_write'],
-    prohibitedActions: toRestrictions([
-      'publish_asset',
-      'purchase_stock_asset',
-    ]),
-    approvalPolicy: {
-      default: 'tier_0_internal',
-      externalPublishOrSend: 'persisted_exact_revision',
-      spendOrFinanceMutation: 'owner_only',
-      permissionsOrDeletion: 'owner_only',
-    },
-    sopRefs: ['visual-draft-cycle'],
-    sampleActivity: DESIGNER_ACTIVITY,
-    status: 'idle',
-    freshness: { capturedAt: offsetMinutes(-15), isStale: false },
-    demoStatus: { kind: 'wired_no_runtime', note: 'Fixture only in Batch 1.' },
+    allowedInputs: ['approved_competitor_sources', 'research_question'],
+    allowedOutputs: ['source_linked_findings', 'observed_metrics', 'evidence_gaps'],
+    allowedTools: [],
+    prohibitedActions: COMMON_PROHIBITED_ACTIONS,
+    approvalPolicy: DEFAULT_APPROVAL_POLICY,
+    sopRefs: ['competitor-evidence-research'],
+    sampleActivity: [],
   },
-];
+  'agent:ziad': {
+    purpose: 'Analyze supplied reel material and observable metrics, separating observations from hypotheses.',
+    responsibilities: [
+      'Analyze accessible frames, audio, transcripts, metadata, and observed metrics.',
+      'State which modalities were inspected and distinguish evidence from hypotheses.',
+    ],
+    allowedInputs: ['omar_evidence', 'reel_frames', 'audio', 'transcripts', 'metadata', 'observed_metrics'],
+    allowedOutputs: ['creative_analysis', 'reusable_hypotheses', 'creative_brief'],
+    allowedTools: ['vision'],
+    prohibitedActions: COMMON_PROHIBITED_ACTIONS,
+    approvalPolicy: DEFAULT_APPROVAL_POLICY,
+    sopRefs: ['reel-analysis-evidence'],
+    sampleActivity: [],
+  },
+};
+
+// Preserve established route/workflow IDs while sourcing visible names and
+// responsibilities from the confirmed tenant roster.
+const AGENT_ROUTE_IDS: Readonly<Record<string, string>> = {
+  'agent:adam': 'agent:adam',
+  'agent:nour': 'agent:social-media',
+  'agent:omar': 'agent:marketing',
+  'agent:ziad': 'agent:designer',
+};
+
+const AGENT_DETAILS: readonly AgentDetail[] = HERMES_TEAM.members
+  .filter((member) => member.phase === 'initial')
+  .map((member, index) => {
+    const content = AGENT_PROFILE_CONTENT[member.id];
+    const routeId = AGENT_ROUTE_IDS[member.id];
+    if (!content || !routeId) throw new Error(`Missing agent profile content for ${member.id}.`);
+
+    const domain = {
+      'Main Orchestrator': 'executive',
+      'Content Creator': 'social',
+      'Competitor Analyst': 'marketing',
+      'Reel Analyst': 'creative',
+    }[member.role];
+    if (!domain) throw new Error(`Missing domain slot for agent role ${member.role}.`);
+
+    return {
+      meta: {
+        source: 'fixture',
+        isSample: true,
+        isPartial: true,
+        stale: false,
+        dataVersion: FIXTURE_DATA_VERSION,
+        capturedAt: FIXTURE_NOW,
+        generatedAt: FIXTURE_NOW,
+      },
+      id: routeId,
+      displayName: member.displayName,
+      domainSlot: slotForDomain(domain),
+      ...content,
+      status: 'idle',
+      freshness: { capturedAt: offsetMinutes(-42 - index * 24), isStale: false },
+      demoStatus: member.demoStatus,
+    } satisfies AgentDetail;
+  });
 
 export class FixtureAdapter
   implements

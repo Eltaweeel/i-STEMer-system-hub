@@ -7,6 +7,7 @@ import {
 } from '@bagos/contracts';
 import { FIXTURE_DATA_VERSION, FIXTURE_NOW, FIXTURE_TZ } from '@bagos/fixtures';
 import { slotForDomain } from '../tenant/tenant.config';
+import { HERMES_TEAM } from './hermes-team';
 
 // -----------------------------------------------------------------------------
 // The i-STEMer tenant's PROPOSED daily coordination cycle.
@@ -28,19 +29,28 @@ const META: ViewMeta = {
 
 const DAY = '2026-08-19';
 
+const ADAM = HERMES_TEAM.members.find((member) => member.id === HERMES_TEAM.orchestratorId);
+const NOUR = HERMES_TEAM.members.find((member) => member.id === 'agent:nour');
+const OMAR = HERMES_TEAM.members.find((member) => member.id === 'agent:omar');
+const ZIAD = HERMES_TEAM.members.find((member) => member.id === 'agent:ziad');
+if (!ADAM || !NOUR || !OMAR || !ZIAD) {
+  throw new Error('The coordination cycle requires the confirmed initial team roster.');
+}
+
 const MORNING: CoordinationBriefing = {
   id: 'briefing:morning-2026-08-19',
   kind: 'morning',
   scheduledAt: `${DAY}T08:00:00+02:00`,
   headline:
-    'Kick off the day: confirm the campaign brief, agree on the design direction to explore, and set today\'s publication expectations.',
+    'Kick off the day: confirm the approved objective, define the evidence needed, and set the one-week calendar review checkpoint.',
   agenda: [
-    'Review approved objective and audience notes.',
-    'Confirm which of the three design concepts to prototype first.',
-    'Set which drafts must reach approval by evening briefing.',
+    'Confirm the approved objective and content-calendar scope.',
+    `Set ${OMAR.displayName}'s permitted competitor sources and research question.`,
+    `Check whether reel frames, audio, or transcripts are available for ${ZIAD.displayName}; record missing modalities.`,
+    'Set Hadeer’s first approval checkpoint for the strategy and calendar.',
     'Flag any owner-only decisions likely to surface today.',
   ],
-  attendees: ['Hadeer', 'Hermes Conductor'],
+  attendees: ['Hadeer', ADAM.displayName],
 } as const;
 
 const EVENING: CoordinationBriefing = {
@@ -48,88 +58,88 @@ const EVENING: CoordinationBriefing = {
   kind: 'evening',
   scheduledAt: `${DAY}T20:00:00+02:00`,
   headline:
-    'Close the day: what was produced, what is awaiting approval, and what is deferred to tomorrow.',
+    'Close the day: review planned outputs, pending owner approvals, and work deferred to tomorrow.',
   agenda: [
-    'Walk the day\'s produced artefacts (drafts, briefs, concepts).',
-    'List items awaiting owner-only approval.',
-    'Confirm carry-over into tomorrow\'s cycle.',
-    'Note any refusals or blocked steps for the log.',
+    `Review ${OMAR.displayName}'s source-linked findings and evidence gaps.`,
+    `Review ${ZIAD.displayName}'s analysis only where reel evidence was supplied.`,
+    `Review ${NOUR.displayName}'s one-week calendar and items awaiting owner approval.`,
+    'Confirm carry-over and record blocked steps; do not imply publication.',
   ],
-  attendees: ['Hadeer', 'Hermes Conductor'],
+  attendees: ['Hadeer', ADAM.displayName],
 } as const;
 
 const MIDDAY: readonly CoordinationStream[] = [
   {
-    id: 'stream:marketing',
-    agentId: 'agent:marketing',
-    displayName: 'Marketing',
+    id: 'stream:omar',
+    agentId: OMAR.id,
+    displayName: OMAR.displayName,
     domainSlot: slotForDomain('marketing'),
     plannedContributions: [
-      'Update the campaign brief with the morning\'s confirmed objective.',
-      'Assemble the priority list of copy variants for the day.',
-      'Prepare a competitor-intelligence summary for the conductor to route.',
+      'Research only the approved competitor and source set for the authorized question.',
+      'Record source links, observation dates, observed metrics, and evidence gaps.',
+      `Hand the same versioned evidence to ${NOUR.displayName} and ${ZIAD.displayName}.`,
     ],
   },
   {
-    id: 'stream:social',
-    agentId: 'agent:social-media',
-    displayName: 'Social Media',
-    domainSlot: slotForDomain('social'),
-    plannedContributions: [
-      'Report on trending topics relevant to today\'s approved brief.',
-      'Draft channel-specific post variants for review (never publishes).',
-      'Attach predicted-reach and preview notes for reviewer context.',
-    ],
-  },
-  {
-    id: 'stream:designer',
-    agentId: 'agent:designer',
-    displayName: 'Designer',
+    id: 'stream:ziad',
+    agentId: ZIAD.id,
+    displayName: ZIAD.displayName,
     domainSlot: slotForDomain('creative'),
     plannedContributions: [
-      'Refresh the production queue against the confirmed direction.',
-      'Prepare three concept compositions for the human decision point.',
-      'Draft alt-text alongside every visual artefact.',
+      'Analyze only supplied reel frames, audio, transcripts, metadata, and observed metrics.',
+      'Separate observations from hypotheses and state which modalities were unavailable.',
+      `Send analysis to ${NOUR.displayName} and a creative brief to Hadeer’s human production team.`,
+    ],
+  },
+  {
+    id: 'stream:nour',
+    agentId: NOUR.id,
+    displayName: NOUR.displayName,
+    domainSlot: slotForDomain('social'),
+    plannedContributions: [
+      'Prepare the one-week Instagram/Facebook calendar from approved objectives and available evidence.',
+      'Draft original content concepts, hooks, captions, and calls to action for review.',
+      'List visual assets still needed; do not publish or imply that assets are produced.',
     ],
   },
 ] as const;
 
 const EVENTS: readonly CoordinationEvent[] = [
   {
-    id: 'event:09-15-conductor-check-in',
+    id: 'event:09-15-adam-routing',
     at: `${DAY}T09:15:00+02:00`,
-    actor: 'Hermes Conductor',
-    summary: 'Confirms overnight approvals log is empty; opens the routing queue.',
+    actor: ADAM.displayName,
+    summary: 'Proposed: route the authorized brief to the named specialists and track approval boundaries.',
   },
   {
-    id: 'event:10-30-marketing-brief-updated',
+    id: 'event:10-30-omar-research',
     at: `${DAY}T10:30:00+02:00`,
-    actor: 'Marketing',
-    summary: 'Updated campaign brief attached to the approval queue as a draft.',
+    actor: OMAR.displayName,
+    summary: 'Planned: prepare timestamped competitor evidence and gaps from the permitted source set.',
   },
   {
-    id: 'event:12-45-designer-concepts-ready',
+    id: 'event:12-45-ziad-analysis',
     at: `${DAY}T12:45:00+02:00`,
-    actor: 'Designer',
-    summary: 'Three concept compositions ready for the human decision point.',
+    actor: ZIAD.displayName,
+    summary: 'Planned: analyze only supplied reel evidence; if none is attached, record that analysis is pending.',
   },
   {
-    id: 'event:14-10-hadeer-selects-direction',
+    id: 'event:14-10-nour-calendar',
     at: `${DAY}T14:10:00+02:00`,
-    actor: 'Hadeer',
-    summary: 'Selects a direction from the three concepts; documented on the workflow.',
+    actor: NOUR.displayName,
+    summary: 'Planned: assemble the one-week calendar from the approved objective and available evidence.',
   },
   {
-    id: 'event:16-00-social-drafts-attached',
+    id: 'event:16-00-hadeer-strategy-review',
     at: `${DAY}T16:00:00+02:00`,
-    actor: 'Social Media',
-    summary: 'Attaches channel-specific draft posts to the approval queue for review.',
+    actor: 'Hadeer',
+    summary: 'Owner review checkpoint: strategy and calendar first; finished posts require a separate review.',
   },
   {
-    id: 'event:18-20-approvals-summary',
+    id: 'event:18-20-adam-summary',
     at: `${DAY}T18:20:00+02:00`,
-    actor: 'Hermes Conductor',
-    summary: 'Assembles the end-of-day approvals summary for evening briefing.',
+    actor: ADAM.displayName,
+    summary: 'Planned: summarize pending approvals, evidence gaps, and deferred work for the evening briefing.',
   },
 ] as const;
 

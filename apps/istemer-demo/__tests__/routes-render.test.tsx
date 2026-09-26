@@ -31,6 +31,15 @@ const SHELL_META = {
   generatedAt: FIXTURE_NOW,
 } as const;
 
+const INITIAL_AGENT_LABELS = [
+  'Adam (Main Orchestrator)',
+  'Nour (Content Creator)',
+  'Omar (Competitor Analyst)',
+  'Ziad (Reel Analyst)',
+] as const;
+
+const GENERIC_AGENT_LABELS = ['Marketing', 'Social Media', 'Designer', 'Hermes Conductor'] as const;
+
 async function renderRoute(node: React.JSX.Element): Promise<string> {
   return renderToStaticMarkup(
     React.createElement(AppShell, {
@@ -52,6 +61,8 @@ describe('every new route renders with the demo indicator', () => {
     expect(html).toContain('Approvals requiring attention');
     expect(html).toContain('Morning briefing');
     expect(html).toContain('Evening briefing');
+    for (const name of INITIAL_AGENT_LABELS) expect(html).toContain(name);
+    for (const placeholder of GENERIC_AGENT_LABELS) expect(html).not.toContain(placeholder);
   });
 
   it('coordination-cycle', async () => {
@@ -61,6 +72,8 @@ describe('every new route renders with the demo indicator', () => {
     expect(html).toContain('Sample data');
     expect(html.toLowerCase()).toContain('proposed');
     expect(html).toContain('Africa/Cairo');
+    for (const name of INITIAL_AGENT_LABELS) expect(html).toContain(name);
+    for (const placeholder of GENERIC_AGENT_LABELS) expect(html).not.toContain(placeholder);
   });
 
   it('workflows index', async () => {
@@ -85,19 +98,23 @@ describe('every new route renders with the demo indicator', () => {
     expect(html).toContain('data-concept-variant="ribbon"');
   });
 
-  it('agents index', async () => {
+  it('agents index shows the confirmed named i-STEMer team', async () => {
     const page = await AgentsIndexPage();
     const html = await renderRoute(page);
     expect(html).toContain('DEMO ENVIRONMENT');
     expect(html).toContain('Agents');
+    for (const name of INITIAL_AGENT_LABELS) expect(html).toContain(name);
+    for (const placeholder of GENERIC_AGENT_LABELS) expect(html).not.toContain(placeholder);
   });
 
-  it('agent detail (marketing)', async () => {
+  it('agent detail (Omar, Competitor Analyst)', async () => {
     const slug = AGENT_ROUTES.find((r) => r.id === 'agent:marketing')?.slug;
-    if (!slug) throw new Error('missing agent slug');
+    if (!slug) throw new Error('missing Omar agent slug');
     const page = await AgentDetailPage({ params: Promise.resolve({ id: slug }) });
     const html = await renderRoute(page);
     expect(html).toContain('DEMO ENVIRONMENT');
+    expect(html).toContain('Omar (Competitor Analyst)');
+    expect(html).toContain('timestamped evidence');
     for (const s of [
       'Purpose',
       'Responsibilities',
@@ -121,14 +138,24 @@ describe('every new route renders with the demo indicator', () => {
       expect(html).toContain('DEMO ENVIRONMENT');
       expect(html).toContain('Specialist workspace');
       expect(html).toContain('View agent role, policy, and status');
+      if (route.id === 'agent:marketing') {
+        expect(html).toContain('Competitor research evidence');
+        expect(html).not.toContain('Campaign brief and strategy artifacts');
+      }
       if (route.id === 'agent:social-media') {
+        expect(html).toContain('Nour (Content Creator)');
         expect(html).toContain('Content calendar');
         expect(html).toContain('Fixture example');
+        expect(html).not.toContain('Social Media');
         expect(html).not.toContain('POSTED');
       }
       if (route.id === 'agent:designer') {
-        expect(html).toContain('data-concept-variant="orbit"');
-        expect(html).toContain('Design production queue');
+        expect(html).toContain('Reel analysis evidence');
+        expect(html).not.toContain('Three design concepts');
+        expect(html).not.toContain('Design production queue');
+      }
+      if (route.id === 'agent:adam') {
+        expect(html).toContain('Orchestration scope');
       }
     });
   }
