@@ -56,7 +56,8 @@ export function buildResearchWorkerConfig(input: {
   return {
     port: input.port,
     observe: observeSource,
-    dispatch: dispatchResearchTask,
+    dispatch: (endpoint, signed, body, timeoutMs) => dispatchResearchTask(endpoint, signed, body, timeoutMs,
+      { key: input.signingKey, now: input.now }),
     // Loopback only; dispatchResearchTask itself refuses any other hostname.
     endpoint: { hostname: '127.0.0.1', port: input.runtime.agentPort },
     keyId: input.runtime.keyId,

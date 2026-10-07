@@ -30,13 +30,6 @@ either fixed in code or is **open and needs a decision**. Nothing here has been 
 
 Open, needs a decision (not fixed in code):
 
-- **Listener responses are not authenticated.** Requests are HMAC-signed; the response is trusted because it comes from
-  loopback. A local process that binds the port while the listener is down (boot, or the 5 s restart gap) could return a
-  fabricated artifact that cites real receipts. Mitigation without code: keep other local users off the host, or pre-bind the
-  port with a systemd `.socket` unit. Real fix: sign the response (HMAC over request nonce plus body hash). It changes the
-  protocol in both repos, so it needs Abdo's decision.
-- **The single-flight lock is taken before the signature is checked**, so a local process can hold the listener busy for up
-  to 15 s at a time and make a genuine dispatch fail as `provider_failure` (that uses one of three attempts).
 - **Evidence text is not bound to the page text.** A hostile source page can steer Omar into a wrong `observation` that still
   cites a real receipt. Structure, receipts and scope are enforced; meaning is not. Treat observations as model output.
 - **`cli: []` is not a tool lockdown by itself.** Hermes still adds enabled MCP servers and plugin toolsets, and
@@ -49,6 +42,14 @@ Open, needs a decision (not fixed in code):
   No deployed process runs it, so those rows stay queued. Expect them after the first run (see cleanup below).
 - **The VPS clock must be NTP-synchronised.** The observer compares the VPS clock with the database clock. A VPS clock behind
   the database clock now fails the attempt as `uninspected_source` (it used to hang until the lease timed out).
+
+Closed by the security follow-up: the listener's answers are now HMAC-signed and the worker rejects anything unsigned,
+mismatched or stale before parsing it (protocol `research-http-response.v1`, specified in `i-STEMer-agents-hub/docs/RESEARCH_RUNTIME.md`),
+and the request signature is verified before the listener's single-flight lock is taken. Operational consequences: both
+services must hold the same key file contents (already required) and a rotated key must be rotated on both before the next
+run; a worker/listener pair with different keys fails every dispatch as `provider_failure` with no artifact; a listener that
+was deployed from the first push (unsigned answers) cannot be paired with this worker, so deploy both from the same follow-up
+commits. A response is also rejected if the VPS clock jumps more than 30 s between sending and verifying.
 
 Fixed in code on these branches: an unexpected observer error is recorded instead of left running; a completion the database
 can never accept (SQLSTATE 22023, 22P05, 42501, 55000) is recorded as `invalid_contract` instead of being retried and later
@@ -201,6 +202,10 @@ Expected log lines are predictions. The worker logs one JSON line per non-idle c
 5. **Safe failure and recovery:** stop the listener, submit a second brief, expect
    `outcome":"failed","code":"provider_failure"` and a failed (retryable) attempt in the UI; start the listener
    and use the requester retry to confirm the next attempt succeeds.
+   **Forged-response check (optional, owner-authorized):** with both units stopped, bind a throwaway local responder to the
+   listener port that answers any POST with an unsigned `{"artifact": {...}}`, start only the worker, submit a brief, and expect
+   `outcome":"failed","code":"provider_failure"` and no stored artifact. Remove the responder, then restart the real listener
+   before any further test. This exercises the response-authentication rejection live; the unit tests already cover it.
 6. **Cleanup.** The test leaves, per run: one research run/task/attempt set, one `research_outcomes` row with its receipts, a usage row
    with `usage_reported = false`, and (by the migration noted above) a queued Ziad campaign/run/task that nothing executes. They carry
    the run id from step 4. Keep them as evidence; do not delete staging rows without Abdo's approval. Stop both units if the test is

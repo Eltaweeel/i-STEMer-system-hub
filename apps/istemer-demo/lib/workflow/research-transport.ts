@@ -1,6 +1,7 @@
 import 'server-only';
 import { request as httpRequest } from 'node:http';
 import { RESEARCH_TASK_PATH, type SignedResearchRequest } from './research-signing';
+import { RESPONSE_AUTH_HEADER, verifyResearchResponse } from './research-response-auth';
 
 export { RESEARCH_TRANSPORT_VERSION, RESEARCH_TASK_PATH, signingInput, signResearchRequest, freshMetadata,
   type SignedResearchRequest } from './research-signing';
@@ -19,8 +20,12 @@ export type DispatchOutcome =
  * client does not perform TLS and must never be pointed at a non-local host. */
 export interface ResearchEndpoint { readonly hostname: string; readonly port: number; }
 
+/** What the worker needs to authenticate the answer: the key that signed the request, and the clock. Required, never
+ * optional: there is no unsigned fallback, so a missing or invalid response signature is always a transport failure. */
+export interface ResponseAuthContext { readonly key: Uint8Array; readonly now: () => number; }
+
 export function dispatchResearchTask(
-  endpoint: ResearchEndpoint, signed: SignedResearchRequest, body: Uint8Array, timeoutMs: number,
+  endpoint: ResearchEndpoint, signed: SignedResearchRequest, body: Uint8Array, timeoutMs: number, auth: ResponseAuthContext,
 ): Promise<DispatchOutcome> {
   if (endpoint.hostname !== '127.0.0.1') return Promise.resolve({ status: 'transport_failure' });
   return new Promise((resolve) => {
@@ -48,7 +53,14 @@ export function dispatchResearchTask(
       });
       response.on('end', () => {
         try {
-          const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+          const raw = Buffer.concat(chunks);
+          // Authenticate the exact bytes and status BEFORE parsing or trusting anything in them: a process that merely
+          // listens on the loopback port cannot produce this header without the signing key.
+          try {
+            verifyResearchResponse({ key: auth.key, request: signed, status: response.statusCode ?? 0, body: raw,
+              header: response.headers[RESPONSE_AUTH_HEADER], nowMs: auth.now() });
+          } catch { finish({ status: 'transport_failure' }); return; }
+          const parsed: unknown = JSON.parse(raw.toString('utf8'));
           if (response.statusCode === 200 && parsed && typeof parsed === 'object' && 'artifact' in parsed) {
             // Read from the body rather than assumed: a responder that reports
             // nothing must yield null, not a fabricated zero, and anything that

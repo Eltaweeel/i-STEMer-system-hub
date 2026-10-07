@@ -104,7 +104,8 @@ async function startSlice(agentTenantId = tenantId) {
     recordUsage: vi.fn().mockResolvedValue({}),
   };
   const config: ResearchWorkerConfig = { port, endpoint: { hostname: '127.0.0.1', port: address.port }, keyId: 'worker-key', signingKey: key,
-    now: () => NOW, dispatch: dispatchResearchTask, observe: (input) => observeSource({ ...input, network }) };
+    now: () => NOW,
+    dispatch: (endpoint, signed, body, timeoutMs) => dispatchResearchTask(endpoint, signed, body, timeoutMs, { key, now: () => NOW }), observe: (input) => observeSource({ ...input, network }) };
   const claimWith = (claim: unknown) => { (port.claim as ReturnType<typeof vi.fn>).mockResolvedValueOnce(claim); };
   return { config, claimWith, completed, failed, runs: () => hermesRuns };
 }
