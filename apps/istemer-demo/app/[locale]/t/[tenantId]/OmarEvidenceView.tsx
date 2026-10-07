@@ -14,6 +14,7 @@ export function OmarEvidenceView({ ar, run }: { ar: boolean; run: ResearchRunVie
           <ul>
             {run.artifact.evidence.map((item) => (
               <li key={item.inspectionReceiptId}>
+                <p>{ar ? 'رقم إيصال الفحص:' : 'Inspection receipt id:'} {item.inspectionReceiptId}</p>
                 <p>{ar ? 'المصدر:' : 'Source:'} {item.sourceUrl}</p>
                 <p>{ar ? 'وقت الفحص:' : 'Inspected at:'} {item.inspectedAt}</p>
                 <p>{ar ? 'الملاحظة:' : 'Observation:'} {item.observation}</p>
@@ -28,6 +29,12 @@ export function OmarEvidenceView({ ar, run }: { ar: boolean; run: ResearchRunVie
               </li>
             ))}
           </ul>
+          {run.artifact.gaps.length > 0 && (
+            <>
+              <p>{ar ? 'فجوات البحث (مصادر لم تُفحص أو فُحصت جزئيًا):' : 'Research gaps (sources not inspected or only partly inspected):'}</p>
+              <ul>{run.artifact.gaps.map((gap, index) => <li key={`gap-${index}`}>{gap}</li>)}</ul>
+            </>
+          )}
         </div>
       ) : null}
     </section>

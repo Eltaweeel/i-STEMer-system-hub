@@ -25,7 +25,15 @@ export function dispatchResearchTask(
   if (endpoint.hostname !== '127.0.0.1') return Promise.resolve({ status: 'transport_failure' });
   return new Promise((resolve) => {
     let settled = false;
-    const finish = (outcome: DispatchOutcome) => { if (!settled) { settled = true; resolve(outcome); } };
+    // Total deadline from connect through the end of the response. The request's own `timeout` option is only
+    // a socket idle timeout, so a response trickled in small pieces could otherwise outlive the lease margin.
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    const finish = (outcome: DispatchOutcome) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      resolve(outcome);
+    };
     const outgoing = httpRequest({
       host: endpoint.hostname, port: endpoint.port, path: RESEARCH_TASK_PATH, method: 'POST', timeout: timeoutMs,
       headers: { 'Content-Type': 'application/json', 'Content-Length': body.byteLength,
@@ -65,6 +73,7 @@ export function dispatchResearchTask(
       // 'end' (observed inconsistently across Node versions/platforms).
       response.on('close', () => finish({ status: 'transport_failure' }));
     });
+    deadline = setTimeout(() => { outgoing.destroy(); finish({ status: 'transport_failure' }); }, timeoutMs);
     outgoing.on('timeout', () => outgoing.destroy());
     outgoing.on('error', () => finish({ status: 'transport_failure' }));
     outgoing.on('close', () => finish({ status: 'transport_failure' }));

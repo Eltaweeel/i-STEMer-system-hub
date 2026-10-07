@@ -1,0 +1,38 @@
+# TEMPLATE -- not installed by this repository. The VPS owner reviews and installs it.
+# Standalone Omar research worker: claims one research task at a time, observes the permitted
+# sources, signs and dispatches to the loopback Omar listener, then persists the validated result.
+# Build the bundle with `npm run build:research-worker --workspace @istemer/demo`
+# (output: apps/istemer-demo/dist/research-worker.cjs). Variable NAMES are in
+# docs/OMAR_STAGING_RUNBOOK.md; values live only in the root-owned EnvironmentFile, never in Git.
+[Unit]
+Description=i-STEMer research worker (Omar, staging)
+After=network.target istemer-omar-agent.service
+Wants=istemer-omar-agent.service
+# An explicit stop/restart of the listener first stops (and drains) this worker, so a redeploy cannot kill a paid run.
+# It does not react to the listener crashing on its own; that case is covered by the lease and the retry rules.
+PartOf=istemer-omar-agent.service
+
+[Service]
+Type=simple
+User=istemer-research-worker
+Group=istemer-research-worker
+WorkingDirectory=/opt/istemer/research-worker
+EnvironmentFile=/etc/istemer-research-worker/worker.env
+ExecStart=/usr/bin/node /opt/istemer/research-worker/research-worker.cjs
+Restart=on-failure
+RestartSec=10
+# A stop lets the in-flight cycle finish. Bound: a claim in flight (connect + query, up to ~20s) + the 5 minute
+# lease + a final complete started just before expiry (~20s) + the usage record (~20s) = ~360s, so 400s leaves
+# slack. SIGKILL can only land after the lease has expired, when a result could no longer be saved anyway; the
+# loss would be the usage row, not the artifact.
+TimeoutStopSec=400
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+CapabilityBoundingSet=
+# Needs outbound HTTPS (public sources, database) and loopback to the Omar listener only.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

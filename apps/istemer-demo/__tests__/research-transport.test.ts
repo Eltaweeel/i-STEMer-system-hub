@@ -128,6 +128,22 @@ describe('dispatchResearchTask', () => {
     expect(outcome).toEqual({ status: 'transport_failure' });
   });
 
+  it('enforces a total deadline even when the response keeps trickling in', async () => {
+    let trickle: ReturnType<typeof setInterval> | undefined;
+    server.on('request', (_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      // A byte every 40ms never trips an idle timeout, but never finishes either.
+      trickle = setInterval(() => response.write(' '), 40);
+      response.on('close', () => clearInterval(trickle));
+    });
+    const signed = signResearchRequest(body, freshMetadata('k', 0), key);
+    const started = performance.now();
+    const outcome = await dispatchResearchTask({ hostname: '127.0.0.1', port }, signed, body, 300);
+    expect(outcome).toEqual({ status: 'transport_failure' });
+    expect(performance.now() - started).toBeLessThan(1500);
+    clearInterval(trickle);
+  });
+
   it('resolves transport_failure without connecting when the endpoint is not loopback', async () => {
     const signed = signResearchRequest(body, freshMetadata('k', 0), key);
     expect(await dispatchResearchTask({ hostname: 'example.org', port: 80 }, signed, body, 100)).toEqual({ status: 'transport_failure' });

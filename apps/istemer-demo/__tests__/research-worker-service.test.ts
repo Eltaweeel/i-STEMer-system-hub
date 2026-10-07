@@ -76,4 +76,20 @@ describe('startResearchWorkerService', () => {
     expect(onCycleError).toHaveBeenCalledWith(expect.any(Error));
     expect(onCycle).toHaveBeenCalledWith({ outcome: 'idle' });
   });
+
+  it('stop() resolves only after the in-flight cycle has settled', async () => {
+    let resolveClaim: (() => void) | undefined;
+    const claim = vi.fn().mockImplementation(() => new Promise((resolve) => { resolveClaim = () => resolve(null); }));
+    const service = startResearchWorkerService({ config: fakeConfig(claim), intervalMs: 100 });
+    await vi.advanceTimersByTimeAsync(150);
+    let stopped = false;
+    const stopping = service.stop().then(() => { stopped = true; });
+    await vi.advanceTimersByTimeAsync(500);
+    expect(stopped).toBe(false);
+    expect(service.running).toBe(false);
+    resolveClaim?.();
+    await stopping;
+    expect(stopped).toBe(true);
+    expect(claim).toHaveBeenCalledTimes(1);
+  });
 });

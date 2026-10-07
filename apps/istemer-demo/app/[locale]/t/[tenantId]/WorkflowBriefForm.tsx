@@ -87,7 +87,7 @@ export function WorkflowBriefForm({ locale, tenantId }: { locale: 'en' | 'ar'; t
   };
   return <section aria-label={ar ? 'إنشاء موجز' : 'Create a brief'}>
     <h2>{ar ? 'آدم ← عمر: بحث المصادر' : 'Adam → Omar: source research'}</h2>
-    <p>{ar ? 'بحث فقط. لا نشر خارجي. تُشغَّل مهام زياد ونور تلقائيًا بعد اكتمال بحث عمر.' : 'Research only. No external publishing. Ziad and Nour run automatically once Omar completes.'}</p>
+    <p>{ar ? 'بحث فقط. لا نشر خارجي. في هذا النشر التجريبي تُنشأ مهمة زياد عند اكتمال بحث عمر لكنها لا تُنفَّذ بعد.' : 'Research only. No external publishing. In this staging deployment a Ziad task is queued when Omar completes but is not executed yet.'}</p>
     <form onSubmit={submit}>
       <label>{ar ? 'الهدف' : 'Objective'}<textarea required maxLength={8000} value={objective} onChange={(event) => setObjective(event.target.value)} /></label>
       <label>{ar ? 'مصادر البحث (HTTPS)' : 'Research sources (HTTPS)'}<textarea required value={sources} onChange={(event) => setSources(event.target.value)} /></label>

@@ -8,6 +8,7 @@ const taskId = '00000000-0000-4000-8000-000000000002';
 const attemptId = '00000000-0000-4000-8000-000000000003';
 const tenantId = '00000000-0000-4000-8000-000000000004';
 const revisionId = '00000000-0000-4000-8000-000000000005';
+const receiptId = '00000000-0000-4000-8000-000000000006';
 const queued = { contractVersion: 'research.v1', runId, taskId, status: 'queued', attempt: null,
   artifact: null, revisionId: null, liveEffects: false };
 
@@ -37,16 +38,19 @@ it('reloads the artifact from the API after remount instead of keeping it only i
   window.history.replaceState(null, '', `?researchRun=${runId}`);
   const artifact = { contractVersion: 'research.v1', runId, taskId, attemptId, tenantId,
     producedBy: 'competitor_analyst', sourceRevisionIds: [revisionId], liveEffects: false, gaps: ['Fixture only'],
-    evidence: [{ sourceUrl: 'https://example.org', inspectionReceiptId: revisionId, inspectedAt: '2026-09-16T12:00:00Z',
+    evidence: [{ sourceUrl: 'https://example.org', inspectionReceiptId: receiptId, inspectedAt: '2026-09-16T12:00:00Z',
       observation: 'Fixture observation', interpretation: null, confidence: 'low', gaps: ['No live inspection in this test'] }] };
   vi.stubGlobal('fetch', async () => Response.json({ ...queued, status: 'succeeded', artifact, revisionId }));
   const first = render(<WorkflowBriefForm locale="en" tenantId="00000000-0000-4000-8000-000000000001" />);
   await screen.findByText('Run status: succeeded');
   expect(first.container.textContent).toContain('Fixture observation');
+  expect(first.container.textContent).toContain('Fixture only'); // artifact-level gaps (e.g. sources not inspected) are shown
+  expect(first.container.textContent).toContain(`Inspection receipt id: ${receiptId}`);
   first.unmount();
   const second = render(<WorkflowBriefForm locale="en" tenantId="00000000-0000-4000-8000-000000000001" />);
   await screen.findByText('Run status: succeeded');
-  expect(second.container.textContent).toContain(revisionId);
+  expect(second.container.textContent).toContain(`Artifact revision id: ${revisionId}`);
+  expect(second.container.textContent).toContain(receiptId);
 });
 
 it('shows a failed attempt and exposes explicit retry without treating it as success', async () => {

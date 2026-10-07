@@ -4,6 +4,8 @@ import { runResearchWorkerCycle, type ResearchWorkerConfig, type WorkerCycleResu
 export interface ResearchWorkerServiceOptions {
   readonly config: ResearchWorkerConfig;
   readonly intervalMs: number;
+  /** Keep the process alive on this timer. Library callers inside Next leave it false; the standalone worker sets true. */
+  readonly keepAlive?: boolean;
   /** Called after every cycle, success or failure. Never throw from this —
    * an exception here would otherwise escape the interval callback. */
   readonly onCycle?: (result: WorkerCycleResult) => void;
@@ -14,7 +16,8 @@ export interface ResearchWorkerServiceOptions {
 }
 
 export interface ResearchWorkerService {
-  stop(): void;
+  /** Stops scheduling and resolves once any in-flight cycle has settled. */
+  stop(): Promise<void>;
   readonly running: boolean;
 }
 
@@ -26,11 +29,12 @@ export interface ResearchWorkerService {
 export function startResearchWorkerService(options: ResearchWorkerServiceOptions): ResearchWorkerService {
   let stopped = false;
   let cycleInFlight = false;
+  let inFlight: Promise<void> = Promise.resolve();
 
   const runCycle = () => {
     if (stopped || cycleInFlight) return;
     cycleInFlight = true;
-    runResearchWorkerCycle(options.config)
+    inFlight = runResearchWorkerCycle(options.config)
       .then((result) => { options.onCycle?.(result); })
       .catch((error: unknown) => { options.onCycleError?.(error); })
       .finally(() => { cycleInFlight = false; });
@@ -40,14 +44,14 @@ export function startResearchWorkerService(options: ResearchWorkerServiceOptions
   // Consistent with server.ts's `Connection: close` posture elsewhere in this
   // feature: don't let this interval alone keep a Node process alive if
   // everything else has already shut down.
-  timer.unref?.();
+  if (!options.keepAlive) timer.unref?.();
 
   return {
     get running() { return !stopped; },
-    stop() {
-      if (stopped) return;
+    async stop() {
       stopped = true;
       clearInterval(timer);
+      await inFlight;
     },
   };
 }

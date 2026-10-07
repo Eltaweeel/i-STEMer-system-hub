@@ -96,7 +96,18 @@ export interface ResearchWorkerConfig {
   readonly signingKey: Uint8Array;
   readonly now: () => number;
   readonly dispatchTimeoutMs?: number;
+  /** Lease time held back from dispatch so a completed artifact can still be persisted. Default 45s: room for
+   * two cold database calls (the standalone worker caps connecting at 10s and a query at 10s, so ~40s) plus a
+   * 500ms backoff. A third attempt may overrun the lease; it is then simply refused. */
+  readonly completionMarginMs?: number;
+  /** Total attempts for port.complete while the lease lasts (the SQL command is idempotent by digest). Default 3. */
+  readonly completeAttempts?: number;
+  readonly completeRetryDelayMs?: number;
+  /** Backoff timer; injectable so tests can move the clock while waiting. */
+  readonly sleep?: (ms: number) => Promise<void>;
 }
+
+const DEFAULT_COMPLETION_MARGIN_MS = 45_000;
 
 function mapDispatchErrorCode(error: unknown): FailureCode {
   if (error && typeof error === 'object' && 'code' in error) {
@@ -131,10 +142,16 @@ export async function runResearchWorkerCycle(config: ResearchWorkerConfig): Prom
   }
   const controller = new AbortController();
   const snapshots: { receipt: SourceInspection; text: string }[] = [];
-  for (const sourceUrl of task.brief.sources) {
-    if (Date.parse(task.expiresAt) - config.now() <= 0) { controller.abort(); break; }
-    const observation = await config.observe({ task, sourceUrl, now: config.now, signal: controller.signal });
-    if (observation.status === 'inspected') snapshots.push(observation.snapshot);
+  try {
+    for (const sourceUrl of task.brief.sources) {
+      if (Date.parse(task.expiresAt) - config.now() <= 0) { controller.abort(); break; }
+      const observation = await config.observe({ task, sourceUrl, now: config.now, signal: controller.signal });
+      if (observation.status === 'inspected') snapshots.push(observation.snapshot);
+    }
+  } catch {
+    // An unexpected observer error (e.g. a host clock behind the database clock: task_outside_lease) happens before any
+    // paid dispatch. Record it now instead of leaving the attempt running until the lease is reclaimed as a timeout.
+    return fail(config.port, task.runId, task.attemptId, 'uninspected_source');
   }
 
   // Checked before the uninspected-source branch below so a task that both
@@ -149,10 +166,13 @@ export async function runResearchWorkerCycle(config: ResearchWorkerConfig): Prom
   }
 
   const remaining = Date.parse(task.expiresAt) - config.now();
+  const margin = config.completionMarginMs ?? DEFAULT_COMPLETION_MARGIN_MS;
+  // Not enough lease left to both run the agent and persist its answer: do not start a paid run.
+  if (remaining - margin <= 0) return { outcome: 'lease_expired', runId: task.runId, attemptId: task.attemptId };
   const body = new TextEncoder().encode(JSON.stringify({ task, handoff, snapshots }));
   const metadata = freshMetadata(config.keyId, config.now());
   const signed = signResearchRequest(body, metadata, config.signingKey);
-  const timeoutMs = Math.min(config.dispatchTimeoutMs ?? 20000, remaining);
+  const timeoutMs = Math.min(config.dispatchTimeoutMs ?? 20000, remaining - margin);
   const outcome = await config.dispatch(config.endpoint, signed, body, timeoutMs);
 
   // Dispatch can legitimately consume most of the remaining lease. Re-check
@@ -184,9 +204,11 @@ export async function runResearchWorkerCycle(config: ResearchWorkerConfig): Prom
     return fail(config.port, task.runId, task.attemptId, 'invalid_contract');
   }
 
-  try {
-    await config.port.complete(task.attemptId, parsedArtifact.data, receipts);
-  } catch {
+  const completion = await completeWithRetry(config, task.attemptId, parsedArtifact.data, receipts, Date.parse(task.expiresAt));
+  // The database refused this exact artifact (bad payload or missing privilege); repeating or waiting out the lease
+  // cannot help, so say so instead of letting it surface later as a retryable timeout that invites another paid run.
+  if (completion === 'rejected') return fail(config.port, task.runId, task.attemptId, 'invalid_contract');
+  if (completion !== 'ok') {
     return { outcome: 'command_failed', runId: task.runId, attemptId: task.attemptId, stage: 'complete' };
   }
   // Metering is recorded after the artifact is durable and deliberately cannot
@@ -195,6 +217,34 @@ export async function runResearchWorkerCycle(config: ResearchWorkerConfig): Prom
   // visible either way, because an unrecorded attempt is not counted as zero.
   await recordUsage(config, task.attemptId, outcome.reportedTokens ?? null);
   return { outcome: 'succeeded', runId: task.runId, attemptId: task.attemptId };
+}
+
+/** complete_research_attempt is idempotent for an identical artifact/receipt digest, so a lost
+ * acknowledgement or dropped connection is safe to repeat while the lease is still open. */
+// SQLSTATEs for which the same call can never succeed: invalid parameter value, NUL in jsonb text,
+// insufficient privilege, object not in the required state.
+const NON_RETRYABLE_SQLSTATES = new Set(['22023', '22P05', '42501', '55000']);
+
+async function completeWithRetry(config: ResearchWorkerConfig, attemptId: string, artifact: ResearchArtifact,
+  receipts: readonly SourceInspection[], expiresAtMs: number): Promise<'ok' | 'exhausted' | 'rejected'> {
+  const attempts = config.completeAttempts ?? 3;
+  const sleep = config.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    // The lease is re-checked immediately before every call, not only after a rejection: a call made after
+    // expiry can only be refused, and the next claim reclaims the attempt regardless.
+    if (config.now() >= expiresAtMs) return 'exhausted';
+    try { await config.port.complete(attemptId, artifact, receipts); return 'ok'; }
+    catch (error) {
+      const sqlstate = error && typeof error === 'object' ? (error as { code?: unknown }).code : undefined;
+      if (typeof sqlstate === 'string' && NON_RETRYABLE_SQLSTATES.has(sqlstate)) return 'rejected';
+      if (attempt === attempts) return 'exhausted';
+      // Never sleep past the lease.
+      const remaining = expiresAtMs - config.now();
+      if (remaining <= 0) return 'exhausted';
+      await sleep(Math.min(config.completeRetryDelayMs ?? 500, remaining));
+    }
+  }
+  return 'exhausted';
 }
 
 async function recordUsage(config: ResearchWorkerConfig, attemptId: string, reportedTokens: number | null) {

@@ -222,8 +222,129 @@ describe('runResearchWorkerCycle', () => {
       complete: vi.fn().mockRejectedValue(new Error('stale_attempt')),
     });
     const dispatch = vi.fn().mockResolvedValue({ status: 'ok', artifact: buildArtifact() });
-    const result = await runResearchWorkerCycle(baseConfig({ port, dispatch }));
+    const result = await runResearchWorkerCycle(baseConfig({ port, dispatch, completeRetryDelayMs: 0 }));
     expect(result).toEqual({ outcome: 'command_failed', runId, attemptId, stage: 'complete' });
+    expect(port.complete).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('failures that must be recorded, not left to expire', () => {
+  const claimed = () => ({ claim: vi.fn().mockResolvedValue({ status: 'claimed', task: buildTask(), handoff: buildHandoff() }) });
+
+  it('records uninspected_source when the observer itself throws (e.g. host clock behind the database)', async () => {
+    const port = fakePort(claimed());
+    const observe = vi.fn().mockRejectedValue(new Error('task_outside_lease'));
+    const result = await runResearchWorkerCycle(baseConfig({ port, observe }));
+    expect(result).toEqual({ outcome: 'failed', runId, attemptId, code: 'uninspected_source' });
+    expect(port.fail).toHaveBeenCalledWith(attemptId, 'uninspected_source');
+  });
+
+  it.each(['22023', '22P05', '42501', '55000'])('does not repeat a completion the database rejects with SQLSTATE %s', async (code) => {
+    const port = fakePort({ ...claimed(), complete: vi.fn().mockRejectedValue(Object.assign(new Error('rejected'), { code })) });
+    const result = await runResearchWorkerCycle(baseConfig({ port, completeRetryDelayMs: 0 }));
+    expect(result).toEqual({ outcome: 'failed', runId, attemptId, code: 'invalid_contract' });
+    expect(port.complete).toHaveBeenCalledTimes(1);
+    expect(port.fail).toHaveBeenCalledWith(attemptId, 'invalid_contract');
+  });
+
+  it('still retries a connection-class failure', async () => {
+    const complete = vi.fn().mockRejectedValueOnce(Object.assign(new Error('reset'), { code: 'ECONNRESET' })).mockResolvedValue({});
+    const result = await runResearchWorkerCycle(baseConfig({ port: fakePort({ ...claimed(), complete }), completeRetryDelayMs: 0 }));
+    expect(result).toEqual({ outcome: 'succeeded', runId, attemptId });
+    expect(complete).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('deadlines and completion recovery', () => {
+  const claimed = () => ({ claim: vi.fn().mockResolvedValue({ status: 'claimed', task: buildTask(), handoff: buildHandoff() }) });
+
+  it('repeats complete after a transient failure and still reports success', async () => {
+    const complete = vi.fn().mockRejectedValueOnce(new Error('connection reset')).mockResolvedValue({ status: 'succeeded' });
+    const port = fakePort({ ...claimed(), complete });
+    const result = await runResearchWorkerCycle(baseConfig({ port, completeRetryDelayMs: 0 }));
+    expect(result).toEqual({ outcome: 'succeeded', runId, attemptId });
+    expect(complete).toHaveBeenCalledTimes(2);
+    expect(complete.mock.calls[0]).toEqual(complete.mock.calls[1]);
+  });
+
+  it('does not repeat complete once the lease has lapsed', async () => {
+    const complete = vi.fn().mockRejectedValue(new Error('stale_attempt'));
+    const port = fakePort({ ...claimed(), complete });
+    // Clock jumps past the 5 minute lease once the first complete attempt has been made.
+    const now = () => (complete.mock.calls.length > 0 ? NOW0 + 6 * 60_000 : NOW0 + 2000);
+    const result = await runResearchWorkerCycle(baseConfig({ port, now, completeRetryDelayMs: 0 }));
+    expect(result).toEqual({ outcome: 'command_failed', runId, attemptId, stage: 'complete' });
+    expect(complete).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call complete again when the lease expires during the backoff', async () => {
+    let clock = NOW0 + 2000;
+    const complete = vi.fn().mockRejectedValue(new Error('connection reset'));
+    const port = fakePort({ ...claimed(), complete });
+    // The wait itself moves the clock past the 5 minute lease; nothing else does.
+    const sleep = vi.fn(async () => { clock = NOW0 + 5 * 60_000 + 1; });
+    const result = await runResearchWorkerCycle(baseConfig({ port, now: () => clock, sleep, completeRetryDelayMs: 500 }));
+    expect(result).toEqual({ outcome: 'command_failed', runId, attemptId, stage: 'complete' });
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(sleep).toHaveBeenCalledTimes(1);
+  });
+
+  it('caps the backoff to the time left in the lease', async () => {
+    let clock = NOW0 + 2000;
+    const complete = vi.fn().mockImplementationOnce(async () => { clock = NOW0 + 5 * 60_000 - 100; throw new Error('slow failure'); })
+      .mockResolvedValue({ status: 'succeeded' });
+    const sleep = vi.fn(async () => undefined);
+    const port = fakePort({ ...claimed(), complete });
+    await runResearchWorkerCycle(baseConfig({ port, now: () => clock, sleep, completeRetryDelayMs: 500 }));
+    expect(sleep).toHaveBeenCalledWith(100);
+  });
+
+  it('never starts a paid dispatch when the lease cannot cover the run plus the completion margin', async () => {
+    const task = buildTask(iso(NOW0 + 10_000));
+    const port = fakePort({ claim: vi.fn().mockResolvedValue({ status: 'claimed', task, handoff: buildHandoff() }) });
+    const dispatch = vi.fn();
+    const result = await runResearchWorkerCycle(baseConfig({ port, dispatch }));
+    expect(result).toEqual({ outcome: 'lease_expired', runId, attemptId });
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(port.fail).not.toHaveBeenCalled();
+  });
+
+  it('caps the dispatch timeout so the completion margin stays available', async () => {
+    const task = buildTask(iso(NOW0 + 60_000));
+    const port = fakePort({ claim: vi.fn().mockResolvedValue({ status: 'claimed', task, handoff: buildHandoff() }) });
+    const dispatch = vi.fn().mockResolvedValue({ status: 'ok', artifact: buildArtifact() });
+    await runResearchWorkerCycle(baseConfig({ port, dispatch, dispatchTimeoutMs: 200_000, completionMarginMs: 15_000 }));
+    // lease remaining at claim time is 58s; 15s is held back.
+    expect(dispatch.mock.calls[0]?.[3]).toBe(43_000);
+  });
+
+  it.each([
+    ['agent timeout', { status: 'error', error: { code: 'timeout' } }, 'timeout'],
+    ['agent provider failure', { status: 'error', error: { code: 'provider_failure' } }, 'provider_failure'],
+    ['agent replay refusal', { status: 'error', error: { code: 'stale_attempt' } }, 'invalid_contract'],
+    ['wrong tenant at the agent', { status: 'error', error: { code: 'unauthorized' } }, 'unauthorized'],
+    ['unreachable agent', { status: 'transport_failure' }, 'provider_failure'],
+  ] as const)('records %s as a failed attempt and recovers on the next cycle', async (_name, outcome, code) => {
+    const claim = vi.fn().mockResolvedValueOnce({ status: 'claimed', task: buildTask(), handoff: buildHandoff() }).mockResolvedValue(null);
+    const port = fakePort({ claim });
+    const dispatch = vi.fn().mockResolvedValue(outcome);
+    const first = await runResearchWorkerCycle(baseConfig({ port, dispatch }));
+    expect(first).toEqual({ outcome: 'failed', runId, attemptId, code });
+    expect(port.complete).not.toHaveBeenCalled();
+    expect(await runResearchWorkerCycle(baseConfig({ port, dispatch }))).toEqual({ outcome: 'idle' });
+  });
+
+  it.each([
+    ['a different receipt id', (a: ReturnType<typeof buildArtifact>) => ({ ...a, evidence: [{ ...a.evidence[0], inspectionReceiptId: '00000000-0000-4000-8000-0000000000ff' }] })],
+    ['a different revision', (a: ReturnType<typeof buildArtifact>) => ({ ...a, sourceRevisionIds: ['00000000-0000-4000-8000-0000000000fe'] })],
+    ['a different tenant', (a: ReturnType<typeof buildArtifact>) => ({ ...a, tenantId: '00000000-0000-4000-8000-0000000000fd' })],
+    ['a different task', (a: ReturnType<typeof buildArtifact>) => ({ ...a, taskId: '00000000-0000-4000-8000-0000000000fc' })],
+  ])('rejects an artifact citing %s even when the agent accepted it', async (_name, tamper) => {
+    const port = fakePort(claimed());
+    const dispatch = vi.fn().mockResolvedValue({ status: 'ok', artifact: tamper(buildArtifact()) });
+    const result = await runResearchWorkerCycle(baseConfig({ port, dispatch }));
+    expect(result).toEqual({ outcome: 'failed', runId, attemptId, code: 'invalid_contract' });
+    expect(port.complete).not.toHaveBeenCalled();
   });
 });
 
