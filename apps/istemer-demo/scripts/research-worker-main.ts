@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { Pool } from 'pg';
 import { createSqlResearchCommandPort, verifyWorkerLogin, WorkerLoginRejectedError } from '../lib/workflow/research-command-port';
 import { startResearchWorkerService } from '../lib/workflow/research-worker-service';
-import { assertDatabaseUrlUsesTls, buildResearchWorkerConfig, describeCycle, loadWorkerRuntimeConfig } from '../lib/workflow/research-worker-runtime';
+import { assertDatabaseUrlUsesTls, buildResearchWorkerConfig, describeCycle, loadWorkerRuntimeConfig, WorkerConfigError } from '../lib/workflow/research-worker-runtime';
 
 // This process is the composition root, so it owns the one real clock; everything below receives it injected.
 // eslint-disable-next-line no-restricted-syntax -- real clock at the process boundary
@@ -55,7 +55,7 @@ async function main() {
 main().catch((error: unknown) => {
   // Configuration and login errors name the variable or a reason code, never a secret. A database error at startup
   // is reported by SQLSTATE/errno only, because its message can carry connection details.
-  if (error instanceof WorkerLoginRejectedError || (error instanceof Error && !('code' in error))) console.error(error.message);
+  if (error instanceof WorkerLoginRejectedError || error instanceof WorkerConfigError) console.error(error.message);
   else console.error(`worker failed to start (${typeof (error as { code?: unknown })?.code === 'string' ? (error as { code: string }).code : 'unknown'})`);
   process.exit(1);
 });

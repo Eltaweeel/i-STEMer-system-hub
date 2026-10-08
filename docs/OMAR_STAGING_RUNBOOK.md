@@ -63,6 +63,12 @@ Added on branch `omar-pg-worker-integration` (this repository only; nothing run 
 - **TLS.** Only `sslmode=verify-full` is accepted (`require` and `verify-ca` were accepted before; with `uselibpqcompat=true`
   or a future `pg` major they do not verify the server).
 - **Completion acknowledgement.** A completion counts only when the database answers `succeeded` for that attempt id.
+  Known gap (SQL, not changed): `complete_research_attempt` checks membership before its idempotent replay, so if the first
+  completion commits, its acknowledgement is lost, and the requester is revoked before the repeat, the repeat is refused
+  (42501). The stored state stays correct (succeeded), but the cycle reports `command_failed` and no usage row is written.
+  Fix later by returning the digest replay before the authorization check.
+- **Database URL.** Besides `sslmode=verify-full`, the URL may not repeat any parameter or set `ssl=` (the driver reads
+  the last `sslmode`; a repeated `sslmode=disable` would otherwise have connected in plaintext).
 - **Mid-run revocation.** A requester or tenant revoked while Omar runs is recorded as `unauthorized`, not `invalid_contract`.
 - **Real-SQL test.** `apps/istemer-demo/__tests__/research-worker-postgres.test.ts` runs the real command port and worker
   cycle against every migration in local PGlite, as a LOGIN role granted only the executor role.
@@ -108,12 +114,13 @@ None of these were done by Claude Code or Codex; each is a hard gate.
    (`reserved_login`); the session switched roles (`escalated_session`); it has SUPERUSER, BYPASSRLS, CREATEROLE, CREATEDB
    or REPLICATION (`elevated_attributes`); it is a member of anything besides `bagos_research_executor` or holds admin
    option (`unexpected_memberships`); it does not inherit the executor (`executor_not_inherited`); it cannot execute the
-   four commands, e.g. a missing migration (`missing_command_privilege`); or it has any direct privilege on a `public`/
-   `private` table (`direct_table_access`). These checks are proven against PGlite, not against the staging database.
+   four commands, e.g. a missing migration (`missing_command_privilege`); it can reach any `public`/`private` table or
+   column (`direct_table_access`); or anything at all (table, column, function, schema, in any schema) was granted to the
+   login by name (`direct_grant`). Privileges every role gets through `PUBLIC` are not, and cannot be, ruled out. These checks are proven against PGlite, not against the staging database.
    Connection path (unverified): the direct host `db.<ref>.supabase.co` is IPv6-only unless the IPv4 add-on is enabled;
    otherwise use the Supavisor pooler in **session** mode (port 5432, user `istemer_research_worker.<project-ref>`). Avoid
    transaction mode (6543). Also confirm `private.research_brand_binding` names the staging tenant.
-4. **Metering authority (review finding, unresolved).** `private.record_agent_usage` is granted to three
+4. **Metering authority (review finding, unresolved; BLOCKER before go-live per the 2026-10-08 Codex review).** `private.record_agent_usage` is granted to three
    executor roles and takes the agent category as an argument, so a research worker could record usage against
    another pipeline's terminal attempt. Consider revoking it from executors and exposing an agent-bound wrapper.
    The worker currently calls it with the fixed category `competitor_analyst`. Codex's independent review (2026-10-08)

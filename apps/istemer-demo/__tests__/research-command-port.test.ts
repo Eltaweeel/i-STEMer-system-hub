@@ -106,8 +106,11 @@ describe('assertDatabaseUrlUsesTls', () => {
   });
   it.each(['postgresql://u:p@db.example.com:5432/postgres', 'postgresql://u:p@db.example.com/postgres?sslmode=disable',
     'postgresql://u:p@db.example.com/postgres?sslmode=require', 'postgresql://u:p@db.example.com/postgres?sslmode=verify-ca',
+    'postgresql://u:p@db.example.com/postgres?sslmode=verify-full&sslmode=disable',
+    'postgresql://u:p@db.example.com/postgres?sslmode=verify-full&sslmode=no-verify',
+    'postgresql://u:p@db.example.com/postgres?sslmode=verify-full&ssl=0',
     'postgresql://u:p@db.example.com/postgres?sslmode=prefer'])('refuses %s without leaking the URL', (url) => {
-    expect(() => assertDatabaseUrlUsesTls(url)).toThrow(/sslmode=verify-full/);
+    expect(() => assertDatabaseUrlUsesTls(url)).toThrow(/sslmode=verify-full|repeat a parameter/);
     try { assertDatabaseUrlUsesTls(url); } catch (error) { expect(String((error as Error).message)).not.toContain('u:p'); }
   });
   it('refuses a value that is not a URL without echoing it', () => {

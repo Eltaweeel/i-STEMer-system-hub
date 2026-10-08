@@ -16,7 +16,8 @@ function requireAttempt(attemptId: string): string {
 }
 
 export type WorkerLoginRejection = 'reserved_login' | 'escalated_session' | 'elevated_attributes'
-  | 'unexpected_memberships' | 'executor_not_inherited' | 'missing_command_privilege' | 'direct_table_access';
+  | 'unexpected_memberships' | 'executor_not_inherited' | 'missing_command_privilege' | 'direct_table_access'
+  | 'direct_grant';
 
 export class WorkerLoginRejectedError extends Error {
   constructor(readonly reason: WorkerLoginRejection) { super(`worker_login_rejected:${reason}`); }
@@ -45,7 +46,13 @@ export async function verifyWorkerLogin(client: SqlClient): Promise<void> {
         to_regprocedure(f), 'EXECUTE'), false)) from unnest($1::text[]) f) else false end as can_execute,
       exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
         where n.nspname in ('public','private') and c.relkind in ('r','p','v','m','f')
-          and has_table_privilege(c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')) as table_access
+          and (has_table_privilege(c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+            or has_any_column_privilege(c.oid, 'SELECT,INSERT,UPDATE,REFERENCES'))) as table_access,
+      -- Anything granted to this login by name, in any schema: tables, sequences, columns, functions, schemas.
+      exists (select 1 from pg_class c, aclexplode(c.relacl) a where a.grantee = r.oid)
+        or exists (select 1 from pg_attribute t, aclexplode(t.attacl) a where a.grantee = r.oid)
+        or exists (select 1 from pg_proc p, aclexplode(p.proacl) a where a.grantee = r.oid)
+        or exists (select 1 from pg_namespace n, aclexplode(n.nspacl) a where a.grantee = r.oid) as direct_grant
     from pg_roles r where r.rolname = current_user`, [COMMANDS]);
   const row = rows[0];
   if (!row) throw new WorkerLoginRejectedError('reserved_login');
@@ -60,6 +67,7 @@ export async function verifyWorkerLogin(client: SqlClient): Promise<void> {
   if (row.inherits_executor !== true) throw new WorkerLoginRejectedError('executor_not_inherited');
   if (row.can_execute !== true) throw new WorkerLoginRejectedError('missing_command_privilege');
   if (row.table_access !== false) throw new WorkerLoginRejectedError('direct_table_access');
+  if (row.direct_grant !== false) throw new WorkerLoginRejectedError('direct_grant');
 }
 
 /**

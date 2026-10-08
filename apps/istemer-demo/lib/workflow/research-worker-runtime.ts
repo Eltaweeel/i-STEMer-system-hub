@@ -16,6 +16,9 @@ export interface WorkerRuntimeConfig {
   readonly approvedSources: ReadonlySet<string>;
 }
 
+/** A configuration mistake. Its message names a variable or rule and never a value, so it is safe to print. */
+export class WorkerConfigError extends Error {}
+
 export const MIN_SIGNING_KEY_BYTES = 32;
 const MAX_APPROVED_SOURCES = 50;
 
@@ -24,13 +27,13 @@ const MAX_APPROVED_SOURCES = 50;
  * match and would only hide a typo. Redirects are not followed, so list the final URL. */
 export function parseApprovedSources(raw: string | undefined): ReadonlySet<string> {
   const entries = (raw ?? '').split(/\s+/).filter(Boolean);
-  if (entries.length === 0) throw new Error('RESEARCH_WORKER_APPROVED_SOURCES must list at least one URL');
-  if (entries.length > MAX_APPROVED_SOURCES) throw new Error(`RESEARCH_WORKER_APPROVED_SOURCES allows at most ${MAX_APPROVED_SOURCES} URLs`);
+  if (entries.length === 0) throw new WorkerConfigError('RESEARCH_WORKER_APPROVED_SOURCES must list at least one URL');
+  if (entries.length > MAX_APPROVED_SOURCES) throw new WorkerConfigError(`RESEARCH_WORKER_APPROVED_SOURCES allows at most ${MAX_APPROVED_SOURCES} URLs`);
   entries.forEach((entry, index) => {
     let url: URL;
-    try { url = new URL(entry); } catch { throw new Error(`RESEARCH_WORKER_APPROVED_SOURCES entry ${index + 1} is not a URL`); }
+    try { url = new URL(entry); } catch { throw new WorkerConfigError(`RESEARCH_WORKER_APPROVED_SOURCES entry ${index + 1} is not a URL`); }
     if (url.protocol !== 'https:' || url.username || url.password || url.port || url.hash || url.href !== entry) {
-      throw new Error(`RESEARCH_WORKER_APPROVED_SOURCES entry ${index + 1} must be a canonical https URL without credentials, port or fragment`);
+      throw new WorkerConfigError(`RESEARCH_WORKER_APPROVED_SOURCES entry ${index + 1} must be a canonical https URL without credentials, port or fragment`);
     }
   });
   return new Set(entries);
@@ -39,23 +42,23 @@ export function parseApprovedSources(raw: string | undefined): ReadonlySet<strin
 export function loadWorkerRuntimeConfig(env: Readonly<Record<string, string | undefined>>): WorkerRuntimeConfig {
   const need = (name: string): string => {
     const value = env[name];
-    if (!value) throw new Error(`Missing required configuration: ${name}`);
+    if (!value) throw new WorkerConfigError(`Missing required configuration: ${name}`);
     return value;
   };
   const integer = (name: string, fallback: string | undefined, min: number, max: number): number => {
     const raw = env[name] ?? fallback;
-    if (raw === undefined) throw new Error(`Missing required configuration: ${name}`);
+    if (raw === undefined) throw new WorkerConfigError(`Missing required configuration: ${name}`);
     const value = Number(raw);
-    if (!Number.isInteger(value) || value < min || value > max) throw new Error(`${name} must be an integer ${min}-${max}`);
+    if (!Number.isInteger(value) || value < min || value > max) throw new WorkerConfigError(`${name} must be an integer ${min}-${max}`);
     return value;
   };
   const databaseUrlFile = need('RESEARCH_WORKER_DATABASE_URL_FILE');
   const signingKeyFile = need('RESEARCH_WORKER_SIGNING_KEY_FILE');
   for (const [name, value] of [['RESEARCH_WORKER_DATABASE_URL_FILE', databaseUrlFile], ['RESEARCH_WORKER_SIGNING_KEY_FILE', signingKeyFile]] as const) {
-    if (!isAbsolute(value)) throw new Error(`${name} must be an absolute path`);
+    if (!isAbsolute(value)) throw new WorkerConfigError(`${name} must be an absolute path`);
   }
   const keyId = need('RESEARCH_WORKER_KEY_ID');
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(keyId)) throw new Error('RESEARCH_WORKER_KEY_ID must match [A-Za-z0-9_-]{1,64}');
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(keyId)) throw new WorkerConfigError('RESEARCH_WORKER_KEY_ID must match [A-Za-z0-9_-]{1,64}');
   return {
     databaseUrlFile, signingKeyFile, keyId,
     agentPort: integer('RESEARCH_WORKER_AGENT_PORT', undefined, 1024, 65535),
@@ -72,7 +75,7 @@ export function buildResearchWorkerConfig(input: {
   /** The process clock, injected by the composition root; this module never reads wall-clock time. */
   now: () => number;
 }): ResearchWorkerConfig {
-  if (input.signingKey.byteLength < MIN_SIGNING_KEY_BYTES) throw new Error('signing key must be at least 32 bytes');
+  if (input.signingKey.byteLength < MIN_SIGNING_KEY_BYTES) throw new WorkerConfigError('signing key must be at least 32 bytes');
   return {
     port: input.port,
     observe: observeSource,
@@ -92,13 +95,19 @@ export function buildResearchWorkerConfig(input: {
  * sslmode. Refuse to start rather than send briefs, artifacts and executor commands unencrypted. The message never
  * includes the URL (it holds the password). */
 export function assertDatabaseUrlUsesTls(connectionString: string): void {
-  let mode: string | null;
-  try { mode = new URL(connectionString).searchParams.get('sslmode'); }
-  catch { throw new Error('database url file does not hold a valid PostgreSQL connection URL'); }
+  let params: URLSearchParams;
+  try { params = new URL(connectionString).searchParams; }
+  catch { throw new WorkerConfigError('database url file does not hold a valid PostgreSQL connection URL'); }
+  // No parameter may repeat: URLSearchParams reads the first value but the pg driver uses the last, so
+  // `sslmode=verify-full&sslmode=disable` would pass this check and then connect in plaintext.
+  const names = [...params.keys()];
+  if (new Set(names).size !== names.length) throw new WorkerConfigError('database url must not repeat a parameter');
+  // `ssl=` is not needed alongside sslmode and only adds a second way to say something else.
+  if (params.has('ssl')) throw new WorkerConfigError('database url must not set ssl=; use sslmode=verify-full');
   // Only verify-full. node-postgres 8 aliases require/verify-ca to verify-full, but `uselibpqcompat=true` (or pg 9)
   // gives them libpq meaning, where the server certificate or its hostname is not checked.
-  if (mode !== 'verify-full') {
-    throw new Error('database url must set sslmode=verify-full (with sslrootcert for the provider CA); plaintext connections are refused');
+  if (params.get('sslmode') !== 'verify-full') {
+    throw new WorkerConfigError('database url must set sslmode=verify-full (with sslrootcert for the provider CA); plaintext connections are refused');
   }
 }
 

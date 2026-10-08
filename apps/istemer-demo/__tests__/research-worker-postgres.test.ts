@@ -5,7 +5,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
-import type { ResearchArtifact } from '@bagos/contracts';
+import type { ResearchArtifact, SourceInspection } from '@bagos/contracts';
 import { observeSource } from '../../../packages/core/research-worker/src/source-observer';
 import { createSqlResearchCommandPort, verifyWorkerLogin, type SqlClient } from '../lib/workflow/research-command-port';
 import { runResearchWorkerCycle, type ResearchDispatcher, type ResearchWorkerConfig, type SourceObserver } from '../lib/workflow/research-worker';
@@ -64,6 +64,13 @@ async function ageLease(attemptId: string) {
     expires_at = expires_at - interval '10 minutes' where id = $1`, [attemptId]);
   await db.exec('alter table public.research_attempts enable trigger research_attempt_guard');
 }
+/** Ends a lease 2 ms after it started, keeping its start: an answer observed in that window stays well-formed, so
+ * only the stale-attempt rule can refuse it. */
+async function expireLeaseInPlace(attemptId: string) {
+  await db.exec('alter table public.research_attempts disable trigger research_attempt_guard');
+  await db.query("update public.research_attempts set expires_at = issued_at + interval '2 milliseconds' where id = $1", [attemptId]);
+  await db.exec('alter table public.research_attempts enable trigger research_attempt_guard');
+}
 const setMembership = (status: 'active' | 'revoked') =>
   db.query('update public.memberships set status=$1 where tenant_id=$2 and user_id=$3', [status, tenant, operator]);
 const attemptRow = (runId: string) => db.query<{ id: string; state: string; error_code: string | null; retryable: boolean }>(
@@ -93,6 +100,17 @@ async function claimAndHold(): Promise<Held> {
   const claimed = await trackedPort.claim();
   if (claimed?.status !== 'claimed') throw new Error('expected a claimable task');
   return claimed as unknown as Held;
+}
+
+/** What a correct worker would persist for a held claim: the observer's receipt and the listener's artifact. */
+async function answerFor(held: Held): Promise<{ artifact: ResearchArtifact; receipts: SourceInspection[] }> {
+  const observed = await fakeObserve({ task: held.task, sourceUrl: APPROVED, now: () => clockMs, signal: new AbortController().signal });
+  if (observed.status !== 'inspected') throw new Error('expected an inspected source');
+  const body = new TextEncoder().encode(JSON.stringify({ ...held, snapshots: [observed.snapshot] }));
+  // The implementation, not the spy: building a fixture is not a dispatch the worker made.
+  const outcome = await validAnswer.getMockImplementation()!({ hostname: '127.0.0.1', port: 0 }, {} as never, body, 0);
+  if (outcome.status !== 'ok') throw new Error('expected an artifact');
+  return { artifact: outcome.artifact as ResearchArtifact, receipts: [observed.snapshot.receipt] };
 }
 
 const fakeObserve: SourceObserver = async ({ task, sourceUrl, now }) => {
@@ -164,9 +182,23 @@ describe('worker login check against the real grants', () => {
     ['a login with BYPASSRLS', 'worker_bypass', 'alter role worker_bypass bypassrls; grant bagos_research_executor to worker_bypass;', 'elevated_attributes'],
     ['a login that does not inherit the executor', 'worker_noinherit', 'alter role worker_noinherit noinherit; grant bagos_research_executor to worker_noinherit;', 'executor_not_inherited'],
     ['a login with direct table access', 'worker_reader', 'grant bagos_research_executor to worker_reader; grant select on public.memberships to worker_reader;', 'direct_table_access'],
+    ['a login with a single column grant', 'worker_column', 'grant bagos_research_executor to worker_column; grant select (user_id) on public.memberships to worker_column;', 'direct_table_access'],
+    ['a login granted a table outside public/private', 'worker_storage', 'grant bagos_research_executor to worker_storage; grant select on storage.buckets to worker_storage;', 'direct_grant'],
+    ['a login granted a function directly', 'worker_fn', 'grant bagos_research_executor to worker_fn; grant execute on function auth.uid() to worker_fn;', 'direct_grant'],
+    ['a login granted a schema directly', 'worker_schema', 'grant bagos_research_executor to worker_schema; grant usage on schema auth to worker_schema;', 'direct_grant'],
   ])('refuses %s', async (_case, role, setup, reason) => {
     if (role.startsWith('worker_')) await db.exec(`create role ${role} login; ${setup}`);
     await expect(verifyWorkerLogin(connectionAs(role))).rejects.toThrow(`worker_login_rejected:${reason}`);
+  });
+
+  it('refuses a session whose current role is not its login, even when that role is not reserved', async () => {
+    await db.exec('create role worker_target nologin; create role worker_hop login; grant worker_target to worker_hop;');
+    const hopped: SqlClient = { async query(text, values) {
+      await db.exec('set session authorization worker_hop; set role worker_target');
+      try { return { rows: (await db.query<Record<string, unknown>>(text, [...values])).rows }; }
+      finally { await db.exec('reset role; set session authorization postgres'); }
+    } };
+    await expect(verifyWorkerLogin(hopped)).rejects.toThrow('worker_login_rejected:escalated_session');
   });
 
   it('refuses a session that switched to the executor role after connecting', async () => {
@@ -179,6 +211,14 @@ describe('worker login check against the real grants', () => {
     await expect(verifyWorkerLogin(switched)).rejects.toThrow('worker_login_rejected:reserved_login');
   });
 
+  it('refuses to start when a command is missing, e.g. a migration that was never applied', async () => {
+    await db.exec('begin; revoke execute on function private.record_agent_usage(uuid,text,integer,boolean) from bagos_research_executor');
+    try {
+      await expect(verifyWorkerLogin(connectionAs(WORKER))).rejects.toThrow('worker_login_rejected:missing_command_privilege');
+    } finally { await db.exec('rollback'); }
+    await expect(verifyWorkerLogin(connectionAs(WORKER))).resolves.toBeUndefined();
+  });
+
   it('cannot claim at all without the executor grant', async () => {
     await expect(createSqlResearchCommandPort(connectionAs('worker_bare')).claim()).rejects.toMatchObject({ code: '42501' });
   });
@@ -189,7 +229,8 @@ describe('worker login check against the real grants', () => {
 });
 
 describe('research worker cycle on the real SQL commands', () => {
-  it('completes one Omar task end to end with artifact, receipts, unreported usage and audit', async () => {
+  // Observer and listener are doubles here; the signed HTTP path and real fetching are covered by research-slice-e2e.
+  it('completes one Omar task through the real SQL commands with artifact, receipts, unreported usage and audit', async () => {
     const { runId } = await submit();
     const result = await runResearchWorkerCycle(config());
     expect(result).toMatchObject({ outcome: 'succeeded', runId });
@@ -227,9 +268,10 @@ describe('research worker cycle on the real SQL commands', () => {
     expect((await attemptRow(runId)).map((a) => a.state)).toEqual(['failed', 'succeeded']);
   });
 
-  it('treats a dispatch that times out as a provider failure, not a success', async () => {
+  it('records the dispatcher timeout outcome as a provider failure, not a success', async () => {
     const { runId } = await submit();
-    // dispatchResearchTask reports its own total deadline as a transport failure.
+    // dispatchResearchTask reports its own total deadline as transport_failure; that deadline itself is proven in
+    // research-transport.test.ts ("enforces a total deadline ..."). This covers what the worker and SQL do with it.
     const slow = listener(() => ({ status: 'transport_failure' }));
     expect(await runResearchWorkerCycle(config({ dispatch: slow }))).toMatchObject({ outcome: 'failed', code: 'provider_failure' });
     expect(await count('select count(*)::int from public.research_outcomes o join public.research_attempts a on a.id=o.attempt_id where a.run_id=$1', [runId])).toBe(0);
@@ -293,13 +335,7 @@ describe('duplicates and restart recovery on the real SQL commands', () => {
     expect(validAnswer).not.toHaveBeenCalled();
 
     // The first worker finishes, then repeats its completion as it would after a lost acknowledgement.
-    const observed = await fakeObserve({ task: held.task, sourceUrl: APPROVED, now: () => clockMs, signal: new AbortController().signal });
-    if (observed.status !== 'inspected') throw new Error('expected an inspected source');
-    const body = new TextEncoder().encode(JSON.stringify({ ...held, snapshots: [observed.snapshot] }));
-    const outcome = await validAnswer({ hostname: '127.0.0.1', port: 0 }, {} as never, body, 0);
-    if (outcome.status !== 'ok') throw new Error('expected an artifact');
-    const artifact = outcome.artifact as ResearchArtifact;
-    const receipts = [observed.snapshot.receipt];
+    const { artifact, receipts } = await answerFor(held);
     const first = await port.complete(held.task.attemptId, artifact, receipts);
     expect(first).toMatchObject({ status: 'succeeded', attemptId: held.task.attemptId });
     expect(await port.complete(held.task.attemptId, artifact, receipts)).toEqual(first);
@@ -308,13 +344,16 @@ describe('duplicates and restart recovery on the real SQL commands', () => {
     expect(await count('select count(*)::int from public.research_outcomes o join public.research_attempts a on a.id=o.attempt_id where a.run_id=$1', [runId])).toBe(1);
   });
 
+  // A restart is modelled as a new cycle on the same database after the old worker stopped; no process is restarted.
   it('recovers a task whose worker died mid-run as a visible timeout, and never lets the dead attempt complete', async () => {
     const { runId } = await submit();
     const orphan = await claimAndHold();
     // The worker process dies here. A restarted worker finds nothing claimable while the lease is live...
     expect(await runResearchWorkerCycle(config())).toEqual({ outcome: 'idle' });
-    // ...and once it lapses, the next claim fails it as a retryable timeout instead of running it again.
-    await ageLease(orphan.task.attemptId);
+    // The dead worker had already produced an answer inside its lease; it surfaces only after the lease is gone.
+    const late = await answerFor(orphan);
+    // ...and once the lease lapses, the next claim fails it as a retryable timeout instead of running it again.
+    await expireLeaseInPlace(orphan.task.attemptId);
     expect(await runResearchWorkerCycle(config())).toEqual({ outcome: 'lease_reclaimed', runId, code: 'timeout' });
     expect(await runResearchWorkerCycle(config())).toEqual({ outcome: 'idle' });
     expect(validAnswer).not.toHaveBeenCalled();
@@ -323,8 +362,11 @@ describe('duplicates and restart recovery on the real SQL commands', () => {
 
     await requestRetry(orphan.task.attemptId);
     expect(await runResearchWorkerCycle(config())).toMatchObject({ outcome: 'succeeded', runId });
-    // A zombie of the dead worker cannot record anything against the old attempt.
+    // A zombie of the dead worker cannot complete (or fail) the old attempt, even with a fully valid answer.
+    await expect(port.complete(orphan.task.attemptId, late.artifact, late.receipts))
+      .rejects.toMatchObject({ code: '55000', message: 'stale_attempt' });
     await expect(port.fail(orphan.task.attemptId, 'provider_failure')).rejects.toMatchObject({ code: '55000' });
+    expect(await count('select count(*)::int from public.research_outcomes where attempt_id=$1', [orphan.task.attemptId])).toBe(0);
     expect((await attemptRow(runId)).map((a) => a.state)).toEqual(['failed', 'succeeded']);
   });
 
