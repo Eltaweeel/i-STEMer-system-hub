@@ -19,10 +19,10 @@ describe('createSqlResearchCommandPort', () => {
       'select private.claim_research_task() as result',
       'select private.fail_research_attempt($1::uuid, $2::text) as result',
       'select private.complete_research_attempt($1::uuid, $2::jsonb, $3::jsonb) as result',
-      'select private.record_agent_usage($1::uuid, $2::text, $3::integer, $4::boolean) as result',
+      'select private.record_research_usage($1::uuid, $2::integer, $3::boolean) as result',
     ]);
     expect(query.mock.calls[2]![1]).toEqual([attempt, '{"a":1}', '[{"b":2}]']);
-    expect(query.mock.calls[3]![1]).toEqual([attempt, 'competitor_analyst', 42, true]);
+    expect(query.mock.calls[3]![1]).toEqual([attempt, 42, true]);
   });
 
   it('returns the command result, or null when nothing is claimable', async () => {
@@ -34,7 +34,7 @@ describe('createSqlResearchCommandPort', () => {
   it('records unreported usage as unreported, never as a measured zero', async () => {
     const client = noRows();
     await createSqlResearchCommandPort(client).recordUsage(attempt, null);
-    expect(vi.mocked(client.query).mock.calls[0]![1]).toEqual([attempt, 'competitor_analyst', null, false]);
+    expect(vi.mocked(client.query).mock.calls[0]![1]).toEqual([attempt, null, false]);
   });
 
   it('refuses malformed identifiers and token figures before touching the database', async () => {

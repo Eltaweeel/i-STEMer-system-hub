@@ -32,4 +32,5 @@ export const migrationNames = [
   '20260921120000_hadeer_supersede_scope_repair.sql',
   '20260921130000_hadeer_approval_role_null_repair.sql',
   '20260921140000_hadeer_retry_missing_run_repair.sql',
+  '20261008120000_omar_research_usage_command.sql',
 ];

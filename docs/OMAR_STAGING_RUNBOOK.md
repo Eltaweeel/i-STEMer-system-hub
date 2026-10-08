@@ -114,22 +114,42 @@ None of these were done by Claude Code or Codex; each is a hard gate.
    (`reserved_login`); the session switched roles (`escalated_session`); it has SUPERUSER, BYPASSRLS, CREATEROLE, CREATEDB
    or REPLICATION (`elevated_attributes`); it is a member of anything besides `bagos_research_executor` or holds admin
    option (`unexpected_memberships`); it does not inherit the executor (`executor_not_inherited`); it cannot execute the
-   four commands, e.g. a missing migration (`missing_command_privilege`); it can reach any `public`/`private` table or
+   four commands (claim, fail, complete, `record_research_usage`), e.g. a missing migration
+   (`missing_command_privilege`); it can still execute the broad `record_agent_usage` (`broad_usage_command`); it can reach any `public`/`private` table or
    column (`direct_table_access`); or anything at all (table, column, function, schema, in any schema) was granted to the
    login by name (`direct_grant`). Privileges every role gets through `PUBLIC` are not, and cannot be, ruled out. These checks are proven against PGlite, not against the staging database.
    Connection path (unverified): the direct host `db.<ref>.supabase.co` is IPv6-only unless the IPv4 add-on is enabled;
    otherwise use the Supavisor pooler in **session** mode (port 5432, user `istemer_research_worker.<project-ref>`). Avoid
    transaction mode (6543). Also confirm `private.research_brand_binding` names the staging tenant.
-4. **Metering authority (review finding, unresolved; BLOCKER before go-live per the 2026-10-08 Codex review).** `private.record_agent_usage` is granted to three
-   executor roles and takes the agent category as an argument, so a research worker could record usage against
-   another pipeline's terminal attempt. Consider revoking it from executors and exposing an agent-bound wrapper.
-   The worker currently calls it with the fixed category `competitor_analyst`. Codex's independent review (2026-10-08)
-   confirmed this is the clearest remaining excess privilege: the function does not check the research tenant binding,
-   so a compromised worker login that learned another pipeline's terminal attempt UUID could write (and, first-writer-wins,
-   block) that attempt's usage row. Proposed fix, needing its own reviewed migration (not written or applied here): a
-   `private.record_research_usage(uuid, integer, boolean)` that requires the attempt to be a `research_attempts` row of the
-   `research_brand_binding` tenant and then records usage as today; grant it to `bagos_research_executor`; revoke
-   `record_agent_usage` from that role; switch the worker's port to the new function; extend the startup check list.
+4. **Metering authority: fixed in code by migration `20261008120000_omar_research_usage_command` (not applied).**
+   The research executor now records usage only through `private.record_research_usage(uuid, integer, boolean)`, which
+   fixes the category to `competitor_analyst`, requires a `research_attempts` row of the `research_brand_binding` tenant,
+   and then delegates to `record_agent_usage` (same validation, idempotency, conflict and audit row). The migration revokes
+   `record_agent_usage` from `bagos_research_executor`; the reel and calendar executors keep their grants. Effect on staging
+   when applied, and nothing else:
+
+   ```sql
+   -- new: private.record_research_usage(uuid,integer,boolean), SECURITY DEFINER, search_path '', owner postgres
+   revoke all     on function private.record_research_usage(uuid,integer,boolean) from public, anon, authenticated, service_role;
+   grant  execute on function private.record_research_usage(uuid,integer,boolean) to bagos_research_executor;
+   revoke execute on function private.record_agent_usage(uuid,text,integer,boolean) from bagos_research_executor;
+   ```
+
+   Before applying, decide and check:
+   - **Order.** Its version sorts after the six pending migrations (`20260921090000`..`140000`). A plain `db push` would apply
+     those first and stop at the known `090000` role blocker. Resolve that first, or apply this one file deliberately on its
+     own; it depends only on applied migrations (`20260916*`, `20260920100000`).
+   - **RLS.** `research_brand_binding` and `research_attempts` are FORCE RLS without a `postgres` policy, so the function only
+     works if `postgres` has BYPASSRLS (recorded in `docs/evidence/phase-1/baseline.md`). The migration aborts if it does not.
+     Re-confirm read-only: `select rolbypassrls from pg_roles where rolname = 'postgres';`
+   - **Ship together.** The worker from this branch calls only the new function and refuses to start
+     (`worker_login_rejected:broad_usage_command` / `missing_command_privilege`) unless the migration is applied; an older
+     worker against a migrated database gets 42501 on every usage write. Apply the migration and deploy the worker together.
+   - **Still open, blocks any Ziad or Nour worker login:** `bagos_reel_analyst_executor` and
+     `bagos_content_calendar_executor` can still call `record_agent_usage` with any category, including
+     `competitor_analyst` for a research attempt (first write wins, so a zero there would hide research spend). Both roles
+     are NOLOGIN with no members today, so nothing can use this in the Omar-only pilot. Close it the same way (one wrapper
+     per pipeline, then revoke the broad function from all executors) before granting either role to a login.
 5. **Usage is unmeasured.** The Omar listener returns only `{ artifact }`, so the worker records
    `usage_reported = false`. Allowance enforcement sums reported tokens only, so allowances cannot be relied
    on for this slice. Decide whether to accept that for staging or to plumb Hermes usage through.
@@ -276,8 +296,10 @@ Expected log lines are predictions. The worker logs one JSON line per non-idle c
 
 ## Rollback
 
-Stop `istemer-research-worker.service` first, then `istemer-omar-agent.service`. No schema change is made by
-this slice, so rollback is only stopping the units and removing the unit files; queued tasks stay queued and
+Stop `istemer-research-worker.service` first, then `istemer-omar-agent.service`. Apart from the usage migration
+(`20261008120000`, owner action 4), no schema change is made by this slice, so rollback is stopping the units and removing
+the unit files. Do not roll the usage migration back to let an old worker run: that would hand the research executor the
+broad usage command again. Migrations are forward-only; a later migration would be needed; queued tasks stay queued and
 an attempt in flight can no longer be completed once its 5-minute lease ends; it stays `running` in the database and UI until a worker next calls claim, which marks it failed (timeout). The replay store and Hermes state under `/var/lib/istemer-omar`
 should be kept. Do not delete the replay store while any signed request or attempt lease could still be live: after
 stopping both units, wait at least 10 minutes (60 s signing window plus the 5 minute lease, with margin) before

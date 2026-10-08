@@ -17,14 +17,17 @@ function requireAttempt(attemptId: string): string {
 
 export type WorkerLoginRejection = 'reserved_login' | 'escalated_session' | 'elevated_attributes'
   | 'unexpected_memberships' | 'executor_not_inherited' | 'missing_command_privilege' | 'direct_table_access'
-  | 'direct_grant';
+  | 'direct_grant' | 'broad_usage_command';
 
 export class WorkerLoginRejectedError extends Error {
   constructor(readonly reason: WorkerLoginRejection) { super(`worker_login_rejected:${reason}`); }
 }
 
 const COMMANDS = ['private.claim_research_task()', 'private.fail_research_attempt(uuid,text)',
-  'private.complete_research_attempt(uuid,jsonb,jsonb)', 'private.record_agent_usage(uuid,text,integer,boolean)'];
+  'private.complete_research_attempt(uuid,jsonb,jsonb)', 'private.record_research_usage(uuid,integer,boolean)'];
+// Takes the agent category from its caller; a research login able to run it could write another pipeline's usage.
+// Migration 20261008120000 revokes it from the research executor.
+const BROAD_USAGE_COMMAND = 'private.record_agent_usage(uuid,text,integer,boolean)';
 // Platform and capability roles. A worker connecting as any of them is not the dedicated login, whatever it can do.
 const RESERVED_LOGIN = /^(?:postgres|service_role|authenticator|anon|authenticated|dashboard_user|pgbouncer|supabase_.*|bagos_.*|pg_.*)$/;
 
@@ -44,6 +47,8 @@ export async function verifyWorkerLogin(client: SqlClient): Promise<void> {
       -- to_regprocedure itself needs USAGE on the schema, so ask about the functions only when that holds.
       case when has_schema_privilege('private', 'USAGE') then (select bool_and(coalesce(has_function_privilege(
         to_regprocedure(f), 'EXECUTE'), false)) from unnest($1::text[]) f) else false end as can_execute,
+      case when has_schema_privilege('private', 'USAGE') then coalesce(has_function_privilege(to_regprocedure($2::text), 'EXECUTE'), false)
+        else false end as can_record_any_usage,
       exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
         where n.nspname in ('public','private') and c.relkind in ('r','p','v','m','f')
           and (has_table_privilege(c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
@@ -53,7 +58,7 @@ export async function verifyWorkerLogin(client: SqlClient): Promise<void> {
         or exists (select 1 from pg_attribute t, aclexplode(t.attacl) a where a.grantee = r.oid)
         or exists (select 1 from pg_proc p, aclexplode(p.proacl) a where a.grantee = r.oid)
         or exists (select 1 from pg_namespace n, aclexplode(n.nspacl) a where a.grantee = r.oid) as direct_grant
-    from pg_roles r where r.rolname = current_user`, [COMMANDS]);
+    from pg_roles r where r.rolname = current_user`, [COMMANDS, BROAD_USAGE_COMMAND]);
   const row = rows[0];
   if (!row) throw new WorkerLoginRejectedError('reserved_login');
   if (typeof row.login !== 'string' || RESERVED_LOGIN.test(row.login)) throw new WorkerLoginRejectedError('reserved_login');
@@ -66,6 +71,7 @@ export async function verifyWorkerLogin(client: SqlClient): Promise<void> {
   }
   if (row.inherits_executor !== true) throw new WorkerLoginRejectedError('executor_not_inherited');
   if (row.can_execute !== true) throw new WorkerLoginRejectedError('missing_command_privilege');
+  if (row.can_record_any_usage !== false) throw new WorkerLoginRejectedError('broad_usage_command');
   if (row.table_access !== false) throw new WorkerLoginRejectedError('direct_table_access');
   if (row.direct_grant !== false) throw new WorkerLoginRejectedError('direct_grant');
 }
@@ -92,8 +98,9 @@ export function createSqlResearchCommandPort(client: SqlClient): ResearchCommand
       if (reportedTokens !== null && (!Number.isSafeInteger(reportedTokens) || reportedTokens < 0 || reportedTokens > MAX_TOKENS)) {
         throw new Error('invalid_reported_tokens');
       }
-      return result('select private.record_agent_usage($1::uuid, $2::text, $3::integer, $4::boolean) as result',
-        [requireAttempt(attemptId), 'competitor_analyst', reportedTokens, reportedTokens !== null]);
+      // The database fixes the agent category and checks the research tenant binding; nothing here can widen that.
+      return result('select private.record_research_usage($1::uuid, $2::integer, $3::boolean) as result',
+        [requireAttempt(attemptId), reportedTokens, reportedTokens !== null]);
     },
   };
 }

@@ -48,7 +48,11 @@ async function seedAttempt(attemptId, taskId, runId, state = 'succeeded') {
     values ($1,$2,$3,$4,1,$5,now() - interval '1 minute',now() + interval '4 minutes',$6,$7)`,
     [attemptId, tenant, taskId, runId, state, finished, errorCode]);
 }
-const recordUsage = (attemptId, reportedTokens, usageReported, agent = 'competitor_analyst') =>
+// The research executor records usage only through its own command (20261008120000_omar_research_usage_command);
+// record_agent_usage is called directly here only to show who may NOT call it.
+const recordUsage = (attemptId, reportedTokens, usageReported) =>
+  scalar('select private.record_research_usage($1,$2,$3)', [attemptId, reportedTokens, usageReported]);
+const recordAgentUsage = (attemptId, reportedTokens, usageReported, agent = 'competitor_analyst') =>
   scalar('select private.record_agent_usage($1,$2,$3,$4)', [attemptId, agent, reportedTokens, usageReported]);
 
 before(async () => {
@@ -162,6 +166,7 @@ test('authenticated, anon and service_role cannot call record_agent_usage direct
   await seedAttempt(attemptId, submitted.taskId, submitted.runId, 'succeeded');
   for (const role of ['authenticated', 'anon', 'service_role']) {
     await actAs(null, role);
+    await rejectsFenced(() => recordAgentUsage(attemptId, 10, true), (error) => error.code === '42501');
     await rejectsFenced(() => recordUsage(attemptId, 10, true), (error) => error.code === '42501');
   }
   await switchRole('postgres');

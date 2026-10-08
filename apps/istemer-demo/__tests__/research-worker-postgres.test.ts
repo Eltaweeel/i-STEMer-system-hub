@@ -212,7 +212,7 @@ describe('worker login check against the real grants', () => {
   });
 
   it('refuses to start when a command is missing, e.g. a migration that was never applied', async () => {
-    await db.exec('begin; revoke execute on function private.record_agent_usage(uuid,text,integer,boolean) from bagos_research_executor');
+    await db.exec('begin; revoke execute on function private.record_research_usage(uuid,integer,boolean) from bagos_research_executor');
     try {
       await expect(verifyWorkerLogin(connectionAs(WORKER))).rejects.toThrow('worker_login_rejected:missing_command_privilege');
     } finally { await db.exec('rollback'); }
@@ -383,5 +383,45 @@ describe('duplicates and restart recovery on the real SQL commands', () => {
     await ageLease(attempt!.id);
     expect(await runResearchWorkerCycle(config())).toEqual({ outcome: 'lease_reclaimed', runId, code: 'timeout' });
     expect(await count('select count(*)::int from public.research_outcomes o join public.research_attempts a on a.id=o.attempt_id where a.run_id=$1', [runId])).toBe(0);
+  });
+});
+
+describe('usage boundary for the worker login (migration 20261008120000)', () => {
+  it('refuses to start while the login can still run the broad usage command, as before the migration', async () => {
+    await db.exec('begin; grant execute on function private.record_agent_usage(uuid,text,integer,boolean) to bagos_research_executor');
+    try {
+      await expect(verifyWorkerLogin(connectionAs(WORKER))).rejects.toThrow('worker_login_rejected:broad_usage_command');
+    } finally { await db.exec('rollback'); }
+  });
+
+  it('cannot call the broad usage command for any category', async () => {
+    for (const agent of ['competitor_analyst', 'reel_analyst', 'content_creator']) {
+      await expect(connectionAs(WORKER).query('select private.record_agent_usage($1::uuid,$2::text,1,true)', [id(960), agent]))
+        .rejects.toMatchObject({ code: '42501' });
+    }
+  });
+
+  it('cannot meter a real, finished Ziad attempt, which its own executor still can', async () => {
+    // A completed Omar task queues a Ziad task (see the success test above); claim and fail it as Ziad's executor.
+    await db.query('insert into private.reel_analysis_brand_binding(tenant_id) values ($1) on conflict do nothing', [tenant]);
+    await db.exec('set session authorization bagos_reel_analyst_executor');
+    let claimed: { status: string; task: { attemptId: string } };
+    try { claimed = await one('select private.claim_reel_analysis_task()'); }
+    finally { await db.exec('set session authorization postgres'); }
+    expect(claimed.status).toBe('claimed');
+    const reelAttempt = claimed.task.attemptId;
+    await db.exec('set session authorization bagos_reel_analyst_executor');
+    try { await db.query("select private.fail_reel_analysis_attempt($1,'provider_failure')", [reelAttempt]); }
+    finally { await db.exec('set session authorization postgres'); }
+
+    await expect(port.recordUsage(reelAttempt, 0)).rejects.toMatchObject({ code: '55000' });
+    expect(await count('select count(*)::int from public.usage_records where attempt_id=$1', [reelAttempt])).toBe(0);
+
+    await db.exec('set session authorization bagos_reel_analyst_executor');
+    try {
+      expect(await one("select private.record_agent_usage($1,'reel_analyst',7,true)", [reelAttempt]))
+        .toMatchObject({ attemptId: reelAttempt, reportedTokens: 7, usageReported: true });
+    } finally { await db.exec('set session authorization postgres'); }
+    expect(await one('select agent_id from public.usage_records where attempt_id=$1', [reelAttempt])).toBe('reel_analyst');
   });
 });
