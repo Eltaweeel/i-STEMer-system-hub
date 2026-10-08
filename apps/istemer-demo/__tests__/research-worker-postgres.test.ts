@@ -414,6 +414,10 @@ describe('usage boundary for the worker login (migration 20261008120000)', () =>
     try { await db.query("select private.fail_reel_analysis_attempt($1,'provider_failure')", [reelAttempt]); }
     finally { await db.exec('set session authorization postgres'); }
 
+    // Before migration 20261008120000 the worker login could write this row through the broad command; only the
+    // revoke stops it. (The fixed category of record_research_usage could never reach a reel row; also asserted.)
+    await expect(connectionAs(WORKER).query("select private.record_agent_usage($1::uuid,'reel_analyst',0,true)", [reelAttempt]))
+      .rejects.toMatchObject({ code: '42501' });
     await expect(port.recordUsage(reelAttempt, 0)).rejects.toMatchObject({ code: '55000' });
     expect(await count('select count(*)::int from public.usage_records where attempt_id=$1', [reelAttempt])).toBe(0);
 
