@@ -42,11 +42,12 @@ function buildArtifact() {
   };
 }
 
+const ack = { status: 'succeeded', runId, attemptId, revisionId: '00000000-0000-4000-8000-000000000009' };
 function fakePort(overrides: Partial<ResearchCommandPort> = {}): ResearchCommandPort {
   return {
     claim: vi.fn().mockResolvedValue(null),
     fail: vi.fn().mockResolvedValue({ status: 'failed' }),
-    complete: vi.fn().mockResolvedValue({ status: 'succeeded' }), recordUsage: vi.fn().mockResolvedValue({}),
+    complete: vi.fn().mockResolvedValue(ack), recordUsage: vi.fn().mockResolvedValue({}),
     ...overrides,
   };
 }
@@ -62,6 +63,7 @@ function baseConfig(overrides: Record<string, unknown> = {}) {
     keyId: 'worker-key-1',
     signingKey: new Uint8Array(32).fill(7),
     now: () => NOW0 + 2000,
+    approvedSources: new Set([sourceUrl]),
     ...overrides,
   };
 }
@@ -70,6 +72,27 @@ describe('runResearchWorkerCycle', () => {
   it('is idle when there is nothing to claim', async () => {
     const result = await runResearchWorkerCycle(baseConfig());
     expect(result).toEqual({ outcome: 'idle' });
+  });
+
+  it.each([
+    ['no brief source is approved', new Set(['https://example.org/other'])],
+    ['only some brief sources are approved', new Set([sourceUrl])],
+  ])('refuses the whole attempt before any fetch when %s', async (_case, approvedSources) => {
+    const task = { ...buildTask(), brief: { ...buildTask().brief, sources: [sourceUrl, 'https://example.org/unlisted'] } };
+    const port = fakePort({ claim: vi.fn().mockResolvedValue({ status: 'claimed', task, handoff: buildHandoff() }) });
+    const config = baseConfig({ port, approvedSources });
+    const result = await runResearchWorkerCycle(config);
+    expect(result).toEqual({ outcome: 'failed', runId, attemptId, code: 'uninspected_source' });
+    expect(config.observe).not.toHaveBeenCalled();
+    expect(config.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('does not treat a differently spelled URL as approved', async () => {
+    const task = { ...buildTask(), brief: { ...buildTask().brief, sources: ['https://EXAMPLE.org/competitor'] } };
+    const port = fakePort({ claim: vi.fn().mockResolvedValue({ status: 'claimed', task, handoff: buildHandoff() }) });
+    const config = baseConfig({ port });
+    expect(await runResearchWorkerCycle(config)).toMatchObject({ outcome: 'failed', code: 'uninspected_source' });
+    expect(config.observe).not.toHaveBeenCalled();
   });
 
   it('reports lease_reclaimed and takes no further action when claim already terminated a stale attempt', async () => {
@@ -131,7 +154,8 @@ describe('runResearchWorkerCycle', () => {
     const observe = vi.fn().mockImplementation(async () => { calls += 1; return inspectedObservation(); });
     // now() advances past expiry only after the first source is observed.
     const now = vi.fn().mockReturnValueOnce(NOW0 + 100).mockReturnValue(NOW0 + 2000);
-    const result = await runResearchWorkerCycle(baseConfig({ port, observe, now }));
+    const approvedSources = new Set(multiSource.brief.sources);
+    const result = await runResearchWorkerCycle(baseConfig({ port, observe, now, approvedSources }));
     expect(result).toEqual({ outcome: 'lease_expired', runId, attemptId });
     expect(calls).toBe(1);
   });
@@ -239,7 +263,23 @@ describe('failures that must be recorded, not left to expire', () => {
     expect(port.fail).toHaveBeenCalledWith(attemptId, 'uninspected_source');
   });
 
-  it.each(['22023', '22P05', '42501', '55000'])('does not repeat a completion the database rejects with SQLSTATE %s', async (code) => {
+  it('records a requester revoked during the run as unauthorized, not as a contract defect', async () => {
+    const port = fakePort({ ...claimed(), complete: vi.fn().mockRejectedValue(Object.assign(new Error('unauthorized'), { code: '42501' })) });
+    const result = await runResearchWorkerCycle(baseConfig({ port, completeRetryDelayMs: 0 }));
+    expect(result).toEqual({ outcome: 'failed', runId, attemptId, code: 'unauthorized' });
+    expect(port.complete).toHaveBeenCalledTimes(1);
+    expect(port.fail).toHaveBeenCalledWith(attemptId, 'unauthorized');
+  });
+
+  it.each([null, {}, { status: 'succeeded' }, { ...ack, attemptId: runId }])('does not report success on acknowledgement %j', async (reply) => {
+    const port = fakePort({ ...claimed(), complete: vi.fn().mockResolvedValue(reply) });
+    const result = await runResearchWorkerCycle(baseConfig({ port }));
+    expect(result).toEqual({ outcome: 'command_failed', runId, attemptId, stage: 'complete' });
+    expect(port.fail).not.toHaveBeenCalled();
+    expect(port.recordUsage).not.toHaveBeenCalled();
+  });
+
+  it.each(['22023', '22P05', '55000'])('does not repeat a completion the database rejects with SQLSTATE %s', async (code) => {
     const port = fakePort({ ...claimed(), complete: vi.fn().mockRejectedValue(Object.assign(new Error('rejected'), { code })) });
     const result = await runResearchWorkerCycle(baseConfig({ port, completeRetryDelayMs: 0 }));
     expect(result).toEqual({ outcome: 'failed', runId, attemptId, code: 'invalid_contract' });
@@ -248,7 +288,7 @@ describe('failures that must be recorded, not left to expire', () => {
   });
 
   it('still retries a connection-class failure', async () => {
-    const complete = vi.fn().mockRejectedValueOnce(Object.assign(new Error('reset'), { code: 'ECONNRESET' })).mockResolvedValue({});
+    const complete = vi.fn().mockRejectedValueOnce(Object.assign(new Error('reset'), { code: 'ECONNRESET' })).mockResolvedValue(ack);
     const result = await runResearchWorkerCycle(baseConfig({ port: fakePort({ ...claimed(), complete }), completeRetryDelayMs: 0 }));
     expect(result).toEqual({ outcome: 'succeeded', runId, attemptId });
     expect(complete).toHaveBeenCalledTimes(2);
@@ -259,7 +299,7 @@ describe('deadlines and completion recovery', () => {
   const claimed = () => ({ claim: vi.fn().mockResolvedValue({ status: 'claimed', task: buildTask(), handoff: buildHandoff() }) });
 
   it('repeats complete after a transient failure and still reports success', async () => {
-    const complete = vi.fn().mockRejectedValueOnce(new Error('connection reset')).mockResolvedValue({ status: 'succeeded' });
+    const complete = vi.fn().mockRejectedValueOnce(new Error('connection reset')).mockResolvedValue(ack);
     const port = fakePort({ ...claimed(), complete });
     const result = await runResearchWorkerCycle(baseConfig({ port, completeRetryDelayMs: 0 }));
     expect(result).toEqual({ outcome: 'succeeded', runId, attemptId });

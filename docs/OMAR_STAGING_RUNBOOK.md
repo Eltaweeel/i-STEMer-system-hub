@@ -51,6 +51,23 @@ run; a worker/listener pair with different keys fails every dispatch as `provide
 was deployed from the first push (unsigned answers) cannot be paired with this worker, so deploy both from the same follow-up
 commits. A response is also rejected if the VPS clock jumps more than 30 s between sending and verifying.
 
+Added on branch `omar-pg-worker-integration` (this repository only; nothing run live):
+
+- **Approved sources.** The worker fetches only URLs listed in `RESEARCH_WORKER_APPROVED_SOURCES`, matched exactly. A brief
+  naming anything else fails as `uninspected_source` (not retryable) before any network contact. The first approved source is
+  `https://www.engineeringforkids.com/international-locations/egypt/`; the non-www form redirects and redirects are refused,
+  so briefs must use this exact URL.
+- **Worker login check.** At startup the worker refuses to run unless its database login is a dedicated role whose only
+  authority is inherited membership in `bagos_research_executor` (see owner action 3). It logs
+  `worker_login_rejected:<reason>` and exits otherwise.
+- **TLS.** Only `sslmode=verify-full` is accepted (`require` and `verify-ca` were accepted before; with `uselibpqcompat=true`
+  or a future `pg` major they do not verify the server).
+- **Completion acknowledgement.** A completion counts only when the database answers `succeeded` for that attempt id.
+- **Mid-run revocation.** A requester or tenant revoked while Omar runs is recorded as `unauthorized`, not `invalid_contract`.
+- **Real-SQL test.** `apps/istemer-demo/__tests__/research-worker-postgres.test.ts` runs the real command port and worker
+  cycle against every migration in local PGlite, as a LOGIN role granted only the executor role.
+- **Listener interface.** What the worker requires of the (unpushed) VPS listener: `docs/OMAR_LISTENER_INTERFACE.md`.
+
 Fixed in code on these branches: an unexpected observer error is recorded instead of left running; a completion the database
 can never accept (SQLSTATE 22023, 22P05, 42501, 55000) is recorded as `invalid_contract` instead of being retried and later
 shown as a retryable timeout; artifact-level gaps (sources not inspected) are shown in the UI; the worker refuses a database URL
@@ -73,15 +90,39 @@ None of these were done by Claude Code or Codex; each is a hard gate.
    creates the finished-post-package command and does not alter the research claim/complete functions or their
    grants, so it does not appear to block this slice. It is later in order than the research migrations. Do not
    assume this is verified: it has not been applied or exercised, and the fix is still awaiting your approval.
-3. **Worker database login.** `bagos_research_executor` is `NOLOGIN NOINHERIT`. Create a dedicated LOGIN role
-   for the worker and make it able to use the executor's privileges. Two options, neither verified against a
-   live database: grant membership `WITH INHERIT TRUE`, or grant membership with SET and put
-   `options=-c role=bagos_research_executor` in the connection string. The login should be able to execute
-   only the executor's functions. Also confirm `private.research_brand_binding` names the staging tenant.
+3. **Worker database login.** `bagos_research_executor` is `NOLOGIN NOINHERIT` (NOINHERIT limits what the executor
+   inherits, not what its members inherit). Create a dedicated LOGIN role that **inherits** the executor's privileges and
+   has nothing else. The connection-string `options=-c role=...` alternative is no longer supported: the startup check
+   refuses a session whose current role differs from its login. Template for the owner (not run by this work; run in a
+   reviewed `psql` session as `postgres`, never committed with a password):
+
+   ```sql
+   create role istemer_research_worker login inherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls
+     connection limit 2;
+   \password istemer_research_worker          -- typed interactively; goes only into the worker's database.url file
+   grant bagos_research_executor to istemer_research_worker;   -- PostgreSQL 16+: append  with inherit true, set false
+   ```
+
+   Do not grant it `authenticated`, `service_role`, any table, or `admin option`. The worker checks at startup and refuses
+   (reason code in the journal) when: the login is `postgres`/`service_role`/`authenticator`/a `supabase_*`/`bagos_*` role
+   (`reserved_login`); the session switched roles (`escalated_session`); it has SUPERUSER, BYPASSRLS, CREATEROLE, CREATEDB
+   or REPLICATION (`elevated_attributes`); it is a member of anything besides `bagos_research_executor` or holds admin
+   option (`unexpected_memberships`); it does not inherit the executor (`executor_not_inherited`); it cannot execute the
+   four commands, e.g. a missing migration (`missing_command_privilege`); or it has any direct privilege on a `public`/
+   `private` table (`direct_table_access`). These checks are proven against PGlite, not against the staging database.
+   Connection path (unverified): the direct host `db.<ref>.supabase.co` is IPv6-only unless the IPv4 add-on is enabled;
+   otherwise use the Supavisor pooler in **session** mode (port 5432, user `istemer_research_worker.<project-ref>`). Avoid
+   transaction mode (6543). Also confirm `private.research_brand_binding` names the staging tenant.
 4. **Metering authority (review finding, unresolved).** `private.record_agent_usage` is granted to three
    executor roles and takes the agent category as an argument, so a research worker could record usage against
    another pipeline's terminal attempt. Consider revoking it from executors and exposing an agent-bound wrapper.
-   The worker currently calls it with the fixed category `competitor_analyst`.
+   The worker currently calls it with the fixed category `competitor_analyst`. Codex's independent review (2026-10-08)
+   confirmed this is the clearest remaining excess privilege: the function does not check the research tenant binding,
+   so a compromised worker login that learned another pipeline's terminal attempt UUID could write (and, first-writer-wins,
+   block) that attempt's usage row. Proposed fix, needing its own reviewed migration (not written or applied here): a
+   `private.record_research_usage(uuid, integer, boolean)` that requires the attempt to be a `research_attempts` row of the
+   `research_brand_binding` tenant and then records usage as today; grant it to `bagos_research_executor`; revoke
+   `record_agent_usage` from that role; switch the worker's port to the new function; extend the startup check list.
 5. **Usage is unmeasured.** The Omar listener returns only `{ artifact }`, so the worker records
    `usage_reported = false`. Allowance enforcement sums reported tokens only, so allowances cannot be relied
    on for this slice. Decide whether to accept that for staging or to plumb Hermes usage through.
@@ -149,6 +190,7 @@ Node 22.13 or newer is required for the listener (the replay store uses `node:sq
 | `RESEARCH_WORKER_AGENT_PORT` | must equal `ISTEMER_OMAR_PORT` (the worker only dials `127.0.0.1`) |
 | `RESEARCH_WORKER_INTERVAL_MS` | optional, 1000-300000, default 5000 |
 | `RESEARCH_WORKER_DISPATCH_TIMEOUT_MS` | optional, 5000-240000, default 200000 |
+| `RESEARCH_WORKER_APPROVED_SOURCES` | **required.** Whitespace-separated exact `https` URLs the worker may fetch, in canonical form (lowercase host, no port, credentials or fragment). For the first pilot exactly `https://www.engineeringforkids.com/international-locations/egypt/`. Not a secret. |
 
 Deadlines: lease 5 min; Hermes `--run-budget` 180 s (advisory: Hermes does not stop on it); worker dispatch timeout 200 s (a hard total deadline from connect to end of response, not just an idle timeout); each worker database query is capped at
 10 s (connecting is capped separately at 10 s, and a long dispatch lets the pool drop its idle connection, so a call can
@@ -192,7 +234,9 @@ Expected log lines are predictions. The worker logs one JSON line per non-idle c
 
 1. Worker log shows `{"event":"started",...}`; listener is listening on `127.0.0.1:<port>` only
    (`ss -ltn` shows no public bind).
-2. Submit one research brief from the staging UI (one source URL on the permitted list).
+2. Submit one research brief from the staging UI whose only source is exactly
+   `https://www.engineeringforkids.com/international-locations/egypt/` (the approved list). The worker log's `started`
+   line shows `approvedSources: 1`.
 3. Worker log shows `{"event":"cycle","outcome":"succeeded","runId":...,"attemptId":...}`.
 4. `GET /api/workflows/<runId>` shows `status: succeeded`, and the UI shows the evidence with its inspection
    receipt id. The worker log carries `runId` and `attemptId` only: confirm they match the run id in the URL and
@@ -219,7 +263,9 @@ Expected log lines are predictions. The worker logs one JSON line per non-idle c
   to stderr in the installed 0.21.1 source). Confirm with a real run; any extra stdout is treated as
   `provider_failure`.
 - The `-p` profile flag selects the `istemer-omar` profile as the service user.
-- The worker database login can execute the four private commands (see owner action 3).
+- The worker database login passes the startup check against the real staging database (see owner action 3); it has
+  only been exercised against local PGlite.
+- The VPS listener satisfies `docs/OMAR_LISTENER_INTERFACE.md`. Its code is not in any pushed repository.
 
 ## Rollback
 

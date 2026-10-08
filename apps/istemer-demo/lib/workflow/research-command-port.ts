@@ -15,6 +15,53 @@ function requireAttempt(attemptId: string): string {
   return attemptId;
 }
 
+export type WorkerLoginRejection = 'reserved_login' | 'escalated_session' | 'elevated_attributes'
+  | 'unexpected_memberships' | 'executor_not_inherited' | 'missing_command_privilege' | 'direct_table_access';
+
+export class WorkerLoginRejectedError extends Error {
+  constructor(readonly reason: WorkerLoginRejection) { super(`worker_login_rejected:${reason}`); }
+}
+
+const COMMANDS = ['private.claim_research_task()', 'private.fail_research_attempt(uuid,text)',
+  'private.complete_research_attempt(uuid,jsonb,jsonb)', 'private.record_agent_usage(uuid,text,integer,boolean)'];
+// Platform and capability roles. A worker connecting as any of them is not the dedicated login, whatever it can do.
+const RESERVED_LOGIN = /^(?:postgres|service_role|authenticator|anon|authenticated|dashboard_user|pgbouncer|supabase_.*|bagos_.*|pg_.*)$/;
+
+/**
+ * Read-only startup check that the connection is a dedicated login whose only authority is membership in
+ * bagos_research_executor. It refuses the postgres/service-role credentials, superuser-like attributes, a session
+ * that switched roles, any extra or administrable membership, and direct privileges on application tables. The error
+ * carries a reason code only; the role name and connection details are never included.
+ */
+export async function verifyWorkerLogin(client: SqlClient): Promise<void> {
+  const { rows } = await client.query(`select current_user::text as login, session_user::text as session_login,
+      r.rolsuper or r.rolbypassrls or r.rolcreaterole or r.rolcreatedb or r.rolreplication as elevated,
+      coalesce((select array_agg(g.rolname::text order by g.rolname::text) from pg_auth_members m
+        join pg_roles g on g.oid = m.roleid where m.member = r.oid), '{}'::text[]) as memberships,
+      exists (select 1 from pg_auth_members m where m.member = r.oid and m.admin_option) as administers,
+      pg_has_role(current_user, 'bagos_research_executor', 'USAGE') as inherits_executor,
+      -- to_regprocedure itself needs USAGE on the schema, so ask about the functions only when that holds.
+      case when has_schema_privilege('private', 'USAGE') then (select bool_and(coalesce(has_function_privilege(
+        to_regprocedure(f), 'EXECUTE'), false)) from unnest($1::text[]) f) else false end as can_execute,
+      exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname in ('public','private') and c.relkind in ('r','p','v','m','f')
+          and has_table_privilege(c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')) as table_access
+    from pg_roles r where r.rolname = current_user`, [COMMANDS]);
+  const row = rows[0];
+  if (!row) throw new WorkerLoginRejectedError('reserved_login');
+  if (typeof row.login !== 'string' || RESERVED_LOGIN.test(row.login)) throw new WorkerLoginRejectedError('reserved_login');
+  if (row.session_login !== row.login) throw new WorkerLoginRejectedError('escalated_session');
+  if (row.elevated !== false) throw new WorkerLoginRejectedError('elevated_attributes');
+  const memberships = row.memberships;
+  if (!Array.isArray(memberships) || memberships.length !== 1 || memberships[0] !== 'bagos_research_executor'
+    || row.administers !== false) {
+    throw new WorkerLoginRejectedError('unexpected_memberships');
+  }
+  if (row.inherits_executor !== true) throw new WorkerLoginRejectedError('executor_not_inherited');
+  if (row.can_execute !== true) throw new WorkerLoginRejectedError('missing_command_privilege');
+  if (row.table_access !== false) throw new WorkerLoginRejectedError('direct_table_access');
+}
+
 /**
  * Calls the private research commands as the dedicated executor login. Every statement is
  * parameterized and fixed; no caller-supplied text is ever interpolated into SQL. The login

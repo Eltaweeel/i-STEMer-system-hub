@@ -68,6 +68,7 @@ const reclaimedSchema = z.object({
   status: z.literal('failed'), runId: z.string().uuid(), code: z.string(),
 }).strict();
 const claimResultSchema = z.union([claimedSchema, reclaimedSchema, z.null()]);
+const completionAcknowledgementSchema = z.object({ status: z.literal('succeeded'), attemptId: z.string().uuid() }).passthrough();
 
 export type WorkerCycleResult =
   | { outcome: 'idle' }
@@ -95,6 +96,10 @@ export interface ResearchWorkerConfig {
   readonly keyId: string;
   readonly signingKey: Uint8Array;
   readonly now: () => number;
+  /** Exact source URLs an operator approved for this deployment. The SSRF guard only keeps the worker off private
+   * networks; this list is what keeps it on pages someone chose. A brief naming anything else is refused before any
+   * fetch. Required, so a deployment without an approved list cannot fetch at all. */
+  readonly approvedSources: ReadonlySet<string>;
   readonly dispatchTimeoutMs?: number;
   /** Lease time held back from dispatch so a completed artifact can still be persisted. Default 45s: room for
    * two cold database calls (the standalone worker caps connecting at 10s and a query at 10s, so ~40s) plus a
@@ -139,6 +144,11 @@ export async function runResearchWorkerCycle(config: ResearchWorkerConfig): Prom
   if (handoff.tenantId !== task.tenantId || handoff.taskId !== task.taskId
     || handoff.runId !== task.runId || handoff.attemptId !== task.attemptId) {
     return fail(config.port, task.runId, task.attemptId, 'invalid_contract');
+  }
+  // All or nothing, and before any network contact: a partly approved brief is not run on its approved part,
+  // because the requester asked for the whole set and a silent subset would read as a complete answer.
+  if (!task.brief.sources.every((sourceUrl) => config.approvedSources.has(sourceUrl))) {
+    return fail(config.port, task.runId, task.attemptId, 'uninspected_source');
   }
   const controller = new AbortController();
   const snapshots: { receipt: SourceInspection; text: string }[] = [];
@@ -205,9 +215,11 @@ export async function runResearchWorkerCycle(config: ResearchWorkerConfig): Prom
   }
 
   const completion = await completeWithRetry(config, task.attemptId, parsedArtifact.data, receipts, Date.parse(task.expiresAt));
-  // The database refused this exact artifact (bad payload or missing privilege); repeating or waiting out the lease
-  // cannot help, so say so instead of letting it surface later as a retryable timeout that invites another paid run.
-  if (completion === 'rejected') return fail(config.port, task.runId, task.attemptId, 'invalid_contract');
+  // The database refused this exact artifact; repeating or waiting out the lease cannot help, so say so instead of
+  // letting it surface later as a retryable timeout that invites another paid run. Both codes are non-retryable.
+  if (completion === 'unauthorized' || completion === 'invalid_contract') {
+    return fail(config.port, task.runId, task.attemptId, completion);
+  }
   if (completion !== 'ok') {
     return { outcome: 'command_failed', runId: task.runId, attemptId: task.attemptId, stage: 'complete' };
   }
@@ -221,28 +233,36 @@ export async function runResearchWorkerCycle(config: ResearchWorkerConfig): Prom
 
 /** complete_research_attempt is idempotent for an identical artifact/receipt digest, so a lost
  * acknowledgement or dropped connection is safe to repeat while the lease is still open. */
-// SQLSTATEs for which the same call can never succeed: invalid parameter value, NUL in jsonb text,
-// insufficient privilege, object not in the required state.
-const NON_RETRYABLE_SQLSTATES = new Set(['22023', '22P05', '42501', '55000']);
+// SQLSTATEs for which the same call can never succeed: invalid parameter value, NUL in jsonb text, object not in the
+// required state. 42501 is separate: complete_research_attempt raises it when the requester's membership or the tenant
+// was revoked during the run, which is an authorization outcome, not a defect in the artifact. (A worker login missing
+// EXECUTE also yields 42501, but the startup login check refuses to run in that state.)
+const INVALID_SQLSTATES = new Set(['22023', '22P05', '55000']);
 
 async function completeWithRetry(config: ResearchWorkerConfig, attemptId: string, artifact: ResearchArtifact,
-  receipts: readonly SourceInspection[], expiresAtMs: number): Promise<'ok' | 'exhausted' | 'rejected'> {
+  receipts: readonly SourceInspection[], expiresAtMs: number): Promise<'ok' | 'exhausted' | 'unauthorized' | 'invalid_contract'> {
   const attempts = config.completeAttempts ?? 3;
   const sleep = config.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     // The lease is re-checked immediately before every call, not only after a rejection: a call made after
     // expiry can only be refused, and the next claim reclaims the attempt regardless.
     if (config.now() >= expiresAtMs) return 'exhausted';
-    try { await config.port.complete(attemptId, artifact, receipts); return 'ok'; }
+    let acknowledgement: unknown;
+    try { acknowledgement = await config.port.complete(attemptId, artifact, receipts); }
     catch (error) {
       const sqlstate = error && typeof error === 'object' ? (error as { code?: unknown }).code : undefined;
-      if (typeof sqlstate === 'string' && NON_RETRYABLE_SQLSTATES.has(sqlstate)) return 'rejected';
+      if (sqlstate === '42501') return 'unauthorized';
+      if (typeof sqlstate === 'string' && INVALID_SQLSTATES.has(sqlstate)) return 'invalid_contract';
       if (attempt === attempts) return 'exhausted';
       // Never sleep past the lease.
       const remaining = expiresAtMs - config.now();
       if (remaining <= 0) return 'exhausted';
       await sleep(Math.min(config.completeRetryDelayMs ?? 500, remaining));
+      continue;
     }
+    // Only the database's own statement that this attempt succeeded counts. Anything else is reported as a failed
+    // command, never as success; the attempt's true state is whatever the database holds, and the UI reads that.
+    return completionAcknowledgementSchema.safeParse(acknowledgement).data?.attemptId === attemptId ? 'ok' : 'exhausted';
   }
   return 'exhausted';
 }

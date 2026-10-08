@@ -100,11 +100,11 @@ async function startSlice(agentTenantId = tenantId) {
   const port: ResearchCommandPort = {
     claim: vi.fn().mockResolvedValue(null),
     fail: async (attemptId, code) => { failed.push({ attemptId, code }); return {}; },
-    complete: async (attemptId, artifact, receipts) => { completed.push({ attemptId, artifact, receipts }); return {}; },
+    complete: async (attemptId, artifact, receipts) => { completed.push({ attemptId, artifact, receipts }); return { status: 'succeeded', attemptId }; },
     recordUsage: vi.fn().mockResolvedValue({}),
   };
   const config: ResearchWorkerConfig = { port, endpoint: { hostname: '127.0.0.1', port: address.port }, keyId: 'worker-key', signingKey: key,
-    now: () => NOW,
+    now: () => NOW, approvedSources: new Set([SOURCE]),
     dispatch: (endpoint, signed, body, timeoutMs) => dispatchResearchTask(endpoint, signed, body, timeoutMs, { key, now: () => NOW }), observe: (input) => observeSource({ ...input, network }) };
   const claimWith = (claim: unknown) => { (port.claim as ReturnType<typeof vi.fn>).mockResolvedValueOnce(claim); };
   return { config, claimWith, completed, failed, runs: () => hermesRuns };

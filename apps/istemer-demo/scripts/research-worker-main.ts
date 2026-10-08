@@ -2,7 +2,7 @@
 // Not part of the Next.js app; it shares the lib/workflow modules and nothing else.
 import { readFileSync } from 'node:fs';
 import { Pool } from 'pg';
-import { createSqlResearchCommandPort } from '../lib/workflow/research-command-port';
+import { createSqlResearchCommandPort, verifyWorkerLogin, WorkerLoginRejectedError } from '../lib/workflow/research-command-port';
 import { startResearchWorkerService } from '../lib/workflow/research-worker-service';
 import { assertDatabaseUrlUsesTls, buildResearchWorkerConfig, describeCycle, loadWorkerRuntimeConfig } from '../lib/workflow/research-worker-runtime';
 
@@ -11,7 +11,7 @@ import { assertDatabaseUrlUsesTls, buildResearchWorkerConfig, describeCycle, loa
 const now = () => Date.now();
 const log = (record: Record<string, unknown>) => process.stdout.write(`${JSON.stringify({ ts: new Date(now()).toISOString(), ...record })}\n`);
 
-function main() {
+async function main() {
   const runtime = loadWorkerRuntimeConfig(process.env);
   const connectionString = readFileSync(runtime.databaseUrlFile, 'utf8').trim();
   assertDatabaseUrlUsesTls(connectionString);
@@ -21,6 +21,12 @@ function main() {
     query_timeout: 10_000, statement_timeout: 10_000, application_name: 'istemer-research-worker' });
   // An idle-client error (e.g. the server restarted) must not crash the process; the next query reconnects.
   pool.on('error', (error) => log({ event: 'pool_error', name: error.name }));
+  // Before claiming anything: refuse to run as anything but the dedicated executor-only login.
+  try { await verifyWorkerLogin(pool); }
+  catch (error) {
+    await pool.end().catch(() => undefined);
+    throw error;
+  }
 
   const service = startResearchWorkerService({
     config: buildResearchWorkerConfig({ runtime, port: createSqlResearchCommandPort(pool), signingKey, now }),
@@ -31,7 +37,8 @@ function main() {
       // SQLSTATE / errno only (e.g. 28P01, ECONNREFUSED); never the message, which can carry connection details.
       code: typeof (error as { code?: unknown })?.code === 'string' ? (error as { code: string }).code : undefined }),
   });
-  log({ event: 'started', keyId: runtime.keyId, agentPort: runtime.agentPort, intervalMs: runtime.intervalMs });
+  log({ event: 'started', keyId: runtime.keyId, agentPort: runtime.agentPort, intervalMs: runtime.intervalMs,
+    approvedSources: runtime.approvedSources.size });
 
   let stopping = false;
   const shutdown = (signal: string) => {
@@ -45,9 +52,10 @@ function main() {
   process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
-try { main(); }
-catch (error) {
-  // Configuration errors name the missing variable and nothing secret.
-  console.error(error instanceof Error ? error.message : 'worker failed to start');
+main().catch((error: unknown) => {
+  // Configuration and login errors name the variable or a reason code, never a secret. A database error at startup
+  // is reported by SQLSTATE/errno only, because its message can carry connection details.
+  if (error instanceof WorkerLoginRejectedError || (error instanceof Error && !('code' in error))) console.error(error.message);
+  else console.error(`worker failed to start (${typeof (error as { code?: unknown })?.code === 'string' ? (error as { code: string }).code : 'unknown'})`);
   process.exit(1);
-}
+});

@@ -55,11 +55,13 @@ describe('createSqlResearchCommandPort', () => {
 
 describe('worker runtime configuration', () => {
   const base = { RESEARCH_WORKER_DATABASE_URL_FILE: '/etc/istemer/db-url', RESEARCH_WORKER_SIGNING_KEY_FILE: '/etc/istemer/key',
-    RESEARCH_WORKER_KEY_ID: 'worker-key', RESEARCH_WORKER_AGENT_PORT: '8787' };
+    RESEARCH_WORKER_KEY_ID: 'worker-key', RESEARCH_WORKER_AGENT_PORT: '8787',
+    RESEARCH_WORKER_APPROVED_SOURCES: 'https://www.engineeringforkids.com/international-locations/egypt/' };
 
   it('loads required values and applies bounded defaults', () => {
     expect(loadWorkerRuntimeConfig(base)).toEqual({ databaseUrlFile: '/etc/istemer/db-url', signingKeyFile: '/etc/istemer/key',
-      keyId: 'worker-key', agentPort: 8787, intervalMs: 5000, dispatchTimeoutMs: 200000 });
+      keyId: 'worker-key', agentPort: 8787, intervalMs: 5000, dispatchTimeoutMs: 200000,
+      approvedSources: new Set(['https://www.engineeringforkids.com/international-locations/egypt/']) });
   });
 
   it.each([
@@ -71,6 +73,14 @@ describe('worker runtime configuration', () => {
     [{ RESEARCH_WORKER_AGENT_PORT: 'abc' }, 'AGENT_PORT'],
     [{ RESEARCH_WORKER_INTERVAL_MS: '10' }, 'INTERVAL_MS'],
     [{ RESEARCH_WORKER_DISPATCH_TIMEOUT_MS: '999999' }, 'DISPATCH_TIMEOUT_MS'],
+    [{ RESEARCH_WORKER_APPROVED_SOURCES: undefined }, 'at least one URL'],
+    [{ RESEARCH_WORKER_APPROVED_SOURCES: '  ' }, 'at least one URL'],
+    [{ RESEARCH_WORKER_APPROVED_SOURCES: 'http://www.engineeringforkids.com/international-locations/egypt/' }, 'canonical https'],
+    [{ RESEARCH_WORKER_APPROVED_SOURCES: 'https://user:pw@example.org/a' }, 'canonical https'],
+    [{ RESEARCH_WORKER_APPROVED_SOURCES: 'https://example.org:8443/a' }, 'canonical https'],
+    [{ RESEARCH_WORKER_APPROVED_SOURCES: 'https://example.org/a#frag' }, 'canonical https'],
+    [{ RESEARCH_WORKER_APPROVED_SOURCES: 'https://EXAMPLE.org/a' }, 'canonical https'],
+    [{ RESEARCH_WORKER_APPROVED_SOURCES: 'not-a-url' }, 'entry 1 is not a URL'],
   ])('rejects invalid configuration %j', (override, message) => {
     expect(() => loadWorkerRuntimeConfig({ ...base, ...override })).toThrow(message);
   });
@@ -85,15 +95,17 @@ describe('worker runtime configuration', () => {
     const config = buildResearchWorkerConfig({ runtime, port, signingKey: new Uint8Array(32), now: () => 0 });
     expect(config.endpoint).toEqual({ hostname: '127.0.0.1', port: 8787 });
     expect(config.dispatchTimeoutMs).toBe(200000);
+    expect([...config.approvedSources]).toEqual(['https://www.engineeringforkids.com/international-locations/egypt/']);
     expect(() => buildResearchWorkerConfig({ runtime, port, signingKey: new Uint8Array(16), now: () => 0 })).toThrow('32 bytes');
   });
 });
 
 describe('assertDatabaseUrlUsesTls', () => {
-  it.each(['verify-full', 'verify-ca', 'require'])('accepts sslmode=%s', (mode) => {
-    expect(() => assertDatabaseUrlUsesTls(`postgresql://u:p@db.example.com:5432/postgres?sslmode=${mode}`)).not.toThrow();
+  it('accepts sslmode=verify-full', () => {
+    expect(() => assertDatabaseUrlUsesTls('postgresql://u:p@db.example.com:5432/postgres?sslmode=verify-full')).not.toThrow();
   });
   it.each(['postgresql://u:p@db.example.com:5432/postgres', 'postgresql://u:p@db.example.com/postgres?sslmode=disable',
+    'postgresql://u:p@db.example.com/postgres?sslmode=require', 'postgresql://u:p@db.example.com/postgres?sslmode=verify-ca',
     'postgresql://u:p@db.example.com/postgres?sslmode=prefer'])('refuses %s without leaking the URL', (url) => {
     expect(() => assertDatabaseUrlUsesTls(url)).toThrow(/sslmode=verify-full/);
     try { assertDatabaseUrlUsesTls(url); } catch (error) { expect(String((error as Error).message)).not.toContain('u:p'); }

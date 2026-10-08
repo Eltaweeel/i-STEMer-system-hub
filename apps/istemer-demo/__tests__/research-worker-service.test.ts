@@ -12,6 +12,7 @@ function fakeConfig(claim: ResearchCommandPort['claim']) {
     keyId: 'worker-key-1',
     signingKey: new Uint8Array(32).fill(7),
     now: () => 0,
+    approvedSources: new Set<string>(),
   };
 }
 

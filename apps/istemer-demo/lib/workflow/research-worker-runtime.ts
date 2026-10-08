@@ -13,9 +13,28 @@ export interface WorkerRuntimeConfig {
   readonly agentPort: number;
   readonly intervalMs: number;
   readonly dispatchTimeoutMs: number;
+  readonly approvedSources: ReadonlySet<string>;
 }
 
 export const MIN_SIGNING_KEY_BYTES = 32;
+const MAX_APPROVED_SOURCES = 50;
+
+/** Whitespace-separated exact URLs (a URL cannot contain raw whitespace, unlike a comma). Each must already be in
+ * canonical form, because briefs are matched by exact string: an entry that would normalise differently could never
+ * match and would only hide a typo. Redirects are not followed, so list the final URL. */
+export function parseApprovedSources(raw: string | undefined): ReadonlySet<string> {
+  const entries = (raw ?? '').split(/\s+/).filter(Boolean);
+  if (entries.length === 0) throw new Error('RESEARCH_WORKER_APPROVED_SOURCES must list at least one URL');
+  if (entries.length > MAX_APPROVED_SOURCES) throw new Error(`RESEARCH_WORKER_APPROVED_SOURCES allows at most ${MAX_APPROVED_SOURCES} URLs`);
+  entries.forEach((entry, index) => {
+    let url: URL;
+    try { url = new URL(entry); } catch { throw new Error(`RESEARCH_WORKER_APPROVED_SOURCES entry ${index + 1} is not a URL`); }
+    if (url.protocol !== 'https:' || url.username || url.password || url.port || url.hash || url.href !== entry) {
+      throw new Error(`RESEARCH_WORKER_APPROVED_SOURCES entry ${index + 1} must be a canonical https URL without credentials, port or fragment`);
+    }
+  });
+  return new Set(entries);
+}
 
 export function loadWorkerRuntimeConfig(env: Readonly<Record<string, string | undefined>>): WorkerRuntimeConfig {
   const need = (name: string): string => {
@@ -43,6 +62,7 @@ export function loadWorkerRuntimeConfig(env: Readonly<Record<string, string | un
     intervalMs: integer('RESEARCH_WORKER_INTERVAL_MS', '5000', 1000, 300_000),
     // Hermes gets 180s by default and the lease is 5 minutes; the worker also holds back a completion margin.
     dispatchTimeoutMs: integer('RESEARCH_WORKER_DISPATCH_TIMEOUT_MS', '200000', 5000, 240_000),
+    approvedSources: parseApprovedSources(env.RESEARCH_WORKER_APPROVED_SOURCES),
   };
 }
 
@@ -63,6 +83,7 @@ export function buildResearchWorkerConfig(input: {
     keyId: input.runtime.keyId,
     signingKey: input.signingKey,
     now: input.now,
+    approvedSources: input.runtime.approvedSources,
     dispatchTimeoutMs: input.runtime.dispatchTimeoutMs,
   };
 }
@@ -74,7 +95,9 @@ export function assertDatabaseUrlUsesTls(connectionString: string): void {
   let mode: string | null;
   try { mode = new URL(connectionString).searchParams.get('sslmode'); }
   catch { throw new Error('database url file does not hold a valid PostgreSQL connection URL'); }
-  if (mode !== 'verify-full' && mode !== 'verify-ca' && mode !== 'require') {
+  // Only verify-full. node-postgres 8 aliases require/verify-ca to verify-full, but `uselibpqcompat=true` (or pg 9)
+  // gives them libpq meaning, where the server certificate or its hostname is not checked.
+  if (mode !== 'verify-full') {
     throw new Error('database url must set sslmode=verify-full (with sslrootcert for the provider CA); plaintext connections are refused');
   }
 }
