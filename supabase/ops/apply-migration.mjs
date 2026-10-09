@@ -61,7 +61,7 @@ export const PHASE_B = {
   },
   postcheck: { fileName: 'phase-b-postcheck.sql', sha256: 'ccd52550e99d08c542fbeac584975286eae0aadecab9c1d18ee6306629ded499' },
   reopen: { fileName: 'phase-b-reopen.sql', sha256: '3e84b8ceb98bbb3409ee8ab0209b2d0e92a39203235738ed563a3682ab483b3a' },
-  quarantine: { fileName: 'phase-b-quarantine.sql', sha256: '8dc3e0beb55c1376f7c2f66caff1f5413d007d1c7135a62ac94d4d8a5f00263d' },
+  quarantine: { fileName: 'phase-b-quarantine.sql', sha256: 'ef101e6b108f8872851c48b268a3642348ca8343560a1003d50cb397d4c388b7' },
   // The functions the quarantine closes; the batch requires them closed before it starts.
   gated: ['public.approve_agent_revision(uuid,uuid,text)', 'public.reject_agent_revision(uuid,uuid,text,text)',
     'private.approve_agent_revision(uuid,uuid,text)', 'private.reject_agent_revision(uuid,uuid,text,text)'],
@@ -182,24 +182,46 @@ async function openTransaction(client, warnings) {
   warnings.length = 0;
 }
 
-const CLIENT_ROLES = "('authenticated', 'anon', 'service_role')";
-/** True when no client role can call any of the gated functions (the quarantine is in effect). */
-async function quarantineInEffect(client, gated) {
-  return (await client.query(`select not exists (select 1 from unnest($1::text[]) f, pg_roles r
-      where r.rolname in ${CLIENT_ROLES} and to_regprocedure(f) is not null
-        and has_function_privilege(r.oid, to_regprocedure(f), 'EXECUTE'))
-      and (select bool_and(to_regprocedure(f) is not null) from unnest($1::text[]) f) as ok`, [gated])).rows[0].ok;
+/**
+ * Re-asserts, before every SQL text the tool sends, the two settings its safety checks rely on, and refuses unless
+ * they hold. A previous file in the same batch could have changed them (for example with set_config(), which no scan
+ * can see), and PostgreSQL lexes each query string with the settings in force when it arrives. (Within one string the
+ * whole text is parsed before any of it runs, so a change inside a file cannot affect how that file is read.)
+ */
+async function reassertSession(client) {
+  await client.query('set local standard_conforming_strings = on');
+  await client.query('set local client_min_messages = warning');
+  const row = (await client.query(`select current_setting('standard_conforming_strings') as scs,
+    current_setting('client_min_messages') as cmm`)).rows[0];
+  if (row.scs !== 'on' || row.cmm !== 'warning') throw new MigrationRefused('session settings the tool relies on could not be restored');
 }
 
-/** Waits until no other client session has a transaction older than this one; refuses if that cannot be seen or reached. */
+/** True when every gated function exists and its owner is the ONLY holder of EXECUTE (no PUBLIC, no other role). */
+async function quarantineInEffect(client, gated) {
+  return (await client.query(`select bool_and(p.oid is not null and not exists (
+        select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+        where a.privilege_type = 'EXECUTE' and a.grantee <> p.proowner)) as ok
+      from unnest($1::text[]) f left join pg_proc p on p.oid = to_regprocedure(f)`, [gated])).rows[0].ok === true;
+}
+
+/**
+ * Waits until no other client session has a transaction older than this one. Refuses if the operator role cannot see
+ * other roles' sessions (PostgreSQL then hides their backend type, state and timestamps entirely), and if the wait
+ * runs out. pg_stat_activity is a per-transaction snapshot, so it is cleared before every poll.
+ */
 async function drainOlderTransactions(client, { timeoutMs, pollMs = 500, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
+  const canSee = (await client.query("select pg_has_role(current_user, 'pg_read_all_stats', 'USAGE') as ok")).rows[0].ok;
+  if (!canSee) throw new MigrationRefused('cannot see other sessions in pg_stat_activity (needs pg_read_all_stats); the drain cannot be verified');
   const deadline = Date.now() + timeoutMs;
   for (;;) {
+    await client.query('select pg_stat_clear_snapshot()');
     const row = (await client.query(`select
-        count(*) filter (where a.state is null)::int as unseen,
-        count(*) filter (where a.xact_start < (select xact_start from pg_stat_activity where pid = pg_backend_pid()))::int as older
-      from pg_stat_activity a where a.backend_type = 'client backend' and a.pid <> pg_backend_pid()`)).rows[0];
-    if (row.unseen) throw new MigrationRefused('cannot see other sessions in pg_stat_activity (needs pg_read_all_stats); the drain cannot be verified');
+        count(*) filter (where a.backend_type is null
+          or (a.backend_type = 'client backend' and (a.state is null or a.state = 'disabled')))::int as unseen,
+        count(*) filter (where a.backend_type = 'client backend'
+          and a.xact_start < (select xact_start from pg_stat_activity where pid = pg_backend_pid()))::int as older
+      from pg_stat_activity a where a.pid <> pg_backend_pid()`)).rows[0];
+    if (row.unseen) throw new MigrationRefused(`${row.unseen} other session(s) are not visible in pg_stat_activity; the drain cannot be verified`);
     if (!row.older) return;
     if (Date.now() >= deadline) throw new MigrationRefused(`${row.older} other session(s) still have a transaction older than Phase B; retry when they have finished`);
     await sleep(pollMs);
@@ -250,6 +272,7 @@ export async function applyMigrations(client, preparedList, {
     };
     const authorityBefore = (await client.query(AUTHORITY_SNAPSHOT)).rows[0];
     for (const prepared of preparedList) {
+      await reassertSession(client);
       await client.query(prepared.body);
       await sameTransaction(prepared.version);
       assertNoWarnings(prepared.version);
@@ -266,6 +289,7 @@ export async function applyMigrations(client, preparedList, {
     }
     for (const step of [reopen, postcheck]) {
       if (!step) continue;
+      await reassertSession(client);
       await client.query(step.text);
       await sameTransaction(step.fileName);
       assertNoWarnings(step.fileName);
@@ -301,6 +325,7 @@ export async function applyQuarantine(client, quarantine, { rehearse = false } =
   client.on('notice', onNotice);
   try {
     await openTransaction(client, warnings);
+    await reassertSession(client);
     await client.query(quarantine.text);
     if (warnings.length) throw new MigrationRefused(`quarantine raised WARNING: ${warnings.join(' | ')}`);
     if (!(await quarantineInEffect(client, PHASE_B.gated))) throw new MigrationRefused('quarantine did not take effect');

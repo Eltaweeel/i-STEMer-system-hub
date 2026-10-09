@@ -9,7 +9,8 @@
 //   the bootstrap superuser). This is produced by PostgreSQL itself, not written by hand here.
 // Not known from evidence, so explicit options rather than assumptions:
 // - platformMembers: whether postgres is a member of anon/authenticated/service_role;
-// - authGrantOption: whether postgres may re-grant USAGE on schema auth and EXECUTE on auth.uid()/auth.jwt().
+// - authGrantOption: whether postgres may re-grant USAGE on schema auth and EXECUTE on auth.uid()/auth.jwt();
+// - readAllStats: whether postgres has pg_read_all_stats (preflight P11).
 // Approximation: the auth/storage stubs come from platform-stubs.sql and storage.buckets/objects are given to postgres,
 // because the applied phase-1a migration alters them and did apply on the hosted project.
 // Local only: binds 127.0.0.1, trust auth inside a temporary directory, no credentials, nothing remote.
@@ -28,7 +29,7 @@ const PLATFORM_PACKAGE = { win32: '@embedded-postgres/windows-x64', linux: '@emb
 const binaries = () => import(PLATFORM_PACKAGE);
 
 /** tls: { certFile, keyFile } turns on server TLS (used only by the driver handshake tests). */
-export async function startHostedLikeCluster({ platformMembers = false, authGrantOption = true, tls = null, listenLocalhost = false } = {}) {
+export async function startHostedLikeCluster({ platformMembers = false, authGrantOption = true, readAllStats = true, tls = null, listenLocalhost = false } = {}) {
   // initdb and postgres refuse to run as root. Say so plainly instead of failing every test at setup.
   if (process.getuid?.() === 0) {
     throw new Error('ENVIRONMENT: PostgreSQL will not run as root; run `npm run test:hosted` as an unprivileged user (this is not a migration result)');
@@ -80,6 +81,8 @@ export async function startHostedLikeCluster({ platformMembers = false, authGran
       alter table storage.buckets owner to postgres;
       alter table storage.objects owner to postgres;`);
     if (platformMembers) await platform.query('grant anon, authenticated, service_role to postgres');
+    // Preflight P11 on the hosted project; needed by the Phase B drain check to see other roles' sessions.
+    if (readAllStats) await platform.query('grant pg_read_all_stats to postgres');
     await platform.end();
     const owner = await connect('postgres');
     // The Supabase CLI ledger, as the hosted project has it (owned by postgres).

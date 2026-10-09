@@ -119,13 +119,18 @@ Everything one invocation is given runs in **one transaction**: every listed mig
 - **Before running anything.** Each migration must be exactly one top-level `begin;`...`commit;` block, and a SQL-aware
   scan refuses any top-level transaction control inside it or in a step (`COMMIT`, `END`, `ROLLBACK`, `ABORT`, `BEGIN`,
   `START TRANSACTION`, `SAVEPOINT`, `RELEASE`, `PREPARE TRANSACTION`, `SET TRANSACTION`) and any change of
-  `standard_conforming_strings`. The scan reads identifiers whole the way PostgreSQL does (so `é$tag$` is an identifier,
-  not a dollar quote), understands quotes, `$tag$` bodies and comments, and assumes `standard_conforming_strings = on`,
-  which the tool forces for its transaction. PL/pgSQL `begin`/`end;` inside function bodies is accepted. As defence in
-  depth, the transaction id is checked after every body. With these, `--rehearse` cannot commit a file the tool accepts.
+  `standard_conforming_strings` (also when the name is quoted). The scan reads identifiers whole the way PostgreSQL does
+  (so `é$tag$` is an identifier, not a dollar quote), understands quotes, `$tag$` bodies and comments, and assumes
+  `standard_conforming_strings = on`. A scan cannot see every way of changing that setting (for example
+  `set_config(...)`), so the tool **re-asserts** `standard_conforming_strings = on` and `client_min_messages = warning`
+  before every SQL text it sends and refuses unless both hold; PostgreSQL reads each text as a whole before running any
+  of it, so a change inside one file cannot alter how that same file is read. PL/pgSQL `begin`/`end;` inside function
+  bodies is accepted. As defence in depth, the transaction id is checked after every body. With these, `--rehearse`
+  cannot commit a file the tool accepts (rehearsed with a batch whose first file turns the setting off).
 - **Session.** The tool sets, for its own transaction only: `lock_timeout` 10 s, `statement_timeout` 120 s (per
-  statement), `idle_in_transaction_session_timeout` 60 s (a connection that silently disappears cannot hold the locks
-  for long), `standard_conforming_strings = on`, `client_min_messages = warning`.
+  statement, not for the whole batch), `idle_in_transaction_session_timeout` 60 s (a connection that silently
+  disappears cannot hold the locks for long; this, not TCP keepalive, whose idle time is the OS default, often two hours,
+  is the effective bound), `standard_conforming_strings = on`, `client_min_messages = warning`.
 - **Ledger.** It checks the ledger's columns and types (`version text`, `name text`, `statements text[]`), that
   `version` is unique, and that the table has no triggers or rules; takes a lock against a concurrent push or operator;
   refuses a version already recorded or a missing `--require-present` version; writes each row with the **whole
@@ -155,7 +160,7 @@ Reviewed digests (LF line endings, as committed on this branch; the tool pins th
 | supabase/migrations/20260921130000_hadeer_approval_role_null_repair.sql | `90e450c9c21a0a8343175333e53bbc0fb67365f2b4e52734465fcfc54ab9e5b9` |
 | supabase/migrations/20260921140000_hadeer_retry_missing_run_repair.sql | `f20523f1f43644c11e3da139fae3fdcd4ae211bd96715162a10da578c8026409` |
 | supabase/ops/phase-a-postcheck.sql | `f02d2f5a9e50b5fca96327a09663e422ac45749a17707e4ee299bd9fd17ebca7` |
-| supabase/ops/phase-b-quarantine.sql | `8dc3e0beb55c1376f7c2f66caff1f5413d007d1c7135a62ac94d4d8a5f00263d` |
+| supabase/ops/phase-b-quarantine.sql | `ef101e6b108f8872851c48b268a3642348ca8343560a1003d50cb397d4c388b7` |
 | supabase/ops/phase-b-reopen.sql | `3e84b8ceb98bbb3409ee8ab0209b2d0e92a39203235738ed563a3682ab483b3a` |
 | supabase/ops/phase-b-postcheck.sql | `ccd52550e99d08c542fbeac584975286eae0aadecab9c1d18ee6306629ded499` |
 
@@ -201,7 +206,7 @@ Run in `psql` with the same URL. Every answer must match; any difference is a **
 | P8 | `select column_name, data_type, udt_name, is_nullable, column_default from information_schema.columns where table_schema='supabase_migrations' and table_name='schema_migrations';` | `version`/`name` `text`, `statements` `ARRAY`/`_text`; any other column nullable or defaulted (the tool re-checks) |
 | P9 | `select defaclnamespace::regnamespace, defaclobjtype, defaclacl from pg_default_acl where defaclrole='postgres'::regrole;` | record; any entry for schema `private` or for functions globally must be reviewed before applying |
 | P10 | `select to_regclass('public.finished_post_revision_bodies'), to_regprocedure('private.record_research_usage(uuid,integer,boolean)');` | Phase A: both null. Phase B: first null; second not null after Phase A. |
-| P11 | `select pg_has_role('postgres','pg_read_all_stats','USAGE');` | **Phase B: `t`, else stop.** The drain check must see other sessions' state in `pg_stat_activity`; the tool refuses if it cannot. |
+| P11 | `select pg_has_role('postgres','pg_read_all_stats','USAGE');` | **Phase B: `t`, else stop.** The drain check must see other roles' sessions in `pg_stat_activity`; the tool checks this role itself and refuses without it. |
 
 **P7** (effective auth access of the roles whose functions call `auth.uid()`/`auth.jwt()`; `EXECUTE` alone is not
 enough, because functions are executable by PUBLIC by default while the schema is not usable by PUBLIC):
@@ -251,11 +256,13 @@ off; a quiet window (the batch briefly stalls member-scoped reads, see below).
 
 ```
 node supabase/ops/apply-migration.mjs --database-url-file <url file> \
-  --quarantine <repo>/supabase/ops/phase-b-quarantine.sql --quarantine-sha256 8dc3e0beb55c1376f7c2f66caff1f5413d007d1c7135a62ac94d4d8a5f00263d
+  --quarantine <repo>/supabase/ops/phase-b-quarantine.sql --quarantine-sha256 ef101e6b108f8872851c48b268a3642348ca8343560a1003d50cb397d4c388b7 --rehearse
 ```
 
-Expected `{"quarantine":true,"committed":true,...}`. It verifies itself before COMMIT: no client role (`authenticated`,
-`anon`, `service_role`) can execute the four approval functions. From here until Phase B commits, approval decisions are
+Expected `{"quarantine":true,"committed":false,...}`; then the same without `--rehearse`, expected
+`{"quarantine":true,"committed":true,...}`. It verifies itself before COMMIT: the owner (`postgres`) is the only holder
+of EXECUTE on each of the four approval functions (no PUBLIC, no client or other role). `retry_agent_workflow` (B6) is
+not quarantined: its pre-Phase-B defect only writes a misleading audit entry for a missing run and is not cross-tenant. From here until Phase B commits, approval decisions are
 unavailable to the app (a call is refused with `permission denied for function ...`). The quarantine stays if anything
 later fails; that is the safe state. Re-opening without Phase B would re-expose the NULL-blind functions and needs an
 explicit owner decision; no reviewed file here does it.
@@ -287,8 +294,10 @@ remote identical. Approval decisions are available again, through the repaired f
 
 1. *No new call can start.* After B0 commits, PostgreSQL refuses EXECUTE on the four functions to every client role at
    call start. The batch refuses to start unless that is still true.
-2. *No old call can still be running.* The batch waits (up to 30 s) until no other client session has a transaction
-   older than the batch itself, and refuses otherwise. Without P11's visibility it refuses outright. So no call that
+2. *No old call can still be running.* The batch refuses outright unless the operator role has `pg_read_all_stats`
+   (P11; without it PostgreSQL hides other roles' sessions, including the API's, entirely). It then polls, with a fresh
+   `pg_stat_activity` snapshot each time, until no other client session has a transaction older than the batch itself,
+   for up to 30 s, and refuses if one remains or if any session is not visible. So no call that
    began before the quarantine can be in flight, waiting on the batch's locks, or resume an old body after COMMIT.
    (Without the quarantine, a call made during the batch would wait on its locks and then continue in the OLD body after
    COMMIT; the reviewer reproduced that, and it is why B0 exists.)

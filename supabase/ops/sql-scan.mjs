@@ -113,8 +113,12 @@ const REFUSED = [
   /^(begin|start transaction|commit|end|rollback|abort|savepoint|release|prepare transaction)\b/,
   /^set (session characteristics as )?transaction\b/,
   /^(set|reset)\b.*\bstandard_conforming_strings\b/,
+  // A quoted setting name ("standard_conforming_strings") hides which setting it is from this scan.
+  /^(set|reset)( session| local)? "x"/,
   /^reset all\b/,
 ];
+// Not detectable here: set_config('standard_conforming_strings', ...) and similar function calls. The apply tool
+// therefore re-asserts the settings it relies on before every SQL text it sends; that, not this list, is the guard.
 
 /** Throws unless the SQL holds no top-level transaction control. Returns the statements otherwise. */
 export function assertNoTransactionControl(sql) {

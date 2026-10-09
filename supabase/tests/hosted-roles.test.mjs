@@ -474,3 +474,60 @@ test('each ledger row holds the whole reviewed file, so its digest matches the r
   const stored = await one(db, "select statements[1] from supabase_migrations.schema_migrations where version = '20261008120000'");
   assert.equal(sha256(stored), 'd7a630498f73af88a9785751ac80f4bcfbcaee472b6c2bc5060fb9f66d2e7e25');
 }));
+
+// ---------------------------------------------------------------------------------------------------------------
+// Regressions for the round-3 review of 93dbec7.
+
+test('a setting changed by an earlier file cannot change how a later file is read, so --rehearse commits nothing', () => withCluster({}, async (db) => {
+  const nl = String.fromCharCode(10);
+  const bs = String.fromCharCode(92); // a backslash, written without escapes
+  // File 1 turns standard_conforming_strings off in a way no scan can see; file 2 is innocent with it on, but with it
+  // off PostgreSQL would read  select '\''; commit; -- '  as a string, a COMMIT and a comment.
+  const first = prepared('20991231000001_probe_one.sql', ['begin;', 'create table public.probe_one(id int);',
+    "select set_config('standard_conforming_strings', 'off', false);", 'set escape_string_warning = off;', 'commit;', ''].join(nl));
+  const second = prepared('20991231000002_probe_two.sql', ['begin;', 'create table public.probe_two(id int);',
+    `select '${bs}''; commit; -- '`, ';', 'commit;', ''].join(nl));
+  const result = await applyMigrations(db, [first, second], { rehearse: true });
+  assert.deepEqual(result, { versions: ['20991231000001', '20991231000002'], committed: false });
+  assert.equal(await one(db, "select to_regclass('public.probe_one')::text"), null);
+  assert.equal(await one(db, "select to_regclass('public.probe_two')::text"), null);
+  assert.equal(await one(db, "select count(*)::int from supabase_migrations.schema_migrations where version like '2099%'"), 0);
+}));
+
+test('without pg_read_all_stats the Phase B drain refuses, even though other sessions are connected', () => withCluster({ readAllStats: false }, async (db, cluster) => {
+  const other = await cluster.connect('supabase_admin'); // a session postgres cannot see into, like PostgREST's
+  try {
+    await other.query('begin'); await other.query('select 1');
+    await quarantine(db);
+    await assert.rejects(phaseB(db, { drainTimeoutMs: 1500 }), (e) => e instanceof MigrationRefused && /pg_read_all_stats/.test(e.message));
+    assert.equal(await ledgerCountOfSix(db), 0);
+  } finally {
+    await other.query('rollback').catch(() => undefined);
+    await other.end();
+  }
+}));
+
+test('with pg_read_all_stats the drain sees another role\'s older transaction and waits for it', () => withCluster({}, async (db, cluster) => {
+  const other = await cluster.connect('supabase_admin');
+  try {
+    await quarantine(db);
+    await other.query('begin'); await other.query('select 1');
+    const started = Date.now();
+    const finishes = new Promise((r) => setTimeout(r, 1500)).then(() => other.query('commit'));
+    // The batch starts while the older transaction is open, waits, and proceeds once it has committed.
+    const result = await phaseB(db, { drainTimeoutMs: 8000 });
+    await finishes;
+    assert.equal(result.committed, true);
+    assert.ok(Date.now() - started >= 1400, 'the batch waited for the older transaction');
+  } finally {
+    await other.end();
+  }
+}));
+
+test('the quarantine requires its owner to be the only EXECUTE holder, whoever else holds it', () => withCluster({}, async (db) => {
+  // A grant to a role that is neither PUBLIC nor a client role would have passed a client-roles-only check.
+  await db.query('grant execute on function private.approve_agent_revision(uuid,uuid,text) to bagos_research_executor');
+  await assert.rejects(quarantine(db), /executable by a role other than its owner/);
+  await db.query('revoke execute on function private.approve_agent_revision(uuid,uuid,text) from bagos_research_executor');
+  assert.equal((await quarantine(db)).committed, true);
+}));

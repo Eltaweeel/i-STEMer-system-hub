@@ -19,10 +19,10 @@ begin
   foreach fn in array array['public.approve_agent_revision(uuid,uuid,text)', 'public.reject_agent_revision(uuid,uuid,text,text)',
     'private.approve_agent_revision(uuid,uuid,text)', 'private.reject_agent_revision(uuid,uuid,text,text)'] loop
     if to_regprocedure(fn) is null then raise exception 'phase-b quarantine: % is missing', fn; end if;
-    -- Anyone but the owner able to call it, directly or through PUBLIC or a role, means the quarantine is not in effect.
-    if exists (select 1 from pg_roles r where r.rolname in ('authenticated', 'anon', 'service_role')
-               and has_function_privilege(r.oid, to_regprocedure(fn), 'EXECUTE')) then
-      raise exception 'phase-b quarantine: % is still executable by a client role', fn;
+    -- The owner must be the only holder of EXECUTE: no PUBLIC and no other role, client or not.
+    if exists (select 1 from pg_proc p, aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+               where p.oid = to_regprocedure(fn) and a.privilege_type = 'EXECUTE' and a.grantee <> p.proowner) then
+      raise exception 'phase-b quarantine: % is still executable by a role other than its owner', fn;
     end if;
   end loop;
 end $verify$;

@@ -302,3 +302,21 @@ test('all migration files have no top-level transaction control', () => {
   }
   assert.deepEqual(unenveloped, ['20260915224433_mvp_security_hardening.sql']);
 });
+
+// Regressions from the final reviews of 8eb8b73 and 93dbec7: each of these was accepted by an earlier scanner.
+test('a non-ASCII identifier containing $ cannot open a dollar quote that hides COMMIT', () => {
+  for (const sql of ['select 1 as é$tag$; COMMIT; select 2 as é$tag$;',
+    'create table t1(é$t$ int); commit; create table t2(é$t$ int);',
+    'select a$b$c; commit;']) {
+    assert.throws(() => assertNoTransactionControl(sql), SqlScanError, sql);
+  }
+  assert.deepEqual(topLevelStatements('select 1 as é$tag$; select 2'), ['select 1 as é$tag$', 'select 2']);
+});
+
+test('changing standard_conforming_strings at the top level is refused, however the name is written', () => {
+  for (const sql of ['set standard_conforming_strings = off;', 'set local standard_conforming_strings = off;',
+    'set session standard_conforming_strings to off;', 'reset standard_conforming_strings;',
+    'set "standard_conforming_strings" = off;', 'set local "standard_conforming_strings" = off;', 'reset all;']) {
+    assert.throws(() => assertNoTransactionControl(sql), SqlScanError, sql);
+  }
+});
