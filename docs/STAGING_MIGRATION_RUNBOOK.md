@@ -121,12 +121,16 @@ Everything one invocation is given runs in **one transaction**: every listed mig
   `START TRANSACTION`, `SAVEPOINT`, `RELEASE`, `PREPARE TRANSACTION`, `SET TRANSACTION`) and any change of
   `standard_conforming_strings` (also when the name is quoted). The scan reads identifiers whole the way PostgreSQL does
   (so `é$tag$` is an identifier, not a dollar quote), understands quotes, `$tag$` bodies and comments, and assumes
-  `standard_conforming_strings = on`. A scan cannot see every way of changing that setting (for example
-  `set_config(...)`), so the tool **re-asserts** `standard_conforming_strings = on` and `client_min_messages = warning`
-  before every SQL text it sends and refuses unless both hold; PostgreSQL reads each text as a whole before running any
-  of it, so a change inside one file cannot alter how that same file is read. PL/pgSQL `begin`/`end;` inside function
-  bodies is accepted. As defence in depth, the transaction id is checked after every body. With these, `--rehearse`
-  cannot commit a file the tool accepts (rehearsed with a batch whose first file turns the setting off).
+  `standard_conforming_strings = on`. It refuses outright what it cannot follow with certainty: a top-level `E'...'`
+  string (PostgreSQL continues its escape mode into a following line's `'...'`), and any top-level `SET`/`RESET` of
+  `client_encoding`, `NAMES` or `client_min_messages`. A scan cannot see every way of changing a setting (for example
+  `set_config(...)`), so the tool **re-asserts** `standard_conforming_strings = on`, `client_min_messages = warning` and
+  `client_encoding = UTF8` before every SQL text it sends and refuses unless all three hold; PostgreSQL reads each text
+  as a whole before running any of it, so a change inside one file cannot alter how that same file is read. PL/pgSQL
+  `begin`/`end;` (and `E'...'`) inside function bodies is accepted. As defence in depth, the transaction id is checked
+  after every body, which detects but cannot undo an early commit. Within those rules `--rehearse` cannot commit a file
+  the tool accepts; every case the reviews found is a regression test. For the reviewed plans the stronger statement is
+  that their pinned files are plain ASCII and contain none of these constructs.
 - **Session.** The tool sets, for its own transaction only: `lock_timeout` 10 s, `statement_timeout` 120 s (per
   statement, not for the whole batch), `idle_in_transaction_session_timeout` 60 s (a connection that silently
   disappears cannot hold the locks for long; this, not TCP keepalive, whose idle time is the OS default, often two hours,
@@ -207,6 +211,7 @@ Run in `psql` with the same URL. Every answer must match; any difference is a **
 | P9 | `select defaclnamespace::regnamespace, defaclobjtype, defaclacl from pg_default_acl where defaclrole='postgres'::regrole;` | record; any entry for schema `private` or for functions globally must be reviewed before applying |
 | P10 | `select to_regclass('public.finished_post_revision_bodies'), to_regprocedure('private.record_research_usage(uuid,integer,boolean)');` | Phase A: both null. Phase B: first null; second not null after Phase A. |
 | P11 | `select pg_has_role('postgres','pg_read_all_stats','USAGE');` | **Phase B: `t`, else stop.** The drain check must see other roles' sessions in `pg_stat_activity`; the tool checks this role itself and refuses without it. |
+| P12 | `select m.rolname, m.rolsuper from pg_auth_members a join pg_roles m on m.oid = a.member where a.roleid = 'postgres'::regrole union select rolname, rolsuper from pg_roles where rolsuper order by 1;` | **Phase B: record and review.** The quarantine stops every role except the functions' owner `postgres`; roles listed here (members of `postgres`, and superusers) are not stopped by it. Only platform roles may appear; any client or API role is a **stop**. |
 
 **P7** (effective auth access of the roles whose functions call `auth.uid()`/`auth.jwt()`; `EXECUTE` alone is not
 enough, because functions are executable by PUBLIC by default while the schema is not usable by PUBLIC):
@@ -249,7 +254,7 @@ migration revokes `record_research_usage` from `bagos_research_executor`. **Neve
 
 ## Phase B: quarantine, then the six approval migrations in ONE transaction (separate review and approval)
 
-Prerequisites: this phase's own approval; P1-P11 pass, including **P6, P7 and P11**; Adam, Nour and Ziad workers still
+Prerequisites: this phase's own approval; P1-P12 pass, including **P6, P7, P11 and P12**; Adam, Nour and Ziad workers still
 off; a quiet window (the batch briefly stalls member-scoped reads, see below).
 
 **B0. Quarantine** (its own transaction, committed, no ledger row): stops new calls of the approve/reject commands.
@@ -293,7 +298,7 @@ remote identical. Approval decisions are available again, through the repaired f
 **The gate, and what enforces it** (all rehearsed on PostgreSQL 17.6):
 
 1. *No new call can start.* After B0 commits, PostgreSQL refuses EXECUTE on the four functions to every client role at
-   call start. The batch refuses to start unless that is still true.
+   call start (not to members of the owner role `postgres` or superusers; P12). The batch refuses to start unless that is still true.
 2. *No old call can still be running.* The batch refuses outright unless the operator role has `pg_read_all_stats`
    (P11; without it PostgreSQL hides other roles' sessions, including the API's, entirely). It then polls, with a fresh
    `pg_stat_activity` snapshot each time, until no other client session has a transaction older than the batch itself,

@@ -495,7 +495,7 @@ function fakeClient({ readBack = 'exact', warnOn = null } = {}) {
         return { rows: [{ column_name: 'version', data_type: 'text' }, { column_name: 'name', data_type: 'text' },
           { column_name: 'statements', data_type: 'ARRAY', udt_name: '_text' }] };
       }
-      if (sql.includes("current_setting('standard_conforming_strings')")) return { rows: [{ scs: 'on', cmm: 'warning' }] };
+      if (sql.includes("current_setting('standard_conforming_strings')")) return { rows: [{ scs: 'on', cmm: 'warning', enc: 'UTF8' }] };
       if (sql.includes('i.indisunique')) return { rows: [{ ok: true }] };
       if (sql.includes('pg_trigger')) return { rows: [{ triggers: 0, rules: 0 }] };
       if (sql.startsWith('select version from')) return { rows: [] };

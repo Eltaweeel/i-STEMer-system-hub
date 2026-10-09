@@ -20,9 +20,8 @@ test('topLevelStatements: handles doubled single quotes for escaping', () => {
   assert.deepEqual(result, ["select ''", 'select 1']);
 });
 
-test('topLevelStatements: ignores semicolons inside E-string with escapes', () => {
-  const result = topLevelStatements("select E'a\\;b'; select 1;");
-  assert.deepEqual(result, ["select ''", 'select 1']);
+test('topLevelStatements: refuses a top-level E-string instead of guessing its extent', () => {
+  assert.throws(() => topLevelStatements("select E'a\;b'; select 1;"), (error) => error instanceof SqlScanError && /E'' strings/.test(error.message));
 });
 
 test('topLevelStatements: ignores semicolons inside double-quoted identifiers', () => {
@@ -86,7 +85,7 @@ test('topLevelStatements: unterminated single-quoted string throws SqlScanError'
 test('topLevelStatements: unterminated E-string throws SqlScanError', () => {
   assert.throws(
     () => topLevelStatements("select E'unterminated"),
-    (error) => error instanceof SqlScanError && error.message.includes('unterminated string')
+    (error) => error instanceof SqlScanError && /E'' strings/.test(error.message)
   );
 });
 
@@ -317,6 +316,24 @@ test('changing standard_conforming_strings at the top level is refused, however 
   for (const sql of ['set standard_conforming_strings = off;', 'set local standard_conforming_strings = off;',
     'set session standard_conforming_strings to off;', 'reset standard_conforming_strings;',
     'set "standard_conforming_strings" = off;', 'set local "standard_conforming_strings" = off;', 'reset all;']) {
+    assert.throws(() => assertNoTransactionControl(sql), SqlScanError, sql);
+  }
+});
+
+// Regressions from the round-4 review of 9a261fe.
+test('a top-level E string is refused, including one continued on the next line to hide a COMMIT', () => {
+  const nl = String.fromCharCode(10);
+  const bs = String.fromCharCode(92);
+  const continued = ['create table public.probe_e(id int);', "select E'a'", `'${bs}' ' ; commit; select '`, "--'", ';'].join(nl);
+  assert.throws(() => assertNoTransactionControl(continued), SqlScanError);
+  assert.throws(() => assertNoTransactionControl("select e'x';"), SqlScanError);
+  // Inside a function body an E string is opaque and allowed.
+  assert.doesNotThrow(() => assertNoTransactionControl("create function f() returns text language sql as $$ select E'x' $$;"));
+});
+
+test('changing client_encoding, NAMES or client_min_messages at the top level is refused', () => {
+  for (const sql of ["set client_encoding = 'SJIS';", "set local client_encoding to 'SJIS';", 'reset client_encoding;',
+    "set names 'SJIS';", 'set client_min_messages = error;', 'set local client_min_messages to error;', 'reset client_min_messages;']) {
     assert.throws(() => assertNoTransactionControl(sql), SqlScanError, sql);
   }
 });

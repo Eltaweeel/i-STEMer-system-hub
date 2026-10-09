@@ -531,3 +531,34 @@ test('the quarantine requires its owner to be the only EXECUTE holder, whoever e
   await db.query('revoke execute on function private.approve_agent_revision(uuid,uuid,text) from bagos_research_executor');
   assert.equal((await quarantine(db)).committed, true);
 }));
+
+// Regressions from the round-4 review of 9a261fe.
+test('the reviewer\'s continued E-string file is refused before anything runs', () => withCluster({}, async (db) => {
+  const nl = String.fromCharCode(10);
+  const bs = String.fromCharCode(92);
+  const text = ['begin;', 'create table public.probe_e(id int);', "select E'a'", `'${bs}' ' ; commit; select '`, "--'", ';', 'commit;', ''].join(nl);
+  assert.throws(() => prepared('20991231000010_probe_e.sql', text), (e) => e instanceof MigrationRefused && /E'' strings/.test(e.message));
+  assert.equal(await one(db, "select to_regclass('public.probe_e')::text"), null);
+}));
+
+test('an encoding changed by an earlier file is restored before the next text, and --rehearse commits nothing', () => withCluster({}, async (db) => {
+  const nl = String.fromCharCode(10);
+  // set_config is invisible to the scan; the tool's per-text re-assertion must undo it before file 2 and the check.
+  const first = prepared('20991231000011_probe_s1.sql', ['begin;', 'create table public.probe_s1(id int);',
+    "select set_config('client_encoding', 'SJIS', false);", 'commit;', ''].join(nl));
+  const second = prepared('20991231000012_probe_s2.sql', ['begin;', 'create table public.probe_s2(id int);', 'commit;', ''].join(nl));
+  const checkText = "do $c$ begin if current_setting('client_encoding') <> 'UTF8' then raise exception 'encoding not restored'; end if; end $c$;";
+  const check = preparePostcheck({ fileName: 'probe-encoding-check.sql', text: checkText, expectedSha256: sha256(checkText) });
+  assert.deepEqual(await applyMigrations(db, [first, second], { rehearse: true, postcheck: check }),
+    { versions: ['20991231000011', '20991231000012'], committed: false });
+  assert.equal(await one(db, "select to_regclass('public.probe_s1')::text"), null);
+  assert.equal(await one(db, "select to_regclass('public.probe_s2')::text"), null);
+  assert.equal(await one(db, "select count(*)::int from supabase_migrations.schema_migrations where version like '2099%'"), 0);
+}));
+
+test('Phase B refuses when access is granted again after the quarantine committed (the tool\'s own check)', () => withCluster({}, async (db) => {
+  await quarantine(db);
+  await db.query('grant execute on function private.approve_agent_revision(uuid,uuid,text) to bagos_research_executor');
+  await assert.rejects(phaseB(db), (e) => e instanceof MigrationRefused && /quarantine is not in effect/.test(e.message));
+  assert.equal(await ledgerCountOfSix(db), 0);
+}));

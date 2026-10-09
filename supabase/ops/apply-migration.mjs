@@ -191,9 +191,12 @@ async function openTransaction(client, warnings) {
 async function reassertSession(client) {
   await client.query('set local standard_conforming_strings = on');
   await client.query('set local client_min_messages = warning');
+  await client.query("set local client_encoding = 'UTF8'");
   const row = (await client.query(`select current_setting('standard_conforming_strings') as scs,
-    current_setting('client_min_messages') as cmm`)).rows[0];
-  if (row.scs !== 'on' || row.cmm !== 'warning') throw new MigrationRefused('session settings the tool relies on could not be restored');
+    current_setting('client_min_messages') as cmm, current_setting('client_encoding') as enc`)).rows[0];
+  if (row.scs !== 'on' || row.cmm !== 'warning' || row.enc !== 'UTF8') {
+    throw new MigrationRefused('session settings the tool relies on could not be restored');
+  }
 }
 
 /** True when every gated function exists and its owner is the ONLY holder of EXECUTE (no PUBLIC, no other role). */

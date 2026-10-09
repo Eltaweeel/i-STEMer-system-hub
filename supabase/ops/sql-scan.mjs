@@ -63,8 +63,10 @@ export function topLevelStatements(sql) {
       while (end < n && IDENT_CONT.test(sql[end])) end += 1;
       const word = sql.slice(i, end);
       if ((word === 'e' || word === 'E') && sql[end] === "'") {
-        i = readString(sql, end, true);
-        current += " '' ";
+        // E'...' strings are refused at the top level: in them a backslash escapes a quote, and PostgreSQL continues
+        // that mode across a line break into a following '...', which this scan does not follow. None of the reviewed
+        // files uses one (inside function bodies they are opaque and allowed).
+        throw new SqlScanError("E'' strings are not accepted at the top level");
       } else {
         current += word;
         i = end;
@@ -115,6 +117,8 @@ const REFUSED = [
   /^(set|reset)\b.*\bstandard_conforming_strings\b/,
   // A quoted setting name ("standard_conforming_strings") hides which setting it is from this scan.
   /^(set|reset)( session| local)? "x"/,
+  // Settings that change how later text is decoded, or whether WARNINGs reach the tool.
+  /^(set|reset)( session| local)? (client_encoding|names|client_min_messages)\b/,
   /^reset all\b/,
 ];
 // Not detectable here: set_config('standard_conforming_strings', ...) and similar function calls. The apply tool
