@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test phase-1a.test.mjs research-packet.test.mjs reel-analysis-packet.test.mjs content-calendar-packet.test.mjs auto-fanout.test.mjs usage-allowances.test.mjs research-usage-boundary.test.mjs strategy-approval.test.mjs apply-migration-unit.test.mjs",
-    "test:hosted": "node --test --test-concurrency=1 hosted-roles.test.mjs"
+    "test": "node --test phase-1a.test.mjs research-packet.test.mjs reel-analysis-packet.test.mjs content-calendar-packet.test.mjs auto-fanout.test.mjs usage-allowances.test.mjs research-usage-boundary.test.mjs strategy-approval.test.mjs apply-migration-unit.test.mjs sql-scan-unit.test.mjs",
+    "test:hosted": "node --test --test-concurrency=1 hosted-roles.test.mjs tls-handshake.test.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { prepareMigration, assertVerifiedTls, MigrationRefused } from '../ops/apply-migration.mjs';
+import { prepareMigration, assertVerifiedTls, clientConfig, assertPrivateFile, assertPlan, preparePostcheck, PHASE_A, PHASE_B, MigrationRefused } from '../ops/apply-migration.mjs';
 
 // Helper to compute SHA256 digest
 const sha256 = (text) => createHash('sha256').update(text, 'utf8').digest('hex');
@@ -19,10 +19,10 @@ test('prepareMigration: accepts a valid migration file', () => {
 
 test('prepareMigration: accepts body with plpgsql lines', () => {
   const fileName = '20261008120000_test_plpgsql.sql';
-  const text = '-- comment\nbegin;\n  begin\n    select 1;\n  end $$;\ncommit;\n';
+  const text = '-- comment\nbegin;\ncreate function f() returns void language plpgsql as $$ begin perform 1; end; $$;\ncommit;\n';
   const digest = sha256(text);
   const result = prepareMigration({ fileName, text, expectedSha256: digest });
-  assert.equal(result.body, '  begin\n    select 1;\n  end $$;');
+  assert.equal(result.body, 'create function f() returns void language plpgsql as $$ begin perform 1; end; $$;');
 });
 
 test('prepareMigration: refuses wrong digest (64 hex but different)', () => {
@@ -250,4 +250,258 @@ test('prepareMigration: keeps the whole reviewed text for the ledger row', () =>
   const text = ['-- comment', 'begin;', 'select 1;', 'commit;', ''].join(String.fromCharCode(10));
   const prepared = prepareMigration({ fileName: '20261008120000_omar_research_usage_command.sql', text, expectedSha256: sha256(text) });
   assert.equal(prepared.text, text);
+});
+
+test('clientConfig: returns correct configuration for valid URL', () => {
+  const url = 'postgresql://op:pw%40x@db.example.com:5432/postgres?sslmode=verify-full&sslrootcert=/etc/ca.pem';
+  const ca = '-----BEGIN CERTIFICATE-----\nX\n-----END CERTIFICATE-----';
+  const config = clientConfig(url, () => ca);
+  assert.equal(config.host, 'db.example.com');
+  assert.equal(config.port, 5432);
+  assert.equal(config.database, 'postgres');
+  assert.equal(config.user, 'op');
+  assert.equal(config.password, 'pw@x');
+  assert.deepEqual(config.ssl, {
+    ca,
+    rejectUnauthorized: true,
+    servername: 'db.example.com'
+  });
+});
+
+test('clientConfig: refuses socket URL', () => {
+  assert.throws(
+    () => clientConfig('socket:/tmp/x?db=a&sslmode=verify-full&sslrootcert=/c'),
+    MigrationRefused
+  );
+});
+
+test('clientConfig: refuses http URL', () => {
+  assert.throws(
+    () => clientConfig('http://db.example.com/x?sslmode=verify-full&sslrootcert=/c'),
+    MigrationRefused
+  );
+});
+
+test('clientConfig: refuses IP address as host', () => {
+  assert.throws(
+    () => clientConfig('postgresql://u:secret@127.0.0.1/db?sslmode=verify-full&sslrootcert=/c'),
+    (error) => error instanceof MigrationRefused && !error.message.includes('secret')
+  );
+});
+
+test('clientConfig: refuses IPv6 address as host', () => {
+  assert.throws(
+    () => clientConfig('postgresql://u:secret@[::1]/db?sslmode=verify-full&sslrootcert=/c'),
+    (error) => error instanceof MigrationRefused && !error.message.includes('secret')
+  );
+});
+
+test('clientConfig: refuses socket path in hostname', () => {
+  assert.throws(
+    () => clientConfig('postgresql://u:secret@/tmp/socket?sslmode=verify-full&sslrootcert=/c'),
+    (error) => error instanceof MigrationRefused && !error.message.includes('secret')
+  );
+});
+
+test('clientConfig: refuses extra host parameter', () => {
+  assert.throws(
+    () => clientConfig('postgresql://u:secret@db.example.com/db?host=/tmp&sslmode=verify-full&sslrootcert=/c'),
+    (error) => error instanceof MigrationRefused && !error.message.includes('secret')
+  );
+});
+
+test('clientConfig: refuses options parameter', () => {
+  assert.throws(
+    () => clientConfig('postgresql://u:secret@db.example.com/db?options=-c%20x&sslmode=verify-full&sslrootcert=/c'),
+    (error) => error instanceof MigrationRefused && !error.message.includes('secret')
+  );
+});
+
+test('clientConfig: refuses sslnegotiation parameter', () => {
+  assert.throws(
+    () => clientConfig('postgresql://u:secret@db.example.com/db?sslnegotiation=direct&sslmode=verify-full&sslrootcert=/c'),
+    (error) => error instanceof MigrationRefused && !error.message.includes('secret')
+  );
+});
+
+test('clientConfig: refuses uselibpqcompat parameter', () => {
+  assert.throws(
+    () => clientConfig('postgresql://u:secret@db.example.com/db?uselibpqcompat=true&sslmode=verify-full&sslrootcert=/c'),
+    (error) => error instanceof MigrationRefused && !error.message.includes('secret')
+  );
+});
+
+test('clientConfig: refuses ssl parameter', () => {
+  assert.throws(
+    () => clientConfig('postgresql://u:secret@db.example.com/db?ssl=1&sslmode=verify-full&sslrootcert=/c'),
+    (error) => error instanceof MigrationRefused && !error.message.includes('secret')
+  );
+});
+
+test('clientConfig: refuses application_name parameter', () => {
+  assert.throws(
+    () => clientConfig('postgresql://u:secret@db.example.com/db?application_name=x&sslmode=verify-full&sslrootcert=/c'),
+    (error) => error instanceof MigrationRefused && !error.message.includes('secret')
+  );
+});
+
+test('clientConfig: refuses sslmode=verify-ca', () => {
+  assert.throws(
+    () => clientConfig('postgresql://u:secret@db.example.com/db?sslmode=verify-ca&sslrootcert=/c'),
+    (error) => error instanceof MigrationRefused && !error.message.includes('secret')
+  );
+});
+
+test('clientConfig: refuses relative sslrootcert path', () => {
+  assert.throws(
+    () => clientConfig('postgresql://u:secret@db.example.com/db?sslmode=verify-full&sslrootcert=ca.pem'),
+    (error) => error instanceof MigrationRefused && !error.message.includes('secret')
+  );
+});
+
+test('clientConfig: refuses missing user', () => {
+  assert.throws(
+    () => clientConfig('postgresql://:pw@db.example.com/db?sslmode=verify-full&sslrootcert=/c'),
+    MigrationRefused
+  );
+});
+
+test('clientConfig: refuses missing database', () => {
+  assert.throws(
+    () => clientConfig('postgresql://u:pw@db.example.com/?sslmode=verify-full&sslrootcert=/c'),
+    MigrationRefused
+  );
+});
+
+test('clientConfig: refuses CA reader returning text without BEGIN CERTIFICATE', () => {
+  assert.throws(
+    () => clientConfig('postgresql://u:pw@db.example.com/db?sslmode=verify-full&sslrootcert=/c', () => 'not a certificate'),
+    MigrationRefused
+  );
+});
+
+test('assertPrivateFile: passes for mode 0o100400 with matching uid', () => {
+  const stat = { mode: 0o100400, uid: 1000 };
+  assert.doesNotThrow(() => assertPrivateFile('test', stat, 1000));
+});
+
+test('assertPrivateFile: passes for mode 0o100600 with matching uid', () => {
+  const stat = { mode: 0o100600, uid: 1000 };
+  assert.doesNotThrow(() => assertPrivateFile('test', stat, 1000));
+});
+
+test('assertPrivateFile: refuses mode 0o100640', () => {
+  const stat = { mode: 0o100640, uid: 1000 };
+  assert.throws(
+    () => assertPrivateFile('test', stat, 1000),
+    MigrationRefused
+  );
+});
+
+test('assertPrivateFile: refuses mode 0o100604', () => {
+  const stat = { mode: 0o100604, uid: 1000 };
+  assert.throws(
+    () => assertPrivateFile('test', stat, 1000),
+    MigrationRefused
+  );
+});
+
+test('assertPrivateFile: refuses different uid', () => {
+  const stat = { mode: 0o100400, uid: 1000 };
+  assert.throws(
+    () => assertPrivateFile('test', stat, 2000),
+    MigrationRefused
+  );
+});
+
+test('assertPlan: accepts PHASE_B versions with phase-b-postcheck', () => {
+  assert.doesNotThrow(
+    () => assertPlan(PHASE_B.versions, { fileName: 'phase-b-postcheck.sql' })
+  );
+});
+
+test('assertPlan: refuses PHASE_B with only B1', () => {
+  assert.throws(
+    () => assertPlan(['20260921090000'], { fileName: 'phase-b-postcheck.sql' }),
+    MigrationRefused
+  );
+});
+
+test('assertPlan: refuses PHASE_B subset B1..B5', () => {
+  assert.throws(
+    () => assertPlan(['20260921090000', '20260921100000', '20260921110000', '20260921120000', '20260921130000'], { fileName: 'phase-b-postcheck.sql' }),
+    MigrationRefused
+  );
+});
+
+test('assertPlan: refuses PHASE_B out of order', () => {
+  assert.throws(
+    () => assertPlan([...PHASE_B.versions].reverse(), { fileName: 'phase-b-postcheck.sql' }),
+    MigrationRefused
+  );
+});
+
+test('assertPlan: refuses PHASE_B with extra version', () => {
+  assert.throws(
+    () => assertPlan([...PHASE_B.versions, '20261008120000'], { fileName: 'phase-b-postcheck.sql' }),
+    MigrationRefused
+  );
+});
+
+test('assertPlan: refuses PHASE_B without postcheck', () => {
+  assert.throws(
+    () => assertPlan(PHASE_B.versions, null),
+    MigrationRefused
+  );
+});
+
+test('assertPlan: refuses PHASE_B with PHASE_A postcheck', () => {
+  assert.throws(
+    () => assertPlan(PHASE_B.versions, { fileName: 'phase-a-postcheck.sql' }),
+    MigrationRefused
+  );
+});
+
+test('assertPlan: accepts PHASE_A versions with phase-a-postcheck', () => {
+  assert.doesNotThrow(
+    () => assertPlan(PHASE_A.versions, { fileName: 'phase-a-postcheck.sql' })
+  );
+});
+
+test('assertPlan: refuses PHASE_A without postcheck', () => {
+  assert.throws(
+    () => assertPlan(PHASE_A.versions, null),
+    MigrationRefused
+  );
+});
+
+test('assertPlan: accepts non-reviewed versions with null postcheck', () => {
+  assert.doesNotThrow(
+    () => assertPlan(['20991231000000'], null)
+  );
+});
+
+test('preparePostcheck: refuses postcheck with top-level commit', () => {
+  const text = 'select 1; commit;';
+  assert.throws(
+    () => preparePostcheck({ fileName: 'postcheck.sql', text, expectedSha256: sha256(text) }),
+    MigrationRefused
+  );
+});
+
+test('preparePostcheck: refuses empty postcheck', () => {
+  const text = '';
+  assert.throws(
+    () => preparePostcheck({ fileName: 'postcheck.sql', text, expectedSha256: sha256(text) }),
+    MigrationRefused
+  );
+});
+
+test('preparePostcheck: accepts DO block', () => {
+  const text = 'do $$ begin perform 1; end; $$;';
+  const digest = sha256(text);
+  const result = preparePostcheck({ fileName: 'postcheck.sql', text, expectedSha256: digest });
+  assert.equal(result.fileName, 'postcheck.sql');
+  assert.equal(result.sha256, digest);
+  assert.equal(result.text, text);
 });

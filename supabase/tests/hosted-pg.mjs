@@ -27,13 +27,22 @@ const PLATFORM_PACKAGE = { win32: '@embedded-postgres/windows-x64', linux: '@emb
 /** initdb/postgres paths from the PostgreSQL 17.6 binary package pinned in package.json. */
 const binaries = () => import(PLATFORM_PACKAGE);
 
-export async function startHostedLikeCluster({ platformMembers = false, authGrantOption = true } = {}) {
+/** tls: { certFile, keyFile } turns on server TLS (used only by the driver handshake tests). */
+export async function startHostedLikeCluster({ platformMembers = false, authGrantOption = true, tls = null, listenLocalhost = false } = {}) {
+  // initdb and postgres refuse to run as root. Say so plainly instead of failing every test at setup.
+  if (process.getuid?.() === 0) {
+    throw new Error('ENVIRONMENT: PostgreSQL will not run as root; run `npm run test:hosted` as an unprivileged user (this is not a migration result)');
+  }
   const { initdb, postgres, pg_ctl: pgCtl } = await binaries();
   const dir = mkdtempSync(join(tmpdir(), 'hosted-pg17-'));
   const init = spawnSync(initdb, ['-D', dir, '-U', 'supabase_admin', '-A', 'trust', '-E', 'UTF8', '--locale=C'], { encoding: 'utf8' });
   if (init.status !== 0) throw new Error(`initdb failed: ${init.stderr}`);
   const port = 56000 + Math.floor(Math.random() * 4000);
-  const server = spawn(postgres, ['-D', dir, '-p', String(port), '-c', 'listen_addresses=127.0.0.1', '-c', 'fsync=off'], { stdio: 'ignore' });
+  // Loopback only. The TLS tests connect by the name 'localhost' (hostname verification needs a name), which may resolve
+  // to ::1 first, so that cluster listens on every loopback address the name has.
+  const tlsArgs = tls ? ['-c', 'ssl=on', '-c', `ssl_cert_file=${tls.certFile}`, '-c', `ssl_key_file=${tls.keyFile}`] : [];
+  const listen = tls || listenLocalhost ? 'localhost' : '127.0.0.1';
+  const server = spawn(postgres, ['-D', dir, '-p', String(port), '-c', `listen_addresses=${listen}`, '-c', 'fsync=off', ...tlsArgs], { stdio: 'ignore' });
   const connect = async (user, database = 'staging') => {
     let lastError;
     for (let attempt = 0; attempt < 100; attempt += 1) {

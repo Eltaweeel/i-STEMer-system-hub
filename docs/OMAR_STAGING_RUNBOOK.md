@@ -148,7 +148,9 @@ None of these were done by Claude Code or Codex; each is a hard gate.
      and, after applying, run the function-ACL readback in `docs/STAGING_MIGRATION_RUNBOOK.md` (Phase A, step 3).
    - **Ship together.** The worker from this branch calls only the new function and refuses to start
      (`worker_login_rejected:broad_usage_command` / `missing_command_privilege`) unless the migration is applied; an older
-     worker against a migrated database gets 42501 on every usage write. Apply the migration and deploy the worker together.
+     worker against a migrated database gets 42501 on every usage write. So only that worker may run after the migration;
+     deploying it (and provisioning any tenant or Auth user) also waits for the pilot decision in
+     `docs/STAGING_MIGRATION_RUNBOOK.md` ("A pre-existing exposure, and the pilot decision it forces").
    - **Still open, blocks any Ziad or Nour worker login:** `bagos_reel_analyst_executor` and
      `bagos_content_calendar_executor` can still call `record_agent_usage` with any category, including
      `competitor_analyst` for a research attempt (first write wins, so a zero there would hide research spend). Both roles
