@@ -79,6 +79,9 @@ $$;
 -- owner could approve a placeholder while a supplied-asset package for the same
 -- day sat pending. A prior pending decision for the same calendar revision and
 -- day is superseded rather than left to race.
+-- create_finished_post_package belongs to bagos_approval_command (20260921090000). Replacing it requires the owner's
+-- privileges, which a non-superuser postgres reaches only through an inheriting membership. Temporary; SET not needed.
+grant bagos_approval_command to postgres with inherit true, set false;
 create or replace function private.create_finished_post_package(
   wanted_tenant uuid, calendar_revision uuid, day_index integer, asset jsonb, destination jsonb
 ) returns jsonb
@@ -172,6 +175,7 @@ begin
     'contentDigest',digest,'assetKind',asset->>'kind');
 end;
 $$;
+revoke bagos_approval_command from postgres;
 
 -- 4. The approvals list returned no detail about a finished post, so the owner
 -- decided blind -- and a placeholder was indistinguishable from a real asset at

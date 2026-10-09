@@ -29,11 +29,7 @@ grant select on public.content_calendar_revision_bodies to bagos_approval_comman
 -- so its owner needs the same narrow auth access the other command roles hold.
 grant usage on schema auth to bagos_approval_command;
 grant execute on function auth.uid(), auth.jwt() to bagos_approval_command;
--- private.is_member belongs to bagos_membership_reader. A non-superuser postgres holds only ADMIN on that role (no
--- INHERIT), so it has no authority to grant EXECUTE on it; borrow the owner's privileges for this one grant.
-grant bagos_membership_reader to postgres with inherit true, set false;
 grant execute on function private.is_member(uuid, text[]) to bagos_approval_command;
-revoke bagos_membership_reader from postgres;
 grant execute on function private.research_text_valid(jsonb) to bagos_approval_command;
 grant select on public.memberships, public.objectives to bagos_approval_command;
 create policy approval_command_objectives_read on public.objectives
@@ -145,20 +141,14 @@ begin
 end;
 $$;
 
--- Set the access list while postgres still owns the function; ALTER OWNER carries it over to the new owner.
--- (Done after the transfer, a non-superuser postgres would no longer own it and these would be WARNING-only
--- no-ops, leaving PUBLIC with EXECUTE.)
+-- postgres must be able to SET ROLE to the command owner during ALTER FUNCTION.
+-- Keep the membership temporary; the runtime must not inherit this command role.
+grant bagos_approval_command to postgres;
+alter function private.create_finished_post_package(uuid,uuid,integer,jsonb,jsonb) owner to bagos_approval_command;
+revoke bagos_approval_command from postgres;
 revoke all on function private.create_finished_post_package(uuid,uuid,integer,jsonb,jsonb)
   from public, anon, service_role, bagos_content_calendar_command, bagos_content_calendar_executor;
 grant execute on function private.create_finished_post_package(uuid,uuid,integer,jsonb,jsonb) to authenticated;
--- A non-superuser may give a function away only to a role it can SET ROLE to, and only if that role has CREATE on
--- the function's schema. Both are granted for the transfer alone. INHERIT stays false: the transfer needs neither
--- the command role's table access nor its RLS policies.
-grant create on schema private to bagos_approval_command;
-grant bagos_approval_command to postgres with inherit false, set true;
-alter function private.create_finished_post_package(uuid,uuid,integer,jsonb,jsonb) owner to bagos_approval_command;
-revoke bagos_approval_command from postgres;
-revoke create on schema private from bagos_approval_command;
 
 create function public.create_finished_post_package(
   wanted_tenant uuid, calendar_revision uuid, day_index integer, asset jsonb, destination jsonb

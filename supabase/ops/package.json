@@ -1,0 +1,7 @@
+{
+  "name": "istemer-migration-ops",
+  "private": true,
+  "type": "module",
+  "description": "Operator tool: applies one reviewed migration and its ledger row atomically. See docs/STAGING_MIGRATION_RUNBOOK.md.",
+  "dependencies": { "pg": "8.23.1" }
+}

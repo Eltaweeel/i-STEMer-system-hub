@@ -137,17 +137,15 @@ None of these were done by Claude Code or Codex; each is a hard gate.
 
    Before applying, decide and check:
    - **Order.** Its version sorts after the six pending migrations (`20260921090000`..`140000`). A plain `db push` would apply
-     those first and stop at the known `090000` role blocker. Resolve that first, or apply this one file deliberately on its
-     own; it depends only on applied migrations (`20260916*`, `20260920100000`).
+     those first and stop at the known `090000` role blocker. Apply this one file on its own with the atomic procedure in
+     `docs/STAGING_MIGRATION_RUNBOOK.md` (Phase A); it depends only on applied migrations (`20260916*`, `20260920100000`).
    - **RLS.** `research_brand_binding` and `research_attempts` are FORCE RLS without a `postgres` policy, so the function only
      works if `postgres` has BYPASSRLS (recorded in `docs/evidence/phase-1/baseline.md`). The migration aborts if it does not.
      Re-confirm read-only: `select rolbypassrls from pg_roles where rolname = 'postgres';`
    - **Default privileges.** The migration revokes the new function from PUBLIC, anon, authenticated and service_role. If
      hosted default privileges grant new `private` functions to any other role, that grant would survive. Check read-only
      first: `select defaclnamespace::regnamespace, defaclobjtype, defaclacl from pg_default_acl where defaclrole = 'postgres'::regrole;`
-     and, after applying, `select grantee, privilege_type from information_schema.routine_privileges where routine_schema = 'private'
-     and routine_name in ('record_research_usage','record_agent_usage');` must list only `postgres`, `bagos_research_executor`
-     (new function only) and the reel/calendar executors (broad function only).
+     and, after applying, run the function-ACL readback in `docs/STAGING_MIGRATION_RUNBOOK.md` (Phase A, step 3).
    - **Ship together.** The worker from this branch calls only the new function and refuses to start
      (`worker_login_rejected:broad_usage_command` / `missing_command_privilege`) unless the migration is applied; an older
      worker against a migrated database gets 42501 on every usage write. Apply the migration and deploy the worker together.

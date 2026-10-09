@@ -2,6 +2,13 @@
   "name": "phase-1a-database-tests",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test phase-1a.test.mjs research-packet.test.mjs reel-analysis-packet.test.mjs content-calendar-packet.test.mjs auto-fanout.test.mjs usage-allowances.test.mjs research-usage-boundary.test.mjs strategy-approval.test.mjs" },
-  "devDependencies": { "@electric-sql/pglite": "0.5.8" }
+  "scripts": {
+    "test": "node --test phase-1a.test.mjs research-packet.test.mjs reel-analysis-packet.test.mjs content-calendar-packet.test.mjs auto-fanout.test.mjs usage-allowances.test.mjs research-usage-boundary.test.mjs strategy-approval.test.mjs apply-migration-unit.test.mjs",
+    "test:hosted": "node --test --test-concurrency=1 hosted-roles.test.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "embedded-postgres": "17.6.0-beta.15",
+    "pg": "8.23.1"
+  }
 }

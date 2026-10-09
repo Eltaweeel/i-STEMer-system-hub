@@ -6,6 +6,9 @@ begin;
 -- campaign's calendar in the same tenant. The right scope is the calendar
 -- artifact, so successive revisions of the same calendar still supersede each
 -- other while a different calendar is never touched.
+-- create_finished_post_package belongs to bagos_approval_command (20260921090000). Replacing it requires the owner's
+-- privileges, which a non-superuser postgres reaches only through an inheriting membership. Temporary; SET not needed.
+grant bagos_approval_command to postgres with inherit true, set false;
 create or replace function private.create_finished_post_package(
   wanted_tenant uuid, calendar_revision uuid, day_index integer, asset jsonb, destination jsonb
 ) returns jsonb
@@ -116,6 +119,7 @@ begin
     'contentDigest',digest,'assetKind',asset->>'kind');
 end;
 $$;
+revoke bagos_approval_command from postgres;
 
 -- The byte bound was right in principle but eight times too tight: the payload
 -- holding the reason has 16384 bytes, and 2000 turned a legitimate paragraph of
