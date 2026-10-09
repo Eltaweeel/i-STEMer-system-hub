@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { migrationNames } from './migration-inventory.mjs';
 import { applyRecorded, catalogSnapshot, readMigration, startHostedLikeCluster } from './hosted-pg.mjs';
-import { applyMigration, applyMigrations, MigrationRefused, prepareMigration, preparePostcheck } from '../ops/apply-migration.mjs';
+import { applyMigration, applyMigrations, applyQuarantine, MigrationRefused, prepareMigration, preparePostcheck } from '../ops/apply-migration.mjs';
 
 const LEDGER_HEAD = '20260921080000';
 const applied = migrationNames.filter((name) => name.slice(0, 14) <= LEDGER_HEAD);
@@ -38,8 +38,11 @@ const postcheck = (fileName, text = opsText(fileName)) => preparePostcheck({ fil
 // The two reviewed plans, exactly as the runbook runs them.
 const phaseA = (db, options = {}) => applyMigration(db, prepared(OMAR),
   { requirePresent: [LEDGER_HEAD], postcheck: postcheck('phase-a-postcheck.sql'), ...options });
+const quarantine = (db, options = {}) => applyQuarantine(db, postcheck('phase-b-quarantine.sql'), options);
+// The Phase B batch alone; the quarantine must already be in effect (as in the runbook, a separate step).
 const phaseB = (db, options = {}) => applyMigrations(db, pendingSix.map((name) => prepared(name)),
-  { requirePresent: [LEDGER_HEAD], postcheck: postcheck('phase-b-postcheck.sql'), ...options });
+  { requirePresent: [LEDGER_HEAD], postcheck: postcheck('phase-b-postcheck.sql'), reopen: postcheck('phase-b-reopen.sql'), ...options });
+const quarantineThenPhaseB = async (db, options = {}) => { await quarantine(db); return phaseB(db, options); };
 const ledgerCountOfSix = (db) => one(db, "select count(*)::int from supabase_migrations.schema_migrations where version between '20260921090000' and '20260921140000'");
 const bodySha = (db, signature) => one(db, `select encode(sha256(convert_to(prosrc,'UTF8')),'hex') from pg_proc where oid = to_regprocedure($1)`, [signature]);
 const APPROVE = 'private.approve_agent_revision(uuid,uuid,text)';
@@ -58,6 +61,33 @@ async function outsiderApprove(db, claims, { lockTimeout = null } = {}) {
   } finally {
     await db.query('rollback');
   }
+}
+/** The same call inside the caller's open transaction (e.g. after SET LOCAL ROLE authenticated); a savepoint keeps it usable. */
+async function outsiderApproveIn(db, claims) {
+  const subject = '00000000-0000-4000-8000-0000000000aa';
+  await db.query('savepoint approve_call');
+  try {
+    await db.query("select set_config('request.jwt.claim.sub',$1,true), set_config('request.jwt.claims',$2,true)",
+      [subject, JSON.stringify({ sub: subject, role: 'authenticated', ...claims })]);
+    await db.query("select public.approve_agent_revision(gen_random_uuid(), gen_random_uuid(), null)");
+    return { code: null, message: 'accepted' };
+  } catch (error) {
+    await db.query('rollback to savepoint approve_call');
+    return { code: error.code, message: error.message };
+  }
+}
+/** A client session acting as `authenticated`, the way PostgREST runs an API call. */
+async function apiCaller(cluster) {
+  const caller = await cluster.connect('supabase_admin');
+  const call = async (claims, { lockTimeout = '2s' } = {}) => {
+    await caller.query('begin');
+    try {
+      await caller.query('set local role authenticated');
+      await caller.query(`set local lock_timeout = '${lockTimeout}'`);
+      return await outsiderApproveIn(caller, claims);
+    } finally { await caller.query('rollback'); }
+  };
+  return { call, end: () => caller.end() };
 }
 // Preflight P7 exactly as in docs/STAGING_MIGRATION_RUNBOOK.md.
 const P7 = `select r.role, c.what, case c.what
@@ -153,7 +183,7 @@ test('the currently applied approve command lets a signed-in outsider past its o
 
 test('Phase B applies all six in one transaction with its post-check, and then refuses outsiders', () => withCluster({}, async (db) => {
   const before = await membershipsOfPostgres(db);
-  assert.deepEqual(await phaseB(db), { versions: pendingSix.map((n) => n.slice(0, 14)), committed: true });
+  assert.deepEqual(await quarantineThenPhaseB(db), { versions: pendingSix.map((n) => n.slice(0, 14)), committed: true });
   assert.equal(await ledgerCountOfSix(db), 6);
   assert.deepEqual(await membershipsOfPostgres(db), before);
   assert.deepEqual(await outsiderApprove(db, { aal: 'aal2' }), { code: '42501', message: 'owner approval required' });
@@ -173,54 +203,110 @@ test('the Phase B post-check behaviour probe alone catches the NULL-blind owner 
   await assert.rejects(db.query(text.slice(text.indexOf('do $behaviour$'))), (e) => e.code === '23503' && /approval not found/.test(e.message));
 }));
 
-test('no other session sees Phase B until it commits, and an interrupted Phase B leaves nothing behind', () => withCluster({}, async (db, cluster) => {
+/** Starts the Phase B batch and holds it, every check passed, just before COMMIT; returns controls for the test. */
+function pausedPhaseB(db, options = {}) {
+  let reached; let release;
+  const atPause = new Promise((r) => { reached = r; });
+  const held = new Promise((r) => { release = r; });
+  const run = phaseB(db, { ...options, beforeCommit: async () => { reached(); await held; } });
+  run.catch(() => undefined);
+  return { run, atPause, release };
+}
+const blockedBy = (observer, pid) => one(observer, 'select count(*)::int from pg_stat_activity where $1 = any(pg_blocking_pids(pid))', [pid]);
+const PERMISSION_DENIED = { code: '42501', message: 'permission denied for function approve_agent_revision' };
+
+test('the quarantine stops new approval calls before Phase B, and Phase B refuses to start without it', () => withCluster({}, async (db, cluster) => {
+  await assert.rejects(phaseB(db), (e) => e instanceof MigrationRefused && /quarantine is not in effect/.test(e.message));
+  assert.equal(await ledgerCountOfSix(db), 0);
+  const api = await apiCaller(cluster);
+  try {
+    assert.deepEqual(await api.call({ aal: 'aal2' }), { code: '23503', message: 'approval not found' }, 'pre-Phase-B body reachable before the quarantine');
+    assert.deepEqual(await quarantine(db), { quarantine: true, committed: true });
+    assert.deepEqual(await api.call({ aal: 'aal2' }), PERMISSION_DENIED, 'refused at call start once quarantined');
+  } finally {
+    await api.end();
+  }
+}));
+
+test('during Phase B no caller can start or block on an old approval body, and after COMMIT callers meet the repaired one', () => withCluster({}, async (db, cluster) => {
+  const observer = await cluster.connect('postgres');
+  const api = await apiCaller(cluster);
+  try {
+    const callAsAuthenticated = () => api.call({ aal: 'aal2' });
+    await quarantine(db);
+    const pid = await one(db, 'select pg_backend_pid()');
+    const appliedApprove = await bodySha(observer, APPROVE);
+    const batch = pausedPhaseB(db);
+    await batch.atPause;
+    // The batch holds its locks and has passed every check; nothing of it is visible yet.
+    assert.equal(await bodySha(observer, APPROVE), appliedApprove, 'B5 body visible before COMMIT');
+    assert.equal(await ledgerCountOfSix(observer), 0, 'ledger rows visible before COMMIT');
+    // The reviewer's scenario: a call made now. It is refused at call start (quarantine), so it never waits on the
+    // batch's locks and so can never resume the old body after COMMIT.
+    assert.deepEqual(await callAsAuthenticated(), PERMISSION_DENIED);
+    assert.equal(await blockedBy(observer, pid), 0, 'nothing is waiting on the batch');
+    batch.release();
+    assert.deepEqual(await batch.run, { versions: pendingSix.map((n) => n.slice(0, 14)), committed: true });
+    assert.deepEqual(await callAsAuthenticated(), { code: '42501', message: 'owner approval required' }, 'access restored with the repaired body');
+  } finally {
+    await api.end();
+    await observer.end();
+  }
+}));
+
+test('an interrupted Phase B leaves nothing behind and keeps the quarantine', () => withCluster({}, async (db, cluster) => {
   const observer = await cluster.connect('postgres');
   try {
+    await quarantine(db);
     const appliedApprove = await bodySha(observer, APPROVE);
     const membersBefore = await membershipsOfPostgres(observer);
     const pid = await one(db, 'select pg_backend_pid()');
-    // The real post-check, followed by a pause that holds the batch open before COMMIT.
-    const paused = postcheck('phase-b-postcheck.sql', `${opsText('phase-b-postcheck.sql')}\nselect pg_sleep(30);\n`);
-    const run = applyMigrations(db, pendingSix.map((name) => prepared(name)), { requirePresent: [LEDGER_HEAD], postcheck: paused });
-    run.catch(() => undefined);
-    // Wait until the batch is inside its pause, i.e. all six bodies, ledger rows and the post-check have run.
-    for (let i = 0; i < 300; i += 1) {
-      const waiting = await one(observer, "select count(*)::int from pg_stat_activity where pid = $1 and wait_event = 'PgSleep'", [pid]);
-      if (waiting) break;
-      await new Promise((r) => setTimeout(r, 100));
-    }
-    assert.equal(await one(observer, "select count(*)::int from pg_stat_activity where pid = $1 and wait_event = 'PgSleep'", [pid]), 1, 'batch reached its pause');
-    assert.equal(await bodySha(observer, APPROVE), appliedApprove, 'B5 body visible before COMMIT');
-    assert.equal(await ledgerCountOfSix(observer), 0, 'ledger rows visible before COMMIT');
-    // Measured, not assumed: B1's policy and constraint changes hold ACCESS EXCLUSIVE locks on approvals, memberships,
-    // artifacts, artifact_revisions, objectives and content_calendar_revision_bodies until COMMIT, so an approval call
-    // made meanwhile cannot run the old body's queries; it waits (here cut off by its own lock timeout).
-    assert.deepEqual(await outsiderApprove(observer, { aal: 'aal2' }, { lockTimeout: '1s' }),
-      { code: '55P03', message: 'canceling statement due to lock timeout' }, 'approval calls wait on the open batch');
-    const held = (await observer.query(`select distinct c.relname from pg_locks l join pg_class c on c.oid = l.relation
-      where l.pid = $1 and l.granted and l.mode = 'AccessExclusiveLock' and c.relname in ('approvals','memberships') order by 1`, [pid])).rows.map((r) => r.relname);
-    assert.deepEqual(held, ['approvals', 'memberships']);
-    // The operator's process dies mid-batch. (The dead client also emits an 'error' event; that is expected here.)
+    const batch = pausedPhaseB(db);
+    await batch.atPause;
+    // The operator's process dies just before COMMIT. (The dead client also emits an 'error' event; expected here.)
     db.on('error', () => undefined);
     assert.equal(await one(observer, 'select pg_terminate_backend($1)', [pid]), true);
-    await assert.rejects(run);
+    batch.release();
+    await assert.rejects(batch.run);
     assert.equal(await ledgerCountOfSix(observer), 0);
     assert.equal(await bodySha(observer, APPROVE), appliedApprove);
     assert.equal(await one(observer, "select to_regclass('public.finished_post_revision_bodies')::text"), null);
     assert.deepEqual(await membershipsOfPostgres(observer), membersBefore);
+    assert.equal(await one(observer, "select has_function_privilege('authenticated','public.approve_agent_revision(uuid,uuid,text)','EXECUTE')"), false,
+      'quarantine still in effect');
   } finally {
     await observer.end();
   }
 }));
 
-test('Phase B cannot be applied one file at a time, partly, or without its post-check', () => withCluster({}, async (db) => {
+test('Phase B waits for transactions older than itself and refuses if they do not finish', () => withCluster({}, async (db, cluster) => {
+  await quarantine(db);
+  const older = await cluster.connect('postgres');
+  try {
+    await older.query('begin'); await older.query('select 1');
+    await assert.rejects(phaseB(db, { drainTimeoutMs: 1500 }), (e) => e instanceof MigrationRefused && /older than Phase B/.test(e.message));
+    assert.equal(await ledgerCountOfSix(db), 0);
+    await older.query('commit');
+    assert.equal((await phaseB(db)).committed, true);
+  } finally {
+    await older.end();
+  }
+}));
+
+test('Phase B cannot be applied one file at a time, partly, with an unreviewed file, or without its reviewed steps', () => withCluster({}, async (db) => {
+  await quarantine(db);
   const six = pendingSix.map((name) => prepared(name));
+  const b = { postcheck: postcheck('phase-b-postcheck.sql'), reopen: postcheck('phase-b-reopen.sql') };
+  const edited = prepared(pendingSix[0], `${readMigration(pendingSix[0])}-- edited\n`);
   for (const [list, opts] of [
-    [six.slice(0, 1), { postcheck: postcheck('phase-b-postcheck.sql') }],
-    [six.slice(0, 5), { postcheck: postcheck('phase-b-postcheck.sql') }],
+    [six.slice(0, 1), b],
+    [six.slice(0, 5), b],
     [six, {}],
-    [six, { postcheck: postcheck('phase-a-postcheck.sql') }],
-    [[...six, prepared(OMAR)], { postcheck: postcheck('phase-b-postcheck.sql') }],
+    [six, { postcheck: b.postcheck }],
+    [six, { ...b, postcheck: postcheck('phase-a-postcheck.sql') }],
+    [six, { ...b, reopen: postcheck('phase-b-quarantine.sql') }],
+    [[edited, ...six.slice(1)], b],
+    [[...six, prepared(OMAR)], b],
   ]) {
     await assert.rejects(applyMigrations(db, list, { requirePresent: [LEDGER_HEAD], ...opts }), MigrationRefused);
   }
@@ -231,7 +317,7 @@ test('Phase B cannot be applied one file at a time, partly, or without its post-
 test('without GRANT OPTION on auth, Phase B is refused at 090000 and records nothing', () => withCluster({ authGrantOption: false }, async (db) => {
   // The same condition already made applied history skip its auth grants silently (hence preflights P6 and P7).
   assert.ok(db.historyWarnings.some((w) => /no privileges were granted for "uid"/.test(w)));
-  await assert.rejects(phaseB(db), (e) => e instanceof MigrationRefused && /no privileges were granted for "(auth|uid|jwt)"/.test(e.message));
+  await assert.rejects(quarantineThenPhaseB(db), (e) => e instanceof MigrationRefused && /no privileges were granted for "(auth|uid|jwt)"/.test(e.message));
   assert.equal(await ledgerCountOfSix(db), 0);
   assert.equal(await one(db, "select to_regclass('public.finished_post_revision_bodies')::text"), null);
 }));
@@ -255,7 +341,7 @@ test('Phase A then Phase B ends in the same catalog and ledger as applying in fi
   await withCluster({}, async (db) => {
     assert.deepEqual(await phaseA(db), { version: '20261008120000', committed: true });
     assert.equal(await ledgerCountOfSix(db), 0, 'Phase A leaves the six pending');
-    await phaseB(db, { requirePresent: [LEDGER_HEAD, '20261008120000'] });
+    await quarantineThenPhaseB(db, { requirePresent: [LEDGER_HEAD, '20261008120000'] });
     assert.deepEqual(await catalogSnapshot(db), inOrder.catalog);
     assert.deepEqual((await db.query('select version, name, statements from supabase_migrations.schema_migrations order by 1')).rows, inOrder.ledger);
   });
@@ -274,7 +360,7 @@ test('Phase A applies the Omar migration alone with its post-check and no WARNIN
 
 test('the post-checks catch a changed grant after the fact', () => withCluster({}, async (db) => {
   await phaseA(db);
-  await phaseB(db, { requirePresent: [LEDGER_HEAD, '20261008120000'] });
+  await quarantineThenPhaseB(db, { requirePresent: [LEDGER_HEAD, '20261008120000'] });
   await db.query(opsText('phase-a-postcheck.sql'));
   await db.query(opsText('phase-b-postcheck.sql'));
   await db.query('begin');
@@ -285,24 +371,40 @@ test('the post-checks catch a changed grant after the fact', () => withCluster({
   await db.query('grant execute on function private.record_agent_usage(uuid,text,integer,boolean) to bagos_research_executor');
   await assert.rejects(db.query(opsText('phase-a-postcheck.sql')), /record_agent_usage\(uuid,text,integer,boolean\) differs/);
   await db.query('rollback');
+  await db.query('begin');
+  await db.query('grant execute on function public.approve_agent_revision(uuid,uuid,text) to authenticated with grant option');
+  await assert.rejects(db.query(opsText('phase-b-postcheck.sql')), /approve_agent_revision\(uuid,uuid,text\) differs/);
+  await db.query('rollback');
 }));
 
-test('a failure inside Phase B rolls back every file, every ledger row and every temporary grant', () => withCluster({}, async (db) => {
+test('a failure inside Phase B rolls back every file, every ledger row and every temporary grant, and keeps the quarantine', () => withCluster({}, async (db) => {
+  // Pre-existing drift the reviewed post-check must catch, after all six exact reviewed files have run.
+  await db.query('grant execute on function public.read_tenant_approvals(uuid) to anon');
+  await quarantine(db);
   const before = await catalogSnapshot(db);
-  const broken = readMigration(pendingSix[3]).replace(/\ncommit;\n?$/, '\nselect 1/0;\ncommit;\n');
-  const six = pendingSix.map((name, i) => (i === 3 ? prepared(name, broken) : prepared(name)));
-  await assert.rejects(applyMigrations(db, six, { requirePresent: [LEDGER_HEAD], postcheck: postcheck('phase-b-postcheck.sql') }), (e) => e.code === '22012');
+  await assert.rejects(phaseB(db), /read_tenant_approvals\(uuid\) differs from the reviewed definition/);
   assert.deepEqual(await catalogSnapshot(db), before);
+  assert.equal(await ledgerCountOfSix(db), 0);
+}));
+
+test('the post-checks refuse a grant option present before the phase (delegation authority)', () => withCluster({}, async (db) => {
+  await db.query('grant execute on function private.record_agent_usage(uuid,text,integer,boolean) to bagos_reel_analyst_executor with grant option');
+  await assert.rejects(phaseA(db), /record_agent_usage\(uuid,text,integer,boolean\) differs/);
+  assert.equal(await one(db, "select to_regprocedure('private.record_research_usage(uuid,integer,boolean)')::text"), null);
+  await db.query('revoke grant option for execute on function private.record_agent_usage(uuid,text,integer,boolean) from bagos_reel_analyst_executor');
+  await phaseA(db);
+  await db.query('grant execute on function public.read_tenant_approvals(uuid) to authenticated with grant option');
+  await assert.rejects(quarantineThenPhaseB(db, { requirePresent: [LEDGER_HEAD, '20261008120000'] }), /read_tenant_approvals\(uuid\) differs/);
   assert.equal(await ledgerCountOfSix(db), 0);
 }));
 
 test('the apply tool refuses a wrong digest, a missing prerequisite, a recorded version, and rehearses without committing', () => withCluster({}, async (db) => {
   assert.throws(() => prepareMigration({ fileName: OMAR, text: readMigration(OMAR), expectedSha256: 'f'.repeat(64) }), MigrationRefused);
-  await assert.rejects(phaseB(db, { requirePresent: [LEDGER_HEAD, '20261008120000'] }),
+  await assert.rejects(quarantineThenPhaseB(db, { requirePresent: [LEDGER_HEAD, '20261008120000'] }),
     (e) => e instanceof MigrationRefused && /required versions not recorded: 20261008120000/.test(e.message));
   assert.deepEqual(await phaseA(db, { rehearse: true }), { version: '20261008120000', committed: false });
   assert.equal(await one(db, "select to_regprocedure('private.record_research_usage(uuid,integer,boolean)')::text"), null);
-  assert.deepEqual(await phaseB(db, { rehearse: true }), { versions: pendingSix.map((n) => n.slice(0, 14)), committed: false });
+  assert.deepEqual(await quarantineThenPhaseB(db, { rehearse: true }), { versions: pendingSix.map((n) => n.slice(0, 14)), committed: false });
   assert.equal(await ledgerCountOfSix(db), 0);
   assert.equal(await one(db, "select to_regclass('public.finished_post_revision_bodies')::text"), null);
   await phaseA(db);
@@ -361,7 +463,7 @@ test('the apply tool refuses an unexpected ledger shape or hooks on the ledger, 
 test('a session that suppresses WARNINGs cannot slip a skipped grant past the apply tool', () => withCluster({ authGrantOption: false }, async (db) => {
   // As if the role, the database or the URL had set it: without the tool's own setting no WARNING would arrive.
   await db.query('set client_min_messages = error');
-  await assert.rejects(phaseB(db), (e) => e instanceof MigrationRefused && /no privileges were granted for "(auth|uid|jwt)"/.test(e.message));
+  await assert.rejects(quarantineThenPhaseB(db), (e) => e instanceof MigrationRefused && /no privileges were granted for "(auth|uid|jwt)"/.test(e.message));
   assert.equal(await ledgerCountOfSix(db), 0);
   // The tool's level was transaction-local; the session's own setting is untouched afterwards.
   assert.equal(await one(db, 'show client_min_messages'), 'error');

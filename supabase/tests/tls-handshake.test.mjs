@@ -10,8 +10,10 @@ import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import pg from 'pg';
-import { startHostedLikeCluster } from './hosted-pg.mjs';
-import { clientConfig } from '../ops/apply-migration.mjs';
+import { fileURLToPath } from 'node:url';
+import { applyRecorded, startHostedLikeCluster } from './hosted-pg.mjs';
+import { migrationNames } from './migration-inventory.mjs';
+import { clientConfig, PHASE_A } from '../ops/apply-migration.mjs';
 
 const haveOpenssl = spawnSync('openssl', ['version'], { encoding: 'utf8' }).status === 0;
 const dir = mkdtempSync(join(tmpdir(), 'tls-handshake-'));
@@ -63,6 +65,41 @@ test('TLS handshakes through the apply tool\'s client configuration', { skip: ha
         await assert.rejects(connectWith(cluster.port, 'trusted-ca'), (e) => /does not support SSL/i.test(e.message));
       } finally { await cluster.owner.end().catch(() => undefined); await cluster.stop(); }
     });
+
+    await t.test('the command line applies Phase A end to end over verified TLS, exactly as the runbook runs it', () => withTlsCluster('right-name', async (port) => {
+      const cluster = { port };
+      const history = migrationNames.filter((name) => name.slice(0, 14) <= '20260921080000');
+      const owner = new pg.Client({ host: '127.0.0.1', port, user: 'postgres', database: 'staging' });
+      await owner.connect();
+      try {
+        await applyRecorded(Object.assign(owner, { warnings: [] }), history, { failOnWarning: false });
+      } finally { await owner.end(); }
+      const urlFile = join(dir, 'database.url');
+      writeFileSync(urlFile, `${urlFor(cluster.port, 'trusted-ca')}\n`);
+      chmodSync(urlFile, 0o600);
+      const repo = fileURLToPath(new URL('../', import.meta.url));
+      const omar = join(repo, 'migrations', '20261008120000_omar_research_usage_command.sql');
+      const check = join(repo, 'ops', 'phase-a-postcheck.sql');
+      const cli = (...extra) => spawnSync(process.execPath, [join(repo, 'ops', 'apply-migration.mjs'),
+        '--database-url-file', urlFile, '--file', omar, '--sha256', PHASE_A.migrations['20261008120000'],
+        '--postcheck', check, '--postcheck-sha256', PHASE_A.postcheck.sha256, '--require-present', '20260921080000', ...extra],
+      { encoding: 'utf8', env: Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^PG/i.test(name))) });
+      const rehearsal = cli('--rehearse');
+      assert.equal(rehearsal.status, 0, rehearsal.stderr);
+      assert.equal(JSON.parse(rehearsal.stdout).committed, false);
+      const applied = cli();
+      assert.equal(applied.status, 0, applied.stderr);
+      assert.deepEqual(JSON.parse(applied.stdout).versions, ['20261008120000']);
+      const again = cli();
+      assert.equal(again.status, 1);
+      assert.match(again.stderr, /already recorded: 20261008120000/);
+      assert.doesNotMatch(again.stderr + again.stdout, /postgresql:\/\//, 'no connection details in output');
+      // A PG* variable in the environment stops the tool before it connects.
+      const withPg = spawnSync(process.execPath, [join(repo, 'ops', 'apply-migration.mjs'), '--database-url-file', urlFile,
+        '--file', omar, '--sha256', PHASE_A.migrations['20261008120000']], { encoding: 'utf8', env: { ...process.env, PGOPTIONS: '-c x=y' } });
+      assert.equal(withPg.status, 1);
+      assert.match(withPg.stderr, /unset these environment variables first: PGOPTIONS/);
+    }));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

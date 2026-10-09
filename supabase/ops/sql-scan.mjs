@@ -2,11 +2,33 @@
 // '...' strings (with '' doubling), E'...' strings (with backslash escapes), "..." identifiers, $tag$...$tag$ bodies,
 // -- line comments and nested /* */ comments. It exists to find transaction control BEFORE a migration runs; a
 // PL/pgSQL `begin`/`end;` inside a dollar-quoted body is not a statement at this level and is not reported.
+//
+// It reads tokens the way PostgreSQL's lexer does where that matters: an identifier is consumed whole (letters,
+// digits, '_', '$' and every non-ASCII character continue it), so 'é$tag$' is an identifier, never the start of a
+// dollar quote. It assumes standard_conforming_strings = on (backslashes are ordinary in '...'), which the apply tool
+// forces for its transaction; a statement that changes that setting is refused. Where it cannot be sure PostgreSQL
+// would open a quoted section, it reads on as top-level SQL, so an error can only refuse too much, never too little.
 // Anything it cannot read with certainty (an unterminated quote, body or comment) is an error, never a guess.
 
 export class SqlScanError extends Error {}
 
-const DOLLAR_TAG = /^\$([A-Za-z_\u0080-￿][A-Za-z_0-9\u0080-￿]*)?\$/;
+const IDENT_START = /[A-Za-z_\u0080-￿]/;
+const IDENT_CONT = /[A-Za-z0-9_$\u0080-￿]/;
+const DOLLAR_TAG = /^\$([A-Za-z_\u0080-￿][A-Za-z0-9_\u0080-￿]*)?\$/;
+
+/** Reads a '...' (escapes=false) or E'...' (escapes=true) literal starting at the quote; returns the index after it. */
+function readString(sql, quoteIndex, escapes) {
+  let i = quoteIndex + 1;
+  while (i < sql.length) {
+    if (escapes && sql[i] === '\\') { i += 2; continue; }
+    if (sql[i] === "'") {
+      if (sql[i + 1] === "'") { i += 2; continue; }
+      return i + 1;
+    }
+    i += 1;
+  }
+  throw new SqlScanError('unterminated string literal');
+}
 
 /** Returns each top-level statement with comments removed and whitespace collapsed, in lower case. */
 export function topLevelStatements(sql) {
@@ -36,19 +58,19 @@ export function topLevelStatements(sql) {
       }
       if (depth > 0) throw new SqlScanError('unterminated block comment');
       current += ' ';
-    } else if (c === "'" || ((c === 'e' || c === 'E') && next === "'" && !/[A-Za-z0-9_$]/.test(sql[i - 1] ?? ''))) {
-      const escapes = c !== "'";
-      i += escapes ? 2 : 1;
-      let closed = false;
-      while (i < n) {
-        if (escapes && sql[i] === '\\') { i += 2; continue; }
-        if (sql[i] === "'") {
-          if (sql[i + 1] === "'") { i += 2; continue; }
-          i += 1; closed = true; break;
-        }
-        i += 1;
+    } else if (IDENT_START.test(c)) {
+      let end = i + 1;
+      while (end < n && IDENT_CONT.test(sql[end])) end += 1;
+      const word = sql.slice(i, end);
+      if ((word === 'e' || word === 'E') && sql[end] === "'") {
+        i = readString(sql, end, true);
+        current += " '' ";
+      } else {
+        current += word;
+        i = end;
       }
-      if (!closed) throw new SqlScanError('unterminated string literal');
+    } else if (c === "'") {
+      i = readString(sql, i, false);
       current += " '' ";
     } else if (c === '"') {
       i += 1;
@@ -62,9 +84,11 @@ export function topLevelStatements(sql) {
       }
       if (!closed) throw new SqlScanError('unterminated quoted identifier');
       current += ' "x" ';
-    } else if (c === '$' && !/[A-Za-z0-9_]/.test(sql[i - 1] ?? '')) {
+    } else if (c === '$' && !/[0-9]/.test(sql[i - 1] ?? '')) {
+      // Identifiers (which may contain '$') were consumed whole above, so a '$' here starts a token of its own:
+      // a dollar quote, or a positional parameter such as $1. After a digit PostgreSQL rejects the text anyway.
       const match = DOLLAR_TAG.exec(sql.slice(i));
-      if (!match) { current += c; i += 1; continue; } // a positional parameter such as $1
+      if (!match) { current += c; i += 1; continue; }
       const tag = match[0];
       const end = sql.indexOf(tag, i + tag.length);
       if (end === -1) throw new SqlScanError('unterminated dollar-quoted body');
@@ -82,18 +106,21 @@ export function topLevelStatements(sql) {
   return statements;
 }
 
-// Statements that start, end or partly undo a transaction. Inside the tool's own transaction any of these would
-// either commit early, discard work, or let a later part run outside the transaction the ledger row belongs to.
-const TRANSACTION_CONTROL = [
+// Statements that start, end or partly undo a transaction, or change how this scanner's reading of later statements
+// would match PostgreSQL's. Inside the tool's own transaction any of these could commit early, discard work, or let a
+// later part run outside the transaction the ledger row belongs to.
+const REFUSED = [
   /^(begin|start transaction|commit|end|rollback|abort|savepoint|release|prepare transaction)\b/,
   /^set (session characteristics as )?transaction\b/,
+  /^(set|reset)\b.*\bstandard_conforming_strings\b/,
+  /^reset all\b/,
 ];
 
 /** Throws unless the SQL holds no top-level transaction control. Returns the statements otherwise. */
 export function assertNoTransactionControl(sql) {
   const statements = topLevelStatements(sql);
   for (const statement of statements) {
-    if (TRANSACTION_CONTROL.some((pattern) => pattern.test(statement))) {
+    if (REFUSED.some((pattern) => pattern.test(statement))) {
       throw new SqlScanError(`top-level transaction control is not allowed: ${statement.split(' ').slice(0, 3).join(' ')}`);
     }
   }

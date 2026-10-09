@@ -3,7 +3,7 @@
 -- disabled), so a failure rolls the whole batch back and nothing of Phase B becomes visible.
 --
 -- 1. Identity: each affected function exists exactly once under its name, with the reviewed body (SHA-256 of
---    prosrc), language, owner, SECURITY DEFINER flag, search_path setting and the exact set of roles holding EXECUTE.
+--    prosrc), language, owner, SECURITY DEFINER flag, search_path setting and the exact set of roles holding EXECUTE, where a holder WITH GRANT OPTION is listed as role* and so never matches.
 --    Expected values were captured from the reviewed files on PostgreSQL 17.6 (supabase/tests/hosted-roles.test.mjs
 --    re-derives and compares them).
 -- 2. Behaviour: the approve/reject entry points refuse a caller with no assurance claim, with aal1, and an aal2
@@ -35,7 +35,8 @@ begin
     if fn is null then raise exception 'phase-b post-check: % is missing', item->>'fn'; end if;
     select pg_get_userbyid(p.proowner)::text as owner, l.lanname as lang, p.prosecdef as secdef, p.proconfig as config,
         encode(sha256(convert_to(p.prosrc, 'UTF8')), 'hex') as body,
-        array(select case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee)::text end
+        array(select (case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee)::text end)
+            || case when a.is_grantable then '*' else '' end
           from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.privilege_type = 'EXECUTE' order by 1) as executors,
         p.pronamespace, p.proname
       into got from pg_proc p join pg_language l on l.oid = p.prolang where p.oid = fn;
