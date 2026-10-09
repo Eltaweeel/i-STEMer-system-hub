@@ -11,9 +11,13 @@ Adam, Nour and Ziad worker services stay **disabled** throughout and after both 
 |---|---|---|
 | Hosted ledger (owner SELECT, 2026-09-26) | owner-run query | 26 versions recorded, through `20260921080000` |
 | Hosted catalog (owner SELECT) | owner-run query; `docs/evidence/phase-1/baseline.md` | PostgreSQL 17.6. `postgres` is not superuser; CREATEROLE, BYPASSRLS, INHERIT. Its memberships in `bagos_*` roles are the automatic creator grants only (ADMIN true, INHERIT false, SET false). `bagos_approval_command` has no CREATE on `private`. None of the six pending migrations' objects exist. |
-| Local rehearsal, real PostgreSQL 17.6, non-superuser `postgres` | `supabase/tests/hosted-roles.test.mjs` (12 tests) | Replaying the 26 as non-superuser `postgres` reproduces exactly the membership row and the missing CREATE above. Failures and repairs below are measured there. |
+| Local rehearsal, real PostgreSQL 17.6, non-superuser `postgres` | `supabase/tests/hosted-roles.test.mjs` (16 tests, `npm run test:hosted`) | Replaying the 26 as non-superuser `postgres` reproduces exactly the membership row and the missing CREATE above. Failures and repairs below are measured there. |
 | Local PGlite suites | `supabase/tests/*.test.mjs` (others) | Functional SQL behaviour. **PGlite runs as superuser** and cannot show ownership or grant failures. |
 | Hosted application | — | **NOT RUN.** |
+
+To rerun the rehearsal: `cd supabase/tests && npm ci && npm run test:hosted` (about two minutes; real PostgreSQL 17.6
+binaries come from the pinned `embedded-postgres` packages). On Linux, npm must be allowed to run the binary package's
+postinstall step, which restores its library symlinks.
 
 The rehearsal cannot know two hosted facts; the preflight below reads them: whether `postgres` is a member of
 `authenticated`, and whether `postgres` may re-grant `auth` access (GRANT OPTION).
@@ -80,9 +84,13 @@ It refuses, and rolls back, when the file's SHA-256 differs from the reviewed va
 table has an unexpected shape; or **any statement raises a WARNING**. If a body ended its own transaction (a top-level
 `commit`/`end`/`rollback`), the tool detects it afterwards, writes **no** ledger row and stops; what that body already
 committed stays, so stop and inspect. None of the seven reviewed files contains such a statement. It locks the ledger table against a concurrent
-push. `--rehearse` runs everything and rolls back. It requires `sslmode=verify-full` (once, no `ssl=`) and prints no
-connection details. Rehearsed tests: wrong digest, recorded version, missing prerequisite, rehearse-only, injected
-failure (migration, ledger row and temporary grants all rolled back), refusal on WARNING, and early-commit detection.
+push. It forces `client_min_messages = warning` for its transaction and first proves, with a probe WARNING, that
+warnings reach it; otherwise it refuses (a role, database or pooler that suppresses WARNINGs would disable the gate).
+`--rehearse` runs everything and rolls back. It requires `sslmode=verify-full` and `sslrootcert` (each once, no `ssl=`,
+no `options=`) and prints no connection details. The ledger row's `statements` holds the whole reviewed file, so its
+SHA-256 equals the digest below. Rehearsed tests: wrong digest, recorded version, missing prerequisite, rehearse-only,
+injected failure (migration, ledger row and temporary grants all rolled back), refusal on WARNING, refusal on WARNING
+even when the session suppresses WARNINGs, early-commit detection, and the stored ledger digest.
 
 Reviewed digests (LF line endings, as committed on this branch):
 
@@ -202,5 +210,6 @@ migration, never by deleting ledger rows or hand-editing functions.
 ## Not done here
 
 No migration applied, no ledger written, no role or login created, no tenant or Auth user provisioned, no service
-started. The PostgreSQL 17.6 rehearsal approximates the platform (auth/storage ownership is stubbed); P5, P6 and P9 are
-the hosted facts it cannot know.
+started. The PostgreSQL 17.6 rehearsal approximates the platform (auth/storage ownership is stubbed) and does not run
+Supabase's own platform extensions and hooks (for example supautils); P5, P6 and P9 are the hosted facts it cannot know,
+and the hosted `--rehearse` step in each phase is the first test against the real platform.

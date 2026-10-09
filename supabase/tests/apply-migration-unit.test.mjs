@@ -238,3 +238,16 @@ test('assertVerifiedTls: error message for invalid URL does not contain credenti
     assert.ok(!error.message.includes('secretpass'));
   }
 });
+
+test('assertVerifiedTls: refuses a missing sslrootcert and any options= parameter', () => {
+  for (const query of ['sslmode=verify-full', 'sslmode=verify-full&sslrootcert=/etc/x/ca.crt&options=-c%20client_min_messages%3Derror']) {
+    assert.throws(() => assertVerifiedTls(`postgresql://u:p@db.example.com:5432/postgres?${query}`),
+      (error) => error instanceof MigrationRefused && !error.message.includes('u:p'), query);
+  }
+});
+
+test('prepareMigration: keeps the whole reviewed text for the ledger row', () => {
+  const text = ['-- comment', 'begin;', 'select 1;', 'commit;', ''].join(String.fromCharCode(10));
+  const prepared = prepareMigration({ fileName: '20261008120000_omar_research_usage_command.sql', text, expectedSha256: sha256(text) });
+  assert.equal(prepared.text, text);
+});

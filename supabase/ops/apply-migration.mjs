@@ -38,7 +38,7 @@ export function prepareMigration({ fileName, text, expectedSha256 }) {
   if (!lines.slice(0, begins[0]).every(isFiller) || !lines.slice(commits[0] + 1).every(isFiller) || begins[0] > commits[0]) {
     throw new MigrationRefused('only comments may surround the begin;...commit; block');
   }
-  return { version: match[1], name: match[2], sha256, body: lines.slice(begins[0] + 1, commits[0]).join('\n') };
+  return { version: match[1], name: match[2], sha256, text, body: lines.slice(begins[0] + 1, commits[0]).join('\n') };
 }
 
 const LEDGER = 'supabase_migrations.schema_migrations';
@@ -51,6 +51,15 @@ export async function applyMigration(client, prepared, { requirePresent = [], re
   await client.query('begin');
   try {
     await client.query("set local lock_timeout = '10s'");
+    // The WARNING gate only works if WARNINGs reach this client. A role, database or URL setting of
+    // client_min_messages=error (or a proxy that drops notices) would silence them, so force the level and prove the
+    // channel with a probe before running anything.
+    await client.query('set local client_min_messages = warning');
+    await client.query("do $probe$ begin raise warning 'apply-migration-probe'; end $probe$");
+    if (warnings.length !== 1 || warnings[0] !== 'apply-migration-probe') {
+      throw new MigrationRefused('WARNING notices do not reach this client; refusing to run without the WARNING gate');
+    }
+    warnings.length = 0;
     const columns = (await client.query(`select column_name, is_nullable, column_default from information_schema.columns
       where table_schema = 'supabase_migrations' and table_name = 'schema_migrations'`)).rows;
     const names = new Set(columns.map((c) => c.column_name));
@@ -74,7 +83,8 @@ export async function applyMigration(client, prepared, { requirePresent = [], re
     }
     if (warnings.length) throw new MigrationRefused(`migration raised WARNING: ${warnings.join(' | ')}`);
     await client.query(`insert into ${LEDGER}(version, name, statements) values ($1, $2, $3)`,
-      [prepared.version, prepared.name, [prepared.body]]);
+      // The whole reviewed file, so the ledger row reproduces exactly what was reviewed (and its digest).
+      [prepared.version, prepared.name, [prepared.text]]);
     if (rehearse) { await client.query('rollback'); return { version: prepared.version, committed: false }; }
     await client.query('commit');
     return { version: prepared.version, committed: true };
@@ -91,9 +101,12 @@ export function assertVerifiedTls(connectionString) {
   let params;
   try { params = new URL(connectionString).searchParams; } catch { throw new MigrationRefused('database url file does not hold a URL'); }
   const keys = [...params.keys()];
-  if (new Set(keys).size !== keys.length || params.has('ssl') || params.get('sslmode') !== 'verify-full') {
-    throw new MigrationRefused('database url must set sslmode=verify-full once (with sslrootcert), and no ssl= parameter');
+  if (new Set(keys).size !== keys.length || params.has('ssl') || params.get('sslmode') !== 'verify-full'
+    || !params.get('sslrootcert')) {
+    throw new MigrationRefused('database url must set sslmode=verify-full and sslrootcert once each, and no ssl= parameter');
   }
+  // options= can carry session settings such as client_min_messages or role; this tool sets what it needs itself.
+  if (params.has('options')) throw new MigrationRefused('database url must not carry options=');
 }
 
 function parseArgs(argv) {

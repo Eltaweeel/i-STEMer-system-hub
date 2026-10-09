@@ -212,3 +212,19 @@ test('the apply tool detects a body that ends its own transaction and writes no 
   // What the body committed before ending the transaction stays: this is detection, not prevention.
   assert.equal(await one(db, "select to_regclass('public.probe_early_commit')::text"), 'probe_early_commit');
 }));
+
+test('a session that suppresses WARNINGs cannot slip a skipped grant past the apply tool', () => withCluster({ authGrantOption: false }, async (db) => {
+  // As if the role, the database or the URL had set it: without the tool's own setting no WARNING would arrive.
+  await db.query('set client_min_messages = error');
+  await assert.rejects(applyMigration(db, prepared(pendingSix[0]), { requirePresent: [LEDGER_HEAD] }),
+    (e) => e instanceof MigrationRefused && /no privileges were granted for "(auth|uid|jwt)"/.test(e.message));
+  assert.equal(await one(db, 'select count(*)::int from supabase_migrations.schema_migrations where version = $1', ['20260921090000']), 0);
+  // The tool's level was transaction-local; the session's own setting is untouched afterwards.
+  assert.equal(await one(db, 'show client_min_messages'), 'error');
+}));
+
+test('the ledger row holds the whole reviewed file, so its digest matches the runbook', () => withCluster({}, async (db) => {
+  await applyMigration(db, prepared(OMAR), { requirePresent: [LEDGER_HEAD] });
+  const stored = await one(db, "select statements[1] from supabase_migrations.schema_migrations where version = '20261008120000'");
+  assert.equal(createHash('sha256').update(stored, 'utf8').digest('hex'), 'd7a630498f73af88a9785751ac80f4bcfbcaee472b6c2bc5060fb9f66d2e7e25');
+}));
