@@ -5,8 +5,10 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { migrationNames } from './migration-inventory.mjs';
+import { loadApplyToolMutation } from './apply-tool-mutation.mjs';
 import { applyRecorded, catalogSnapshot, readMigration, startHostedLikeCluster } from './hosted-pg.mjs';
-import { applyMigration, applyMigrations, applyQuarantine, MigrationRefused, prepareMigration, preparePostcheck } from '../ops/apply-migration.mjs';
+import { applyMigration, applyMigrations, applyQuarantine, MigrationRefused, prepareMigration, preparePostcheck,
+  PHASE_B, quarantineInEffect } from '../ops/apply-migration.mjs';
 
 const LEDGER_HEAD = '20260921080000';
 const applied = migrationNames.filter((name) => name.slice(0, 14) <= LEDGER_HEAD);
@@ -96,6 +98,46 @@ const P7 = `select r.role, c.what, case c.what
     when 'execute auth.jwt()' then has_function_privilege(r.role, 'auth.jwt()', 'EXECUTE') end as ok
   from (values ('bagos_research_command'), ('bagos_membership_reader'), ('bagos_platform_reader')) r(role)
   cross join (values ('usage on schema auth'), ('execute auth.uid()'), ('execute auth.jwt()')) c(what) order by 1, 2`;
+const runbook = readFileSync(new URL('../../docs/STAGING_MIGRATION_RUNBOOK.md', import.meta.url), 'utf8');
+const P12 = runbook.match(/<!-- P12 owner-access query:[^\n]*\n```sql\n([\s\S]*?)\n```/)[1];
+
+test('P12 regression: indirect inherited owner access must refuse B0', () => withCluster({}, async (db, cluster) => {
+  const platform = await cluster.connect('supabase_admin');
+  try {
+    await platform.query(`create role quarantine_bridge;
+      grant postgres to quarantine_bridge with inherit true, set false;
+      grant quarantine_bridge to authenticated with inherit true, set false;`);
+    assert.equal(await one(db, "select pg_has_role('authenticated','postgres','USAGE')"), true);
+    // Reproduce the old ACL-only B0 on local PG: revoke succeeds, but the vulnerable body is still reached.
+    await platform.query('begin');
+    await platform.query('set local role postgres');
+    await platform.query(opsText('phase-b-quarantine.sql'));
+    await platform.query('set local role authenticated');
+    assert.deepEqual(await outsiderApproveIn(platform, { aal: 'aal2' }), { code: '23503', message: 'approval not found' });
+    await platform.query('rollback');
+    await assert.rejects(quarantine(db), /quarantine did not take effect/);
+  } finally { await platform.end(); }
+}));
+
+test('WARNING regression: an unpinned file suppressing its own warning must be refused', () => withCluster({}, async (db) => {
+  const text = `begin;
+create table public.suppressed_warning_probe(id int);
+select set_config('client_min_messages','error',true);
+do $w$ begin raise warning 'hidden-warning'; end $w$;
+commit;
+`;
+  const probe = prepared('20991231000000_suppressed_warning.sql', text);
+  // Parsing succeeds; resetting the level BEFORE this string cannot protect its runtime warning.
+  await db.query('begin');
+  await db.query('set local client_min_messages = warning');
+  const before = db.warnings.length;
+  await db.query(probe.body);
+  assert.equal(db.warnings.length, before);
+  await db.query('rollback');
+  await assert.rejects(applyMigration(db, probe), /only the reviewed Phase A or Phase B/);
+  assert.equal(await one(db, "select to_regclass('public.suppressed_warning_probe')::text"), null);
+  assert.equal(await one(db, "select count(*)::int from supabase_migrations.schema_migrations where version='20991231000000'"), 0);
+}));
 
 test('inventory: 26 applied, six pending in order, then the Omar migration', () => {
   assert.equal(applied.length, 26);
@@ -421,22 +463,20 @@ test('transaction control in a body is refused before anything runs, so even --r
   assert.equal(await one(db, "select count(*)::int from supabase_migrations.schema_migrations where version='20991231000000'"), 0);
 }));
 
-test('a migration that leaves a role membership or schema CREATE behind is refused', () => withCluster({}, async (db) => {
+test('an unpinned migration proposing a role membership or schema CREATE leak is refused', () => withCluster({}, async (db) => {
   const nl = String.fromCharCode(10);
   for (const leak of ['grant bagos_approval_command to postgres with inherit true, set false;', 'grant create on schema private to bagos_approval_command;']) {
     const text = ['begin;', 'create table public.probe_leak(id int);', leak, 'commit;', ''].join(nl);
-    await assert.rejects(applyMigration(db, prepared('20991231000000_probe_leak.sql', text)), (e) => e instanceof MigrationRefused && /memberships or schema private CREATE/.test(e.message), leak);
+    await assert.rejects(applyMigration(db, prepared('20991231000000_probe_leak.sql', text)), (e) => e instanceof MigrationRefused && /only the reviewed Phase A or Phase B/.test(e.message), leak);
   }
   assert.equal(await one(db, "select to_regclass('public.probe_leak')::text"), null);
   assert.equal(await one(db, "select has_schema_privilege('bagos_approval_command','private','CREATE')"), false);
 }));
 
 test('the apply tool refuses an unexpected ledger shape or hooks on the ledger, leaving nothing', () => withCluster({}, async (db) => {
-  const nl = String.fromCharCode(10);
-  const probe = () => prepared('20991231000000_probe_ledger.sql', ['begin;', 'create table public.probe_ledger(id int);', 'commit;', ''].join(nl));
   const nothingLeft = async () => {
-    assert.equal(await one(db, "select to_regclass('public.probe_ledger')::text"), null);
-    assert.equal(await one(db, "select count(*)::int from supabase_migrations.schema_migrations where version='20991231000000'"), 0);
+    assert.equal(await one(db, "select to_regprocedure('private.record_research_usage(uuid,integer,boolean)')::text"), null);
+    assert.equal(await one(db, "select count(*)::int from supabase_migrations.schema_migrations where version='20261008120000'"), 0);
   };
   const cases = [
     ['create function public.ledger_warn() returns trigger language plpgsql as $f$ begin raise warning $w$ledger hook$w$; return new; end $f$; create trigger ledger_warn after insert on supabase_migrations.schema_migrations for each row execute function public.ledger_warn();',
@@ -452,12 +492,12 @@ test('the apply tool refuses an unexpected ledger shape or hooks on the ledger, 
   ];
   for (const [install, remove] of cases) {
     await db.query(install);
-    await assert.rejects(applyMigration(db, probe()), MigrationRefused, install);
+    await assert.rejects(phaseA(db), (e) => e instanceof MigrationRefused && /ledger/.test(e.message), install);
     await nothingLeft();
     await db.query(remove);
   }
-  await applyMigration(db, probe());
-  assert.equal(await one(db, "select statements[1] from supabase_migrations.schema_migrations where version='20991231000000'"), probe().text);
+  await phaseA(db);
+  assert.equal(await one(db, "select statements[1] from supabase_migrations.schema_migrations where version='20261008120000'"), readMigration(OMAR));
 }));
 
 test('a session that suppresses WARNINGs cannot slip a skipped grant past the apply tool', () => withCluster({ authGrantOption: false }, async (db) => {
@@ -478,7 +518,7 @@ test('each ledger row holds the whole reviewed file, so its digest matches the r
 // ---------------------------------------------------------------------------------------------------------------
 // Regressions for the round-3 review of 93dbec7.
 
-test('a setting changed by an earlier file cannot change how a later file is read, so --rehearse commits nothing', () => withCluster({}, async (db) => {
+test('unpinned files changing string parsing are refused, so --rehearse commits nothing', () => withCluster({}, async (db) => {
   const nl = String.fromCharCode(10);
   const bs = String.fromCharCode(92); // a backslash, written without escapes
   // File 1 turns standard_conforming_strings off in a way no scan can see; file 2 is innocent with it on, but with it
@@ -487,8 +527,7 @@ test('a setting changed by an earlier file cannot change how a later file is rea
     "select set_config('standard_conforming_strings', 'off', false);", 'set escape_string_warning = off;', 'commit;', ''].join(nl));
   const second = prepared('20991231000002_probe_two.sql', ['begin;', 'create table public.probe_two(id int);',
     `select '${bs}''; commit; -- '`, ';', 'commit;', ''].join(nl));
-  const result = await applyMigrations(db, [first, second], { rehearse: true });
-  assert.deepEqual(result, { versions: ['20991231000001', '20991231000002'], committed: false });
+  await assert.rejects(applyMigrations(db, [first, second], { rehearse: true }), /only the reviewed Phase A or Phase B/);
   assert.equal(await one(db, "select to_regclass('public.probe_one')::text"), null);
   assert.equal(await one(db, "select to_regclass('public.probe_two')::text"), null);
   assert.equal(await one(db, "select count(*)::int from supabase_migrations.schema_migrations where version like '2099%'"), 0);
@@ -541,16 +580,15 @@ test('the reviewer\'s continued E-string file is refused before anything runs', 
   assert.equal(await one(db, "select to_regclass('public.probe_e')::text"), null);
 }));
 
-test('an encoding changed by an earlier file is restored before the next text, and --rehearse commits nothing', () => withCluster({}, async (db) => {
+test('unpinned files changing encoding are refused, and --rehearse commits nothing', () => withCluster({}, async (db) => {
   const nl = String.fromCharCode(10);
-  // set_config is invisible to the scan; the tool's per-text re-assertion must undo it before file 2 and the check.
+  // This historical attack used set_config, which the scan cannot see. Pinning now refuses it before execution.
   const first = prepared('20991231000011_probe_s1.sql', ['begin;', 'create table public.probe_s1(id int);',
     "select set_config('client_encoding', 'SJIS', false);", 'commit;', ''].join(nl));
   const second = prepared('20991231000012_probe_s2.sql', ['begin;', 'create table public.probe_s2(id int);', 'commit;', ''].join(nl));
   const checkText = "do $c$ begin if current_setting('client_encoding') <> 'UTF8' then raise exception 'encoding not restored'; end if; end $c$;";
   const check = preparePostcheck({ fileName: 'probe-encoding-check.sql', text: checkText, expectedSha256: sha256(checkText) });
-  assert.deepEqual(await applyMigrations(db, [first, second], { rehearse: true, postcheck: check }),
-    { versions: ['20991231000011', '20991231000012'], committed: false });
+  await assert.rejects(applyMigrations(db, [first, second], { rehearse: true, postcheck: check }), /only the reviewed Phase A or Phase B/);
   assert.equal(await one(db, "select to_regclass('public.probe_s1')::text"), null);
   assert.equal(await one(db, "select to_regclass('public.probe_s2')::text"), null);
   assert.equal(await one(db, "select count(*)::int from supabase_migrations.schema_migrations where version like '2099%'"), 0);
@@ -561,4 +599,155 @@ test('Phase B refuses when access is granted again after the quarantine committe
   await db.query('grant execute on function private.approve_agent_revision(uuid,uuid,text) to bagos_research_executor');
   await assert.rejects(phaseB(db), (e) => e instanceof MigrationRefused && /quarantine is not in effect/.test(e.message));
   assert.equal(await ledgerCountOfSix(db), 0);
+}));
+
+test('P12 and B0/B entry checks cover direct and multi-hop INHERIT/SET combinations', (t) => withCluster({}, async (db, cluster) => {
+  const platform = await cluster.connect('supabase_admin');
+  try {
+    await platform.query('create role quarantine_bridge; create role custom_client; create role supabase_untrusted;');
+    await quarantine(db);
+    const flags = [false, true].flatMap((inherit) => [false, true].map((set) => ({ inherit, set })));
+    const ownerActors = async () => {
+      const rows = (await db.query(P12)).rows;
+      return new Set(rows.map((r) => r.actor));
+    };
+    for (const actor of ['anon', 'authenticated', 'service_role', 'custom_client', 'supabase_untrusted']) {
+      for (const edge of flags) {
+        await t.test(`${actor} -> postgres INHERIT=${edge.inherit} SET=${edge.set}`, async () => {
+          await platform.query(`grant postgres to ${actor} with inherit ${edge.inherit}, set ${edge.set}`);
+          try {
+            const unsafe = edge.inherit || edge.set;
+            assert.equal((await ownerActors()).has(actor), unsafe);
+            assert.equal(await quarantineInEffect(db, PHASE_B.gated), !unsafe);
+            if (unsafe) {
+              for (const rehearse of [false, true]) {
+                await assert.rejects(quarantine(db, { rehearse }), /quarantine did not take effect/);
+                await assert.rejects(phaseB(db, { rehearse }), /quarantine is not in effect/);
+              }
+            } else assert.equal((await quarantine(db, { rehearse: true })).committed, false);
+          } finally { await platform.query(`revoke postgres from ${actor}`); }
+        });
+      }
+    }
+    for (const upper of flags) for (const lower of flags) {
+      await t.test(`authenticated -> bridge (${lower.inherit}/${lower.set}) -> postgres (${upper.inherit}/${upper.set})`, async () => {
+        await platform.query(`grant postgres to quarantine_bridge with inherit ${upper.inherit}, set ${upper.set};
+          grant quarantine_bridge to authenticated with inherit ${lower.inherit}, set ${lower.set};`);
+        try {
+          const actors = await ownerActors();
+          const clientAccess = (lower.inherit && upper.inherit) || (lower.set && (upper.inherit || upper.set));
+          assert.equal(actors.has('authenticated'), clientAccess);
+          // The bridge is itself non-platform, even if NOLOGIN or unreachable from authenticated.
+          assert.equal(actors.has('quarantine_bridge'), upper.inherit || upper.set);
+          assert.equal(await quarantineInEffect(db, PHASE_B.gated), !(upper.inherit || upper.set));
+          if (upper.inherit || upper.set) {
+            await assert.rejects(quarantine(db), /quarantine did not take effect/);
+            await assert.rejects(phaseB(db), /quarantine is not in effect/);
+          } else assert.equal((await quarantine(db, { rehearse: true })).committed, false);
+        } finally {
+          await platform.query('revoke quarantine_bridge from authenticated; revoke postgres from quarantine_bridge;');
+        }
+      });
+    }
+    assert.deepEqual([...await ownerActors()], []);
+    assert.equal(await ledgerCountOfSix(db), 0);
+    assert.equal(await quarantineInEffect(db, PHASE_B.gated), true, 'hosted-like automatic creator ADMIN memberships are safe');
+  } finally { await platform.end(); }
+}));
+
+test('quarantine refuses PUBLIC, unexpected superusers, missing functions and owner drift', () => withCluster({}, async (db, cluster) => {
+  const platform = await cluster.connect('supabase_admin');
+  try {
+    await quarantine(db);
+    await db.query('begin');
+    await db.query(`grant execute on function ${APPROVE} to public`);
+    assert.equal(await quarantineInEffect(db, PHASE_B.gated), false);
+    await db.query('rollback');
+    await platform.query('create role unexpected_superuser superuser');
+    assert.equal(await quarantineInEffect(db, PHASE_B.gated), false);
+    await platform.query('drop role unexpected_superuser');
+    await db.query('begin');
+    await db.query('drop function public.approve_agent_revision(uuid,uuid,text)');
+    assert.equal(await quarantineInEffect(db, PHASE_B.gated), false);
+    await db.query('rollback');
+    await platform.query(`alter function ${APPROVE} owner to supabase_admin`);
+    assert.equal(await quarantineInEffect(db, PHASE_B.gated), false);
+    await platform.query(`alter function ${APPROVE} owner to postgres`);
+    assert.equal(await quarantineInEffect(db, PHASE_B.gated), true);
+  } finally { await platform.end(); }
+}));
+
+test('B0 rehearsal restores ACLs; a refused B0 rolls back its revokes', () => withCluster({}, async (db, cluster) => {
+  const platform = await cluster.connect('supabase_admin');
+  const before = await catalogSnapshot(db);
+  try {
+    assert.equal((await quarantine(db, { rehearse: true })).committed, false);
+    assert.deepEqual(await catalogSnapshot(db), before);
+    await platform.query('grant postgres to authenticated with inherit false, set true');
+    await assert.rejects(quarantine(db), /quarantine did not take effect/);
+    assert.deepEqual(await catalogSnapshot(db), before);
+  } finally { await platform.end(); }
+}));
+
+test('mutation: reverting effective-access enforcement lets inherited callers survive B0', () => withCluster({}, async (db, cluster) => {
+  const mutant = await loadApplyToolMutation('acl-only');
+  const platform = await cluster.connect('supabase_admin');
+  try {
+    await platform.query(`create role mutation_bridge;
+      grant postgres to mutation_bridge with inherit true, set false;
+      grant mutation_bridge to authenticated with inherit false, set true;`);
+    await assert.rejects(quarantine(db), /quarantine did not take effect/);
+    const requireRefusal = (tool) => assert.rejects(tool.applyQuarantine(db, postcheck('phase-b-quarantine.sql')), /quarantine did not take effect/);
+    // The same security assertion is killed by reverting this fix (the mutant commits).
+    await assert.rejects(requireRefusal(mutant), assert.AssertionError);
+    assert.equal(await mutant.quarantineInEffect(db, PHASE_B.gated), true);
+    assert.equal(await quarantineInEffect(db, PHASE_B.gated), false);
+    await platform.query('set session authorization authenticated');
+    await platform.query('set role mutation_bridge');
+    assert.deepEqual(await outsiderApprove(platform, { aal: 'aal2' }), { code: '23503', message: 'approval not found' });
+    await assert.rejects(phaseB(db), /quarantine is not in effect/);
+    assert.equal(await ledgerCountOfSix(db), 0);
+  } finally { await platform.end(); }
+}));
+
+test('mutation: restoring unpinned execution commits a file whose runtime WARNING is invisible', () => withCluster({}, async (db) => {
+  const mutant = await loadApplyToolMutation('allow-unpinned');
+  const probe = prepared('20991231000000_mutation_warning.sql', `begin;
+create table public.mutation_warning(id int);
+select set_config('client_min_messages','error',true);
+do $$ begin raise warning 'mutation-hidden-warning'; end $$;
+commit;
+`);
+  await assert.rejects(applyMigration(db, probe), /only the reviewed Phase A or Phase B/);
+  await assert.rejects(applyMigration(db, probe, { rehearse: true }), /only the reviewed Phase A or Phase B/);
+  const before = db.warnings.length;
+  const requireRefusal = (tool) => assert.rejects(tool.applyMigration(db, probe), /only the reviewed Phase A or Phase B/);
+  await assert.rejects(requireRefusal(mutant), assert.AssertionError);
+  assert.deepEqual(db.warnings.slice(before), ['apply-migration-probe'], 'only the initial probe arrived');
+  assert.equal(await one(db, "select to_regclass('public.mutation_warning')::text"), 'mutation_warning');
+  assert.equal(await one(db, "select count(*)::int from supabase_migrations.schema_migrations where version='20991231000000'"), 1);
+}));
+
+test('inherited ownership is refused even when the owner has revoked its own EXECUTE', () => withCluster({}, async (db, cluster) => {
+  const platform = await cluster.connect('supabase_admin');
+  try {
+    await quarantine(db);
+    await platform.query('grant postgres to authenticated with inherit true, set false');
+    for (const fn of PHASE_B.gated) await db.query(`revoke execute on function ${fn} from postgres`);
+    assert.equal(await one(db, 'select has_function_privilege(\'authenticated\',$1,\'EXECUTE\')', [APPROVE]), false);
+    assert.equal(await quarantineInEffect(db, PHASE_B.gated), false);
+    assert.ok((await db.query(P12)).rows.some((r) => r.actor === 'authenticated'));
+    await assert.rejects(quarantine(db), /quarantine did not take effect/);
+    await assert.rejects(phaseB(db), /quarantine is not in effect/);
+  } finally { await platform.end(); }
+}));
+
+test('safe hosted-like PostgreSQL 17.6 with postgres inheriting API roles passes B0 and Phase B', () => withCluster({ platformMembers: true }, async (db) => {
+  assert.equal(await one(db, 'show server_version_num'), '170006');
+  assert.equal(await one(db, 'select rolsuper from pg_roles where rolname=current_user'), false);
+  assert.deepEqual((await db.query(P12)).rows, []);
+  assert.equal((await quarantine(db)).committed, true);
+  assert.equal(await quarantineInEffect(db, PHASE_B.gated), true);
+  assert.equal((await phaseB(db)).committed, true);
+  assert.equal(await ledgerCountOfSix(db), 6);
 }));

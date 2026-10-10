@@ -1,12 +1,13 @@
 // Splits SQL into its top-level statements, skipping everything PostgreSQL itself treats as opaque at that level:
-// '...' strings (with '' doubling), E'...' strings (with backslash escapes), "..." identifiers, $tag$...$tag$ bodies,
+// '...' strings (with '' doubling), "..." identifiers, $tag$...$tag$ bodies,
 // -- line comments and nested /* */ comments. It exists to find transaction control BEFORE a migration runs; a
 // PL/pgSQL `begin`/`end;` inside a dollar-quoted body is not a statement at this level and is not reported.
 //
 // It reads tokens the way PostgreSQL's lexer does where that matters: an identifier is consumed whole (letters,
 // digits, '_', '$' and every non-ASCII character continue it), so 'é$tag$' is an identifier, never the start of a
 // dollar quote. It assumes standard_conforming_strings = on (backslashes are ordinary in '...'), which the apply tool
-// forces for its transaction; a statement that changes that setting is refused. Where it cannot be sure PostgreSQL
+// forces for each pinned migration/step; top-level SET/RESET of that setting and E'...' strings are refused.
+// Runtime setting changes inside functions are outside this scanner's scope. Where it cannot be sure PostgreSQL
 // would open a quoted section, it reads on as top-level SQL, so an error can only refuse too much, never too little.
 // Anything it cannot read with certainty (an unterminated quote, body or comment) is an error, never a guess.
 
@@ -121,8 +122,9 @@ const REFUSED = [
   /^(set|reset)( session| local)? (client_encoding|names|client_min_messages)\b/,
   /^reset all\b/,
 ];
-// Not detectable here: set_config('standard_conforming_strings', ...) and similar function calls. The apply tool
-// therefore re-asserts the settings it relies on before every SQL text it sends; that, not this list, is the guard.
+// Not detectable here: set_config(...) and runtime changes inside function/DO bodies. Re-asserting settings before
+// a query cannot prevent that query from suppressing its own WARNINGs. The apply tool therefore admits ONLY exact
+// pinned plans; this scanner and per-text session settings are defence in depth, not a sandbox for arbitrary SQL.
 
 /** Throws unless the SQL holds no top-level transaction control. Returns the statements otherwise. */
 export function assertNoTransactionControl(sql) {

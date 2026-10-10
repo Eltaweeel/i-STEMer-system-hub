@@ -1,7 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { readdirSync, readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadApplyToolMutation } from './apply-tool-mutation.mjs';
 import { prepareMigration, assertVerifiedTls, clientConfig, assertPrivateFile, assertPlan, assertNoPgEnvironment, applyMigrations, applyQuarantine, preparePostcheck, PHASE_A, PHASE_B, MigrationRefused } from '../ops/apply-migration.mjs';
 
 // Helper to compute SHA256 digest
@@ -416,7 +421,7 @@ test('assertPrivateFile: refuses different uid', () => {
 });
 
 // Plans are judged on prepared files and steps, digests included (the tool pins the reviewed digests).
-const filesOf = (plan) => Object.entries(plan.migrations).map(([version, sha]) => ({ version, sha256: sha }));
+const filesOf = (plan) => Object.entries(plan.migrations).map(([version, sha]) => ({ version, name: plan.names[version], sha256: sha }));
 const stepOf = (pinned) => ({ fileName: pinned.fileName, sha256: pinned.sha256 });
 
 test('assertPlan: accepts exactly the reviewed Phase B and Phase A', () => {
@@ -451,8 +456,9 @@ test('assertPlan: refuses Phase A with an edited file, without its post-check, o
   assert.throws(() => assertPlan(omar, stepOf(PHASE_A.postcheck), stepOf(PHASE_B.reopen)), MigrationRefused);
 });
 
-test('assertPlan: leaves other versions alone, but never with a reopen step', () => {
-  assert.equal(assertPlan([{ version: '20991231000000', sha256: 'a'.repeat(64) }], null, null), null);
+test('assertPlan: refuses all unpinned versions, including an empty plan', () => {
+  assert.throws(() => assertPlan([{ version: '20991231000000', sha256: 'a'.repeat(64) }], null, null), /only the reviewed Phase A or Phase B/);
+  assert.throws(() => assertPlan([], null, null), MigrationRefused);
   assert.throws(() => assertPlan([{ version: '20991231000000', sha256: 'a'.repeat(64) }], null, stepOf(PHASE_B.reopen)), MigrationRefused);
 });
 
@@ -479,10 +485,12 @@ test('clientConfig turns on TCP keepalive', () => {
 });
 
 // A scripted stand-in for pg.Client: answers the tool's queries like a healthy database, with one fault injected.
-function fakeClient({ readBack = 'exact', warnOn = null } = {}) {
+function fakeClient({ readBack = 'exact', warnOn = null, authorityDrift = false } = {}) {
   const listeners = [];
   const sent = [];
   const notice = (message) => listeners.forEach((fn) => fn({ severity: 'WARNING', message }));
+  let insertedRow;
+  let snapshots = 0;
   return {
     sent,
     on(event, fn) { if (event === 'notice') listeners.push(fn); },
@@ -500,43 +508,129 @@ function fakeClient({ readBack = 'exact', warnOn = null } = {}) {
       if (sql.includes('pg_trigger')) return { rows: [{ triggers: 0, rules: 0 }] };
       if (sql.startsWith('select version from')) return { rows: [] };
       if (sql.includes('txid_current')) return { rows: [{ x: '1' }] };
-      if (sql.includes('jsonb_agg(row_to_json(m)')) return { rows: [{ members: [], creators: [] }] };
-      if (sql.startsWith('insert into supabase_migrations')) return { rowCount: 1, rows: [{ version: params[0], name: params[1], statements: params[2] }] };
+      if (sql.includes('jsonb_agg(row_to_json(m)')) {
+        snapshots += 1;
+        return { rows: [{ members: authorityDrift && snapshots > 1 ? ['leaked membership'] : [], creators: [] }] };
+      }
+      if (sql.startsWith('insert into supabase_migrations')) {
+        insertedRow = { version: params[0], name: params[1], statements: params[2] };
+        return { rowCount: 1, rows: [insertedRow] };
+      }
       if (sql.startsWith('select version, name, statements')) {
-        const statements = readBack === 'exact' ? [lastText] : ['something else'];
-        return { rows: [{ version: params[0], name: 'probe', statements }] };
+        const statements = readBack === 'exact' ? insertedRow.statements : ['something else'];
+        return { rows: [{ ...insertedRow, statements }] };
       }
       return { rows: [] };
     },
   };
 }
-let lastText = '';
-const probeMigration = () => {
-  const text = ['begin;', 'create table public.probe(id int);', 'commit;', ''].join(String.fromCharCode(10));
-  lastText = text;
-  return prepareMigration({ fileName: '20991231000000_probe.sql', text, expectedSha256: sha256(text) });
+const phaseAMigration = () => {
+  const fileName = '20261008120000_omar_research_usage_command.sql';
+  const text = readFileSync(new URL(`../migrations/${fileName}`, import.meta.url), 'utf8');
+  return prepareMigration({ fileName, text, expectedSha256: sha256(text) });
 };
+const pinnedStep = (pin) => preparePostcheck({ ...pin, text: readFileSync(new URL(`../ops/${pin.fileName}`, import.meta.url), 'utf8'), expectedSha256: pin.sha256 });
+const phaseAOptions = () => ({ postcheck: pinnedStep(PHASE_A.postcheck) });
 
 test('a ledger row that does not read back exactly as written is refused and rolled back', async () => {
   const ok = fakeClient();
-  assert.deepEqual(await applyMigrations(ok, [probeMigration()]), { versions: ['20991231000000'], committed: true });
+  assert.deepEqual(await applyMigrations(ok, [phaseAMigration()], phaseAOptions()), { versions: ['20261008120000'], committed: true });
   const bad = fakeClient({ readBack: 'different' });
-  await assert.rejects(applyMigrations(bad, [probeMigration()]), (e) => e instanceof MigrationRefused && /did not read back exactly/.test(e.message));
+  await assert.rejects(applyMigrations(bad, [phaseAMigration()], phaseAOptions()), (e) => e instanceof MigrationRefused && /did not read back exactly/.test(e.message));
   assert.ok(bad.sent.includes('rollback') && !bad.sent.includes('commit'));
 });
 
 test('a WARNING during the ledger write is refused and rolled back', async () => {
   const warned = fakeClient({ warnOn: 'insert into supabase_migrations' });
-  await assert.rejects(applyMigrations(warned, [probeMigration()]), (e) => e instanceof MigrationRefused && /ledger write for 20991231000000 raised WARNING/.test(e.message));
+  await assert.rejects(applyMigrations(warned, [phaseAMigration()], phaseAOptions()), (e) => e instanceof MigrationRefused && /ledger write for 20261008120000 raised WARNING/.test(e.message));
   assert.ok(warned.sent.includes('rollback') && !warned.sent.includes('commit'));
 });
 
 test('a WARNING during the post-check is refused and rolled back', async () => {
-  const text = 'select 1;';
-  const check = preparePostcheck({ fileName: 'probe-check.sql', text, expectedSha256: sha256(text) });
-  const warned = fakeClient({ warnOn: 'select 1;' });
-  await assert.rejects(applyMigrations(warned, [probeMigration()], { postcheck: check }), (e) => e instanceof MigrationRefused && /probe-check.sql raised WARNING/.test(e.message));
+  const options = phaseAOptions();
+  const warned = fakeClient({ warnOn: options.postcheck.text });
+  await assert.rejects(applyMigrations(warned, [phaseAMigration()], options), (e) => e instanceof MigrationRefused && /phase-a-postcheck.sql raised WARNING/.test(e.message));
   assert.ok(warned.sent.includes('rollback') && !warned.sent.includes('commit'));
+});
+
+test('unpinned SQL and forged prepared bytes are refused before any query, with and without rehearsal', async () => {
+  const hiddenWarning = "select set_config('client_min_messages','error',true); do $$ begin raise warning 'hidden'; end $$;";
+  const text = `begin;\n${hiddenWarning}\ncommit;\n`;
+  for (const rehearse of [false, true]) {
+    const unknown = prepareMigration({ fileName: '20991231000000_probe.sql', text, expectedSha256: sha256(text) });
+    const changed = prepareMigration({ fileName: '20261008120000_omar_research_usage_command.sql', text, expectedSha256: sha256(text) });
+    for (const migration of [unknown, changed, { ...phaseAMigration(), text }, { ...phaseAMigration(), name: 'renamed' }]) {
+      const db = fakeClient();
+      await assert.rejects(applyMigrations(db, [migration], { ...phaseAOptions(), rehearse }), MigrationRefused);
+      assert.deepEqual(db.sent, []);
+    }
+    for (const pin of [PHASE_A.postcheck, PHASE_B.quarantine]) {
+      for (const step of [{ ...pinnedStep(pin), text: hiddenWarning },
+        preparePostcheck({ fileName: pin.fileName, text: hiddenWarning, expectedSha256: sha256(hiddenWarning) })]) {
+        const db = fakeClient();
+        await assert.rejects(pin === PHASE_B.quarantine ? applyQuarantine(db, step, { rehearse })
+          : applyMigrations(db, [phaseAMigration()], { postcheck: step, rehearse }), MigrationRefused);
+        assert.deepEqual(db.sent, []);
+      }
+    }
+  }
+});
+
+test('a forged prepared body is never executed or written to the ledger', async () => {
+  const db = fakeClient();
+  const forged = { ...phaseAMigration(), body: "select set_config('client_min_messages','error',true);" };
+  await applyMigrations(db, [forged], phaseAOptions());
+  assert.equal(db.sent.includes(forged.body), false);
+  assert.equal(db.sent.includes(phaseAMigration().body), true);
+});
+
+test('a pinned plan still refuses authority drift and rolls back', async () => {
+  const db = fakeClient({ authorityDrift: true });
+  await assert.rejects(applyMigrations(db, [phaseAMigration()], phaseAOptions()), /memberships or schema private CREATE changed/);
+  assert.ok(db.sent.includes('rollback') && !db.sent.includes('commit'));
+});
+
+test('Phase B refuses unpinned or forged reopen/post-check text before querying', async () => {
+  const six = Object.entries(PHASE_B.migrations).map(([version, hash]) => {
+    const fileName = `${version}_${PHASE_B.names[version]}.sql`;
+    return prepareMigration({ fileName, text: readFileSync(new URL(`../migrations/${fileName}`, import.meta.url), 'utf8'), expectedSha256: hash });
+  });
+  for (const key of ['reopen', 'postcheck']) for (const rehearse of [false, true]) {
+    for (const forgedHash of [false, true]) {
+      const text = "do $$ begin perform set_config('client_min_messages','error',true); raise warning 'hidden'; end $$;";
+      const step = { ...pinnedStep(PHASE_B[key]), text };
+      if (!forgedHash) step.sha256 = sha256(text);
+      const db = fakeClient();
+      await assert.rejects(applyMigrations(db, six, { reopen: pinnedStep(PHASE_B.reopen), postcheck: pinnedStep(PHASE_B.postcheck), [key]: step, rehearse }), MigrationRefused);
+      assert.deepEqual(db.sent, []);
+    }
+  }
+});
+
+test('mutation: the unpinned-plan refusal assertion fails when that restriction is reverted', async () => {
+  const mutant = await loadApplyToolMutation('allow-unpinned');
+  const requireRefusal = (tool) => assert.throws(() => tool.assertPlan([{ version: '20991231000000', sha256: 'a'.repeat(64) }]), MigrationRefused);
+  requireRefusal({ assertPlan });
+  assert.throws(() => requireRefusal(mutant), assert.AssertionError);
+});
+
+test('CLI rejects unpinned migration and quarantine before reading a nonexistent URL file', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'apply-pins-'));
+  try {
+    const sql = "select set_config('client_min_messages','error',true); do $$ begin raise warning 'hidden'; end $$;";
+    for (const rehearse of [false, true]) for (const quarantine of [false, true]) {
+      const text = quarantine ? sql : `begin;\n${sql}\ncommit;\n`;
+      const path = join(dir, quarantine ? 'phase-b-quarantine.sql' : '20991231000000_probe.sql');
+      writeFileSync(path, text);
+      const args = [fileURLToPath(new URL('../ops/apply-migration.mjs', import.meta.url)), '--database-url-file', join(dir, 'absent-url'),
+        quarantine ? '--quarantine' : '--file', path, quarantine ? '--quarantine-sha256' : '--sha256', sha256(text)];
+      if (rehearse) args.push('--rehearse');
+      const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^PG/i.test(name)));
+      const child = spawnSync(process.execPath, args, { encoding: 'utf8', env });
+      assert.equal(child.status, 1);
+      assert.match(child.stderr, quarantine ? /only the reviewed phase-b-quarantine.sql/ : /only the reviewed Phase A or Phase B/);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('applyQuarantine accepts only the reviewed quarantine file', async () => {

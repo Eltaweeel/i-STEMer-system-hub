@@ -5,7 +5,7 @@ rehearsed it locally; every remote step below is for the operator, after the app
 
 Adam, Nour and Ziad worker services stay **disabled** throughout and after both phases (see "Workers stay off").
 
-## What is true today, and how we know
+## Recorded baseline and local evidence
 
 | Kind of evidence | Source | What it says |
 |---|---|---|
@@ -15,12 +15,13 @@ Adam, Nour and Ziad worker services stay **disabled** throughout and after both 
 | Local PGlite suites | `supabase/tests/*.test.mjs` (others) | Functional SQL behaviour. **PGlite runs as superuser** and cannot show ownership or grant failures. |
 | Hosted application | — | **NOT RUN.** |
 
-To rerun the rehearsal: `cd supabase/tests && npm ci && npm run test:hosted` (about two minutes; real PostgreSQL 17.6
+To rerun the rehearsal: `cd supabase/tests && npm ci && npm run test:hosted` (serial execution; real PostgreSQL 17.6
 binaries come from the pinned `embedded-postgres` packages). On Linux, npm must be allowed to run the binary package's
 postinstall step, which restores its library symlinks.
 
-The rehearsal cannot know two hosted facts; the preflight below reads them: whether `postgres` is a member of
-`authenticated`, and whether `postgres` may re-grant `auth` access (GRANT OPTION).
+The recorded hosted observations are snapshots, not current verification. The local rehearsal cannot establish the
+target's current role graph, function owners/ACLs, platform identities, auth GRANT OPTION, database hooks or active
+sessions. The preflight below must be repeated on the target under separately authorized hosted work.
 
 ## The hosted-role problem in the six pending migrations (reproduced, then repaired)
 
@@ -73,20 +74,20 @@ cover every catalog object.
 
 ## A pre-existing exposure, and the pilot decision it forces
 
-The approve/reject commands **currently applied on staging** (`20260915225738`, `20260920140000`, exposed to
+The approve/reject commands **in the recorded staging baseline** (`20260915225738`, `20260920140000`, exposed to
 `authenticated` by the public wrappers in `20260920160000`) have NULL-blind checks: a caller with no membership row, or
 a JWT without an `aal` claim, passes them, and a NULL `expected_digest` skips the digest check. Any signed-in user who
 knows a tenant id and an approval id could approve or reject that tenant's pending decision. The rehearsal reproduces it
 (an outsider reaches `approval not found` instead of `owner approval required`). Phase B's `20260921130000` is the fix.
 
-No tenant or Auth user exists on staging yet, so nothing can use this today; "no users yet" is a snapshot, not a gate.
+The earlier staging notes reported no tenant or Auth user; that has not been reverified here and is not an access gate.
 Applying the Phase A **migration** does not change this exposure. **Provisioning a tenant or any Auth user, or starting
 the Omar pilot, requires an owner decision first**, one of:
 
 1. Apply Phase B (quarantine, then the atomic batch, below) before any tenant or Auth user is provisioned. Recommended.
 2. Apply only the Phase B **quarantine** (step B0 below) before provisioning: it makes the vulnerable approve/reject
-   commands uncallable by any client role until Phase B commits. The Omar research path does not use them. Approvals
-   are then unavailable, not exposed, until Phase B.
+   commands uncallable by client roles under P12's platform-identity and administrative-freeze conditions. The Omar
+   research path does not use them. Approvals remain unavailable until Phase B.
 3. Proceed with Phase A and the pilot first, under conditions that can be checked: public sign-up disabled in the
    platform settings; `auth.users` holds only the provisioned pilot users, all members of the one tenant;
    `select count(*) from public.approvals` is 0 before and after the pilot; Phase B scheduled before a second user or any
@@ -111,26 +112,28 @@ node supabase/ops/apply-migration.mjs --database-url-file <abs> --file <abs .sql
 Everything one invocation is given runs in **one transaction**: every listed migration, its ledger row, the reopen step
 (Phase B only) and the post-check. It commits only if all of it succeeds; otherwise it rolls back and records nothing.
 
-- **Plans, pinned in the tool.** For these versions the tool itself holds the only acceptable files, order and SHA-256
-  digests (`PHASE_A`, `PHASE_B` in `apply-migration.mjs`, equal to the table below). Phase A is `20261008120000` alone
+- **Plans, pinned in the tool.** The tool accepts ONLY the two plans below (or B0 on its own), with exact file names,
+  order and SHA-256 digests (`PHASE_A`, `PHASE_B` in `apply-migration.mjs`, equal to the table below). Phase A is `20261008120000` alone
   with `phase-a-postcheck.sql`. Phase B is exactly the six, in order, in one run, with `phase-b-reopen.sql` and
   `phase-b-postcheck.sql`. One of the six alone, a subset, a different order, an edited file, or a missing or different
-  step is refused before anything runs. The `--sha256` arguments must also match.
+  step is refused before anything runs. Unknown versions and unpinned post-check/reopen/quarantine files are refused,
+  even with an operator-supplied matching digest and even under `--rehearse`. CLI refusal precedes reading the URL/CA
+  or connecting. Exported apply functions also re-hash source and derive their own executable bodies before querying.
+  The `--sha256` arguments must also match. A new plan requires code review, not a new hash argument.
 - **Before running anything.** Each migration must be exactly one top-level `begin;`...`commit;` block, and a SQL-aware
   scan refuses any top-level transaction control inside it or in a step (`COMMIT`, `END`, `ROLLBACK`, `ABORT`, `BEGIN`,
-  `START TRANSACTION`, `SAVEPOINT`, `RELEASE`, `PREPARE TRANSACTION`, `SET TRANSACTION`) and any change of
+  `START TRANSACTION`, `SAVEPOINT`, `RELEASE`, `PREPARE TRANSACTION`, `SET TRANSACTION`) and top-level `SET`/`RESET` of
   `standard_conforming_strings` (also when the name is quoted). The scan reads identifiers whole the way PostgreSQL does
   (so `é$tag$` is an identifier, not a dollar quote), understands quotes, `$tag$` bodies and comments, and assumes
   `standard_conforming_strings = on`. It refuses outright what it cannot follow with certainty: a top-level `E'...'`
   string (PostgreSQL continues its escape mode into a following line's `'...'`), and any top-level `SET`/`RESET` of
   `client_encoding`, `NAMES` or `client_min_messages`. A scan cannot see every way of changing a setting (for example
-  `set_config(...)`), so the tool **re-asserts** `standard_conforming_strings = on`, `client_min_messages = warning` and
-  `client_encoding = UTF8` before every SQL text it sends and refuses unless all three hold; PostgreSQL reads each text
-  as a whole before running any of it, so a change inside one file cannot alter how that same file is read. PL/pgSQL
-  `begin`/`end;` (and `E'...'`) inside function bodies is accepted. As defence in depth, the transaction id is checked
-  after every body, which detects but cannot undo an early commit. Within those rules `--rehearse` cannot commit a file
-  the tool accepts; every case the reviews found is a regression test. For the reviewed plans the stronger statement is
-  that their pinned files are plain ASCII and contain none of these constructs.
+  `set_config(...)`). The tool re-asserts `standard_conforming_strings = on`, `client_min_messages = warning` and
+  `client_encoding = UTF8` before each migration/step and verifies them. These settings and the scanner are defence in
+  depth, not a sandbox for arbitrary SQL. In particular a file can suppress its own later WARNING at runtime, despite
+  those resets. This is why unpinned execution is now forbidden. PL/pgSQL bodies remain opaque to the scanner.
+  The transaction-id check after each body detects, but cannot undo, an early commit. The rehearsal/rollback guarantee
+  is limited to the exact pinned plans in the reviewed catalog, with no concurrent administrative changes.
 - **Session.** The tool sets, for its own transaction only: `lock_timeout` 10 s, `statement_timeout` 120 s (per
   statement, not for the whole batch), `idle_in_transaction_session_timeout` 60 s (a connection that silently
   disappears cannot hold the locks for long; this, not TCP keepalive, whose idle time is the OS default, often two hours,
@@ -139,8 +142,12 @@ Everything one invocation is given runs in **one transaction**: every listed mig
   `version` is unique, and that the table has no triggers or rules; takes a lock against a concurrent push or operator;
   refuses a version already recorded or a missing `--require-present` version; writes each row with the **whole
   reviewed file** in `statements` (so its SHA-256 equals the digest below), and reads it back exactly before going on.
-- **WARNINGs.** PostgreSQL reports a skipped GRANT/REVOKE only as a WARNING. The tool proves with a probe that WARNINGs
-  reach it, and refuses on any WARNING from any migration, ledger write, reopen step or post-check.
+- **WARNINGs.** PostgreSQL reports a skipped GRANT/REVOKE only as a WARNING. The tool probes delivery at transaction
+  start and refuses every WARNING it receives from a migration, ledger write, reopen step or post-check. The pinned
+  files do not change the warning threshold. This is NOT a proof for arbitrary SQL or arbitrary existing database code:
+  event triggers, called functions, role defaults and catalog drift still require review. The prior unpinned path could
+  call `set_config('client_min_messages','error',true)` then emit an unseen warning in the same string; serial local
+  regression tests reproduce this and require rejection before execution. Exact pinned-plan restriction is the chosen fix.
 - **Authority.** It snapshots the operator role's memberships and which `bagos_*` roles may CREATE in `private` at the
   start, and refuses unless both are identical before COMMIT: no temporary window may survive.
 - **Connection.** The URL is parsed by the tool and never handed to the driver, and the tool refuses to run while any
@@ -211,7 +218,7 @@ Run in `psql` with the same URL. Every answer must match; any difference is a **
 | P9 | `select defaclnamespace::regnamespace, defaclobjtype, defaclacl from pg_default_acl where defaclrole='postgres'::regrole;` | record; any entry for schema `private` or for functions globally must be reviewed before applying |
 | P10 | `select to_regclass('public.finished_post_revision_bodies'), to_regprocedure('private.record_research_usage(uuid,integer,boolean)');` | Phase A: both null. Phase B: first null; second not null after Phase A. |
 | P11 | `select pg_has_role('postgres','pg_read_all_stats','USAGE');` | **Phase B: `t`, else stop.** The drain check must see other roles' sessions in `pg_stat_activity`; the tool checks this role itself and refuses without it. |
-| P12 | `select m.rolname, m.rolsuper from pg_auth_members a join pg_roles m on m.oid = a.member where a.roleid = 'postgres'::regrole union select rolname, rolsuper from pg_roles where rolsuper order by 1;` | **Phase B: record and review.** The quarantine stops every role except the functions' owner `postgres`; roles listed here (members of `postgres`, and superusers) are not stopped by it. Only platform roles may appear; any client or API role is a **stop**. |
+| P12 | see the two queries below | **Phase B/B0: four existing functions owned by `postgres`; zero non-platform owner-access rows.** Includes all roles, direct/multi-hop inheritance, SET ROLE, and SET followed by inheritance. Missing/drifted owners or any returned access path are a **stop**. B0 and the batch additionally enforce owner-only ACLs and no effective non-platform EXECUTE. |
 
 **P7** (effective auth access of the roles whose functions call `auth.uid()`/`auth.jwt()`; `EXECUTE` alone is not
 enough, because functions are executable by PUBLIC by default while the schema is not usable by PUBLIC):
@@ -231,9 +238,48 @@ it (rehearsed). A `f` row means Omar submission and member-scoped reads fail on 
 access is a platform/owner decision outside both phases. P6 is Phase B's own prerequisite (090000 grants `auth` access to
 `bagos_approval_command`); P7 is a prerequisite of the pilot whichever phase runs.
 
+**P12** checks effective owner authority, not just direct members or explicit ACL entries. The only trusted identities
+are the reviewed operator/owner `postgres` and `supabase_admin` **when it is a superuser**. Confirm their platform identity
+and P2 in the target catalog; there is no `supabase_*`/`pg_*` prefix exemption, no exemption for NOLOGIN roles, and no
+automatic exemption for another superuser. A legitimate additional platform role with access requires a new review;
+do not widen this gate to make it pass. PUBLIC is not a membership role: B0 separately rejects its EXECUTE ACL, including
+the default ACL when `proacl` is null. Normal direct `authenticated` EXECUTE exists before B0 and is revoked by B0.
+
+First query: exactly four rows, every `owner` is `postgres` (null/missing is a stop).
+
+```sql
+select f.fn, pg_get_userbyid(p.proowner) as owner
+  from unnest(array['public.approve_agent_revision(uuid,uuid,text)', 'public.reject_agent_revision(uuid,uuid,text,text)',
+    'private.approve_agent_revision(uuid,uuid,text)', 'private.reject_agent_revision(uuid,uuid,text,text)']) f(fn)
+  left join pg_proc p on p.oid = to_regprocedure(f.fn) order by 1;
+```
+
+Second query: **zero rows**. `reachable_as` includes the actor itself and roles reachable through a complete SET path;
+from each of those, USAGE checks inherited owner authority. Thus SET to a bridge followed by inherited owner access is
+also caught. These are possible paths to test, not claims that any such chain exists on staging.
+
+<!-- P12 owner-access query: executed by the local regression suite. -->
+```sql
+select f.fn, actor.rolname as actor, target.rolname as reachable_as
+  from unnest(array['public.approve_agent_revision(uuid,uuid,text)', 'public.reject_agent_revision(uuid,uuid,text,text)',
+    'private.approve_agent_revision(uuid,uuid,text)', 'private.reject_agent_revision(uuid,uuid,text,text)']) f(fn)
+  join pg_proc p on p.oid = to_regprocedure(f.fn)
+  cross join pg_roles actor cross join pg_roles target
+  where not (actor.rolname = 'postgres' or (actor.rolname = 'supabase_admin' and actor.rolsuper))
+    and pg_has_role(actor.oid, target.oid, 'SET')
+    and pg_has_role(target.oid, p.proowner, 'USAGE')
+  order by 1, 2, 3;
+```
+
+Use a maintenance window with role/ACL/owner and database-code changes frozen from preflight through B0 and the batch.
+The checks are catalog observations, not a lock against a platform administrator changing privileges after the check.
+The platform superuser and operator retain access. A failed B0 rolls back its revokes and establishes **no** quarantine;
+do not provision the pilot on that result. A successful B0 followed by a refused/rolled-back batch keeps B0 in place,
+provided no administrator changes access. The SQL quarantine file alone checks ACLs only; run it through this tool.
+
 ## Phase A: apply ONLY the Omar usage migration
 
-Prerequisites: P1-P10 pass; no research worker is running (none is deployed today). Ordering constraint for later: the
+Prerequisites: P1-P10 pass; verify no research worker is running. Ordering constraint for later: the
 worker from `omar-usage-boundary` (or later) refuses to start before this migration, and an older worker fails every
 usage write after it, so only that newer worker may ever run against the migrated database.
 
@@ -265,11 +311,12 @@ node supabase/ops/apply-migration.mjs --database-url-file <url file> \
 ```
 
 Expected `{"quarantine":true,"committed":false,...}`; then the same without `--rehearse`, expected
-`{"quarantine":true,"committed":true,...}`. It verifies itself before COMMIT: the owner (`postgres`) is the only holder
-of EXECUTE on each of the four approval functions (no PUBLIC, no client or other role). `retry_agent_workflow` (B6) is
+`{"quarantine":true,"committed":true,...}`. Before COMMIT the tool verifies all four owners are `postgres`, their ACLs
+contain no EXECUTE grantee except the owner, and no non-platform role has effective EXECUTE or owner authority through
+inheritance or SET ROLE (including mixed paths). `retry_agent_workflow` (B6) is
 not quarantined: its pre-Phase-B defect only writes a misleading audit entry for a missing run and is not cross-tenant. From here until Phase B commits, approval decisions are
-unavailable to the app (a call is refused with `permission denied for function ...`). The quarantine stays if anything
-later fails; that is the safe state. Re-opening without Phase B would re-expose the NULL-blind functions and needs an
+unavailable to the app under the P12 maintenance-window assumptions (a call is refused with `permission denied for function ...`).
+The committed quarantine stays if the batch rolls back. Re-opening without Phase B would re-expose the NULL-blind functions and needs an
 explicit owner decision; no reviewed file here does it.
 
 **B1-B6. The batch.** Rehearse, then apply, the whole phase as **one** command (all six files, in order, each with its
@@ -298,7 +345,8 @@ remote identical. Approval decisions are available again, through the repaired f
 **The gate, and what enforces it** (all rehearsed on PostgreSQL 17.6):
 
 1. *No new call can start.* After B0 commits, PostgreSQL refuses EXECUTE on the four functions to every client role at
-   call start (not to members of the owner role `postgres` or superusers; P12). The batch refuses to start unless that is still true.
+   call start, except the two reviewed platform identities (P12). Effective access by any other role makes B0 or the batch
+   refuse; the batch checks again before the drain. This depends on the administrative freeze described in P12.
 2. *No old call can still be running.* The batch refuses outright unless the operator role has `pg_read_all_stats`
    (P11; without it PostgreSQL hides other roles' sessions, including the API's, entirely). It then polls, with a fresh
    `pg_stat_activity` snapshot each time, until no other client session has a transaction older than the batch itself,
@@ -351,9 +399,11 @@ hand-editing functions.
 
 ## Not done here
 
-No migration, quarantine or ledger write applied anywhere but the local rehearsal; no role or login created; no tenant
-or Auth user provisioned; no service started. The PostgreSQL 17.6 rehearsal approximates the platform (auth/storage
+No migration, quarantine, ledger or role change was applied outside disposable local test clusters. No hosted tenant
+or Auth user was provisioned; no worker/service was enabled or started. Neither Phase A nor Phase B is cleared for
+hosted execution by these local results. The PostgreSQL 17.6 rehearsal approximates the platform (auth/storage
 ownership is stubbed; the hosted `auth.uid()` may read its claim differently from the stub, which the Phase B probe would
 then refuse) and does not run Supabase's own platform extensions and hooks (for example supautils) or PostgREST. P5, P6,
-P7, P9 and P11 are the hosted facts it cannot know, and each step's hosted `--rehearse` is the first test against the real
-platform.
+P7, P9, P11 and P12 (actual owners, complete effective role graph and platform identities) remain hosted unknowns.
+Existing database code, event triggers, platform hooks and concurrent administration are outside the pinned-file proof.
+No credentials were sought and no hosted rehearsal was attempted; any future hosted work requires its own approval.

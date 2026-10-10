@@ -6,13 +6,14 @@
 //
 // Phase B is gated in three steps, all enforced by PostgreSQL, not by traffic expectations:
 //   1. --quarantine phase-b-quarantine.sql, committed on its own: revokes EXECUTE on the approval decision commands
-//      from authenticated. PostgreSQL checks EXECUTE when a call starts, so from then on no session can start one.
+//      from authenticated. The tool also rejects effective access from every non-platform role (P12).
 //   2. The Phase B batch refuses to start unless the quarantine is in effect, and waits until no other session has a
 //      transaction older than the batch (so no call begun before the quarantine can still be running, and none can
 //      be blocked on the batch's locks and resume an old body after COMMIT).
 //   3. Inside the batch, after B1..B6, phase-b-reopen.sql restores EXECUTE; the post-check verifies everything; then one
 //      COMMIT makes the repaired bodies and the restored access visible together.
-// If any step fails, the quarantine stays: the approval commands are unavailable, never vulnerable.
+// Once B0 commits, a failed batch keeps that quarantine. Platform authority and concurrent administrative changes
+// remain outside this gate; see P12 and the maintenance-window requirements in the runbook.
 //
 // Refuses, and leaves nothing behind, when:
 // - a file's SHA-256 differs from the reviewed one; it is not exactly one top-level begin;...commit; transaction; or a
@@ -20,8 +21,9 @@
 // - a version is already recorded, a --require-present version is not, or a reviewed plan is incomplete or reordered;
 // - the ledger table's columns, types or version uniqueness differ from the CLI's, or it carries triggers or rules;
 // - an inserted ledger row does not read back exactly as written;
-// - the post-check raises, or ANY statement (migration, reopen, ledger write, post-check) raises a WARNING, which is
-//   how PostgreSQL reports a GRANT/REVOKE it silently skipped; or WARNINGs do not reach this client (probed first);
+// - the post-check raises, or a WARNING arrives from the pinned plan (including reopen, ledger and post-check), which
+//   is how PostgreSQL reports a skipped GRANT/REVOKE; or initial WARNING delivery fails its probe. Pinning excludes
+//   files that hide their own warnings; this is not a sandbox for arbitrary SQL or pre-existing database code;
 // - the runner's role memberships or the bagos_* schema-private CREATE rights differ at the end from the start.
 // Connection: the URL is parsed here, never handed to the driver, and no PG* environment variable may be set. Only
 // postgres:/postgresql: over TCP to a DNS host, with exactly sslmode=verify-full and an absolute sslrootcert; the driver
@@ -47,6 +49,7 @@ export class MigrationRefused extends Error {}
 // The two reviewed plans, with the only digests they accept. A changed file is a new review, not a new digest argument.
 export const PHASE_A = {
   migrations: { '20261008120000': 'd7a630498f73af88a9785751ac80f4bcfbcaee472b6c2bc5060fb9f66d2e7e25' },
+  names: { '20261008120000': 'omar_research_usage_command' },
   postcheck: { fileName: 'phase-a-postcheck.sql', sha256: 'f02d2f5a9e50b5fca96327a09663e422ac45749a17707e4ee299bd9fd17ebca7' },
   reopen: null,
 };
@@ -59,6 +62,14 @@ export const PHASE_B = {
     '20260921130000': '90e450c9c21a0a8343175333e53bbc0fb67365f2b4e52734465fcfc54ab9e5b9',
     '20260921140000': 'f20523f1f43644c11e3da139fae3fdcd4ae211bd96715162a10da578c8026409',
   },
+  names: {
+    '20260921090000': 'hadeer_finished_post_package',
+    '20260921100000': 'hadeer_approval_binding_repairs',
+    '20260921110000': 'hadeer_approval_gate_hardening',
+    '20260921120000': 'hadeer_supersede_scope_repair',
+    '20260921130000': 'hadeer_approval_role_null_repair',
+    '20260921140000': 'hadeer_retry_missing_run_repair',
+  },
   postcheck: { fileName: 'phase-b-postcheck.sql', sha256: 'ccd52550e99d08c542fbeac584975286eae0aadecab9c1d18ee6306629ded499' },
   reopen: { fileName: 'phase-b-reopen.sql', sha256: '3e84b8ceb98bbb3409ee8ab0209b2d0e92a39203235738ed563a3682ab483b3a' },
   quarantine: { fileName: 'phase-b-quarantine.sql', sha256: 'ef101e6b108f8872851c48b268a3642348ca8343560a1003d50cb397d4c388b7' },
@@ -67,11 +78,15 @@ export const PHASE_B = {
     'private.approve_agent_revision(uuid,uuid,text)', 'private.reject_agent_revision(uuid,uuid,text,text)'],
 };
 const PLANS = [PHASE_A, PHASE_B];
+for (const plan of PLANS) {
+  for (const member of Object.values(plan)) if (member && typeof member === 'object') Object.freeze(member);
+  Object.freeze(plan);
+}
 
 const sameStep = (step, pinned) => (step === null && pinned === null)
   || (step && pinned && step.fileName === pinned.fileName && step.sha256 === pinned.sha256);
 
-/** Refuses any batch that touches a reviewed plan's versions without being exactly that plan. Returns the plan or null. */
+/** Only these two reviewed plans may execute, including rehearsals. Caller-supplied digests cannot add a plan. */
 export function assertPlan(preparedList, postcheck = null, reopen = null) {
   const versions = preparedList.map((p) => p.version);
   for (const plan of PLANS) {
@@ -80,7 +95,7 @@ export function assertPlan(preparedList, postcheck = null, reopen = null) {
     if (versions.length !== planVersions.length || versions.some((v, i) => v !== planVersions[i])) {
       throw new MigrationRefused(`versions ${planVersions.join(',')} can only be applied together, exactly and in that order`);
     }
-    const wrong = preparedList.filter((p) => p.sha256 !== plan.migrations[p.version]).map((p) => p.version);
+    const wrong = preparedList.filter((p) => p.sha256 !== plan.migrations[p.version] || p.name !== plan.names[p.version]).map((p) => p.version);
     if (wrong.length) throw new MigrationRefused(`not the reviewed file for ${wrong.join(',')}`);
     if (!sameStep(postcheck, plan.postcheck)) throw new MigrationRefused(`this plan requires its reviewed post-check ${plan.postcheck.fileName}`);
     if (!sameStep(reopen, plan.reopen)) {
@@ -88,8 +103,7 @@ export function assertPlan(preparedList, postcheck = null, reopen = null) {
     }
     return plan;
   }
-  if (reopen) throw new MigrationRefused('a reopen step belongs only to Phase B');
-  return null;
+  throw new MigrationRefused('only the reviewed Phase A or Phase B may be applied; unpinned plans are refused');
 }
 
 // What a migration run must leave exactly as it found it: the runner's role memberships (temporary windows must be
@@ -114,7 +128,7 @@ function scan(sql, what) {
   }
 }
 
-/** Checks the reviewed digest, the begin;/commit; envelope and the absence of inner transaction control. */
+/** Checks the supplied digest and transaction envelope; execution separately requires an exact pinned plan. */
 export function prepareMigration({ fileName, text, expectedSha256 }) {
   const match = FILE_NAME.exec(fileName);
   if (!match) throw new MigrationRefused('file name must be <14-digit version>_<name>.sql');
@@ -133,7 +147,7 @@ export function prepareMigration({ fileName, text, expectedSha256 }) {
   return { version: match[1], name: match[2], sha256, text, body };
 }
 
-/** A reviewed SQL step without an envelope (post-check, reopen, quarantine): digest, no transaction control. */
+/** Prepares a SQL step without an envelope; execution separately requires its reviewed name and digest. */
 export function prepareStep({ fileName, text, expectedSha256 }) {
   const sha256 = checkDigest(text, expectedSha256);
   if (scan(text, fileName).length === 0) throw new MigrationRefused(`${fileName}: empty`);
@@ -183,10 +197,9 @@ async function openTransaction(client, warnings) {
 }
 
 /**
- * Re-asserts, before every SQL text the tool sends, the two settings its safety checks rely on, and refuses unless
- * they hold. A previous file in the same batch could have changed them (for example with set_config(), which no scan
- * can see), and PostgreSQL lexes each query string with the settings in force when it arrives. (Within one string the
- * whole text is parsed before any of it runs, so a change inside a file cannot affect how that file is read.)
+ * Re-asserts the three session settings before each migration/step, and refuses unless
+ * they hold. This is defence in depth for the pinned plans, NOT protection against arbitrary SQL: set_config can
+ * suppress a later WARNING within the same string. Only exact reviewed text is admitted for execution.
  */
 async function reassertSession(client) {
   await client.query('set local standard_conforming_strings = on');
@@ -199,11 +212,21 @@ async function reassertSession(client) {
   }
 }
 
-/** True when every gated function exists and its owner is the ONLY holder of EXECUTE (no PUBLIC, no other role). */
-async function quarantineInEffect(client, gated) {
-  return (await client.query(`select bool_and(p.oid is not null and not exists (
+// No prefix-based platform exemption: postgres is the reviewed owner/operator, supabase_admin the platform superuser.
+// All other roles are checked, including NOLOGIN roles and unexpected superusers. SET followed by USAGE catches mixed
+// paths that neither pg_has_role(actor, owner, 'SET') nor 'USAGE' alone detects.
+/** Requires the reviewed owner, owner-only ACLs, and no effective non-platform owner/EXECUTE access. */
+export async function quarantineInEffect(client, gated) {
+  return (await client.query(`select bool_and(p.oid is not null
+      and p.proowner = 'postgres'::regrole and not exists (
         select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
-        where a.privilege_type = 'EXECUTE' and a.grantee <> p.proowner)) as ok
+        where a.privilege_type = 'EXECUTE' and a.grantee <> p.proowner)
+      and not exists (
+        select 1 from pg_roles actor cross join pg_roles target
+        where not (actor.rolname = 'postgres' or (actor.rolname = 'supabase_admin' and actor.rolsuper))
+          and pg_has_role(actor.oid, target.oid, 'SET')
+          and (pg_has_role(target.oid, p.proowner, 'USAGE')
+            or has_function_privilege(target.oid, p.oid, 'EXECUTE')))) as ok
       from unnest($1::text[]) f left join pg_proc p on p.oid = to_regprocedure(f)`, [gated])).rows[0].ok === true;
 }
 
@@ -241,6 +264,10 @@ export async function applyMigrations(client, preparedList, {
   beforeCommit = null,
 } = {}) {
   if (!Array.isArray(preparedList) || preparedList.length === 0) throw new MigrationRefused('nothing to apply');
+  // Snapshot and derive executable bodies from re-hashed source, never trust mutable prepared metadata/body fields.
+  preparedList = preparedList.map((p) => prepareMigration({ fileName: `${p.version}_${p.name}.sql`, text: p.text, expectedSha256: p.sha256 }));
+  postcheck = revalidateStep(postcheck);
+  reopen = revalidateStep(reopen);
   const versions = preparedList.map((p) => p.version);
   if (!versions.every((v, i) => i === 0 || versions[i - 1] < v)) throw new MigrationRefused('files must be given in ascending version order');
   const plan = assertPlan(preparedList, postcheck, reopen);
@@ -322,7 +349,7 @@ export async function applyMigration(client, prepared, options = {}) {
 
 /** Applies the reviewed Phase B quarantine on its own (no ledger row) and verifies it before COMMIT. */
 export async function applyQuarantine(client, quarantine, { rehearse = false } = {}) {
-  if (!sameStep(quarantine, PHASE_B.quarantine)) throw new MigrationRefused(`only the reviewed ${PHASE_B.quarantine.fileName} can be applied as the quarantine`);
+  quarantine = assertQuarantine(quarantine);
   const warnings = [];
   const onNotice = (notice) => { if (notice.severity === 'WARNING') warnings.push(notice.message); };
   client.on('notice', onNotice);
@@ -341,6 +368,14 @@ export async function applyQuarantine(client, quarantine, { rehearse = false } =
   } finally {
     client.off('notice', onNotice);
   }
+}
+
+const revalidateStep = (step) => step && prepareStep({ fileName: step.fileName, text: step.text, expectedSha256: step.sha256 });
+
+function assertQuarantine(step) {
+  const checked = revalidateStep(step);
+  if (!sameStep(checked, PHASE_B.quarantine)) throw new MigrationRefused(`only the reviewed ${PHASE_B.quarantine.fileName} can be applied as the quarantine`);
+  return checked;
 }
 
 /**
@@ -437,7 +472,8 @@ async function main() {
   const prepared = args.files.map((file, index) => prepareMigration({ fileName: basename(file), text: readFileSync(file, 'utf8'), expectedSha256: args.hashes[index] }));
   const postcheck = args.postcheck ? readStep(args.postcheck, args.postcheckSha256) : null;
   const reopen = args.reopen ? readStep(args.reopen, args.reopenSha256) : null;
-  if (!quarantine) assertPlan(prepared, postcheck, reopen); // refuse before connecting
+  if (quarantine) assertQuarantine(quarantine);
+  else assertPlan(prepared, postcheck, reopen); // refuse before reading credentials or connecting
   assertPrivateFile(args.databaseUrlFile);
   const config = clientConfig(readFileSync(args.databaseUrlFile, 'utf8').trim());
   const { default: pg } = await import('pg');
