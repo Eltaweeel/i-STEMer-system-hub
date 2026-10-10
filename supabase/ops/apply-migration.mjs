@@ -86,8 +86,18 @@ for (const plan of PLANS) {
 const sameStep = (step, pinned) => (step === null && pinned === null)
   || (step && pinned && step.fileName === pinned.fileName && step.sha256 === pinned.sha256);
 
+// Do not invoke caller-owned array methods, iterators or species constructors at the exported API boundary.
+function snapshotArray(list) {
+  if (!Array.isArray(list)) throw new MigrationRefused('expected an array');
+  const snapshot = [];
+  const length = list.length;
+  for (let i = 0; i < length; i += 1) snapshot.push(list[i]);
+  return snapshot;
+}
+
 /** Only these two reviewed plans may execute, including rehearsals. Caller-supplied digests cannot add a plan. */
 export function assertPlan(preparedList, postcheck = null, reopen = null) {
+  preparedList = snapshotArray(preparedList);
   const versions = preparedList.map((p) => p.version);
   for (const plan of PLANS) {
     const planVersions = Object.keys(plan.migrations);
@@ -257,6 +267,8 @@ async function drainOlderTransactions(client, { timeoutMs, pollMs = 500, sleep =
 /**
  * Runs every prepared migration, its ledger row, the reopen step (Phase B only) and the post-check in ONE transaction.
  * Returns { versions, committed }. Commits only when nothing raised and no WARNING arrived at any point.
+ * Caller-owned array overrides and body metadata cannot substitute executable SQL or ledger text: both come from
+ * rechecked source and reviewed pins. This is not a sandbox for arbitrary code with direct database access.
  */
 export async function applyMigrations(client, preparedList, {
   requirePresent = [], rehearse = false, postcheck = null, reopen = null, drainTimeoutMs = 30_000,
@@ -265,7 +277,14 @@ export async function applyMigrations(client, preparedList, {
 } = {}) {
   if (!Array.isArray(preparedList) || preparedList.length === 0) throw new MigrationRefused('nothing to apply');
   // Snapshot and derive executable bodies from re-hashed source, never trust mutable prepared metadata/body fields.
-  preparedList = preparedList.map((p) => prepareMigration({ fileName: `${p.version}_${p.name}.sql`, text: p.text, expectedSha256: p.sha256 }));
+  const checked = [];
+  const length = preparedList.length;
+  for (let i = 0; i < length; i += 1) {
+    const p = preparedList[i];
+    checked.push(prepareMigration({ fileName: `${p.version}_${p.name}.sql`, text: p.text, expectedSha256: p.sha256 }));
+  }
+  preparedList = checked;
+  requirePresent = snapshotArray(requirePresent);
   postcheck = revalidateStep(postcheck);
   reopen = revalidateStep(reopen);
   const versions = preparedList.map((p) => p.version);

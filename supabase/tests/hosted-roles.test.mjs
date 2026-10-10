@@ -139,6 +139,23 @@ commit;
   assert.equal(await one(db, "select count(*)::int from supabase_migrations.schema_migrations where version='20991231000000'"), 0);
 }));
 
+test('exported API regression: overridden map cannot commit extra SQL behind pinned ledger text', () => withCluster({}, async (db) => {
+  const reviewed = prepared(OMAR);
+  const list = [reviewed];
+  list.map = () => [{ ...reviewed, body: `${reviewed.body}
+create table public.exported_api_map_probe(id int);
+select set_config('client_min_messages','error',true);
+do $w$ begin raise warning 'exported-api-hidden-warning'; end $w$;` }];
+  assert.equal(await one(db, "select rolsuper from pg_roles where rolname = current_user"), false);
+  assert.deepEqual(await applyMigrations(db, list, {
+    requirePresent: [LEDGER_HEAD], postcheck: postcheck('phase-a-postcheck.sql'),
+  }), { versions: [reviewed.version], committed: true });
+  const ledger = (await db.query('select version, name, statements from supabase_migrations.schema_migrations where version=$1', [reviewed.version])).rows;
+  assert.deepEqual(ledger, [{ version: reviewed.version, name: reviewed.name, statements: [reviewed.text] }]);
+  assert.equal(db.warnings.includes('exported-api-hidden-warning'), false);
+  assert.equal(await one(db, "select to_regclass('public.exported_api_map_probe')::text"), null);
+}));
+
 test('inventory: 26 applied, six pending in order, then the Omar migration', () => {
   assert.equal(applied.length, 26);
   assert.deepEqual(pendingSix.map((n) => n.slice(0, 14)),

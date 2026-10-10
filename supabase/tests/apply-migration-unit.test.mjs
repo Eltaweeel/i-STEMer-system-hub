@@ -584,6 +584,34 @@ test('a forged prepared body is never executed or written to the ledger', async 
   assert.equal(db.sent.includes(phaseAMigration().body), true);
 });
 
+test('exported API regression: overridden map cannot substitute an executable body', async () => {
+  const db = fakeClient();
+  const reviewed = phaseAMigration();
+  const injected = `${reviewed.body}\nselect set_config('client_min_messages','error',true);`;
+  const list = [reviewed];
+  list.map = () => [{ ...reviewed, body: injected }];
+  assert.deepEqual(await applyMigrations(db, list, phaseAOptions()), { versions: [reviewed.version], committed: true });
+  assert.equal(db.sent.includes(injected), false);
+  assert.equal(db.sent.includes(reviewed.body), true);
+});
+
+test('exported API validates actual plan entries despite overridden array methods', () => {
+  const reviewed = filesOf(PHASE_A);
+  const renamed = [{ ...reviewed[0], name: 'unreviewed_name' }];
+  renamed.map = () => [reviewed[0].version];
+  renamed.filter = () => [];
+  assert.throws(() => assertPlan(renamed, stepOf(PHASE_A.postcheck)), /not the reviewed file/);
+});
+
+test('exported API cannot bypass prerequisites with an overridden filter', async () => {
+  const db = fakeClient();
+  const requirePresent = ['20260921080000'];
+  requirePresent.filter = () => [];
+  await assert.rejects(applyMigrations(db, [phaseAMigration()], { ...phaseAOptions(), requirePresent }), /required versions not recorded/);
+  assert.equal(db.sent.includes(phaseAMigration().body), false);
+  assert.ok(db.sent.includes('rollback') && !db.sent.includes('commit'));
+});
+
 test('a pinned plan still refuses authority drift and rolls back', async () => {
   const db = fakeClient({ authorityDrift: true });
   await assert.rejects(applyMigrations(db, [phaseAMigration()], phaseAOptions()), /memberships or schema private CREATE changed/);
